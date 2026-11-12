@@ -166,6 +166,10 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             />
           </div>
 
+          {metal ? (
+            <Readout metal={metal} weight={weight} pieces={pieces} spinning={spinning} />
+          ) : null}
+
           <div className="playfield">
             <div className="window-frame">
               <span className="rivet frame-rivet" data-corner="tl" />
@@ -208,10 +212,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             </div>
             <Lever onPull={pull} />
           </div>
-
-          {metal ? (
-            <Readout metal={metal} weight={weight} pieces={pieces} spinning={spinning} />
-          ) : null}
 
           <footer className="cabinet-foot">
             <p className={sourceClass} data-testid="price-source">
