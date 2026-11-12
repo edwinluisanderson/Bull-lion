@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { hapticClick } from "@/lib/haptics";
 import { REEL_ITEM_HEIGHT } from "@/lib/metals";
 
 export type ReelSymbol = {
@@ -68,6 +69,7 @@ function createEngine(options: {
     if (index !== committed) {
       committed = index;
       options.onIndex(index);
+      hapticClick();
     }
   }
 
