@@ -23,7 +23,7 @@ export function Readout({
       className={spinning ? "readout is-spinning" : "readout"}
       aria-busy={spinning}
     >
-      <p className="readout-kicker">Melt value</p>
+      <p className="readout-kicker">Spot Price</p>
       <p className="readout-value" data-testid="melt-value">
         {formatUsd(total)}
       </p>
