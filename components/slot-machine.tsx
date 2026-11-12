@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { AssayDialog } from "@/components/assay-dialog";
 import { Gauge } from "@/components/gauge";
 import { Gear } from "@/components/gear";
 import { Lever } from "@/components/lever";
 import { Readout } from "@/components/readout";
 import { Reel, type ReelSymbol } from "@/components/reel";
 import { SpotStrip } from "@/components/spot-strip";
-import { formatStamp, formatTroyOunces, formatUsd } from "@/lib/format";
+import { formatStamp, formatUsd } from "@/lib/format";
 import {
   COUNTS,
   DEFAULT_COUNT_INDEX,
@@ -243,13 +242,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
               {lampLabel(book.source)}
               <span> · {formatStamp(book.fetchedAt)}</span>
             </p>
-            <AssayDialog
-              formula={
-                metal
-                  ? `${formatUsd(metal.usdPerTroyOz)} / oz t × ${formatTroyOunces(weight.grams)} × ${pieces}`
-                  : undefined
-              }
-            />
             <p className="fine-print">{book.note}</p>
           </footer>
         </section>

@@ -1,6 +1,7 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import type { ReactElement } from "react";
+
 import {
   Dialog,
   DialogContent,
@@ -10,19 +11,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-export function AssayDialog({ formula }: { formula?: string }) {
+export function AssayDialog({
+  formula,
+  trigger,
+}: {
+  formula?: string;
+  trigger: ReactElement;
+}) {
   return (
     <Dialog>
-      <DialogTrigger
-        render={
-          <Button
-            variant="outline"
-            className="assay-trigger h-9 px-3 text-xs tracking-[0.14em] uppercase"
-          />
-        }
-      >
-        Assay notes
-      </DialogTrigger>
+      <DialogTrigger render={trigger} />
       <DialogContent className="assay-dialog max-h-[min(85dvh,42rem)] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Assay notes</DialogTitle>
