@@ -221,11 +221,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             <Lever onPull={pull} />
           </div>
 
-          <p className="hint">
-            Drag or flick a reel. It coasts and snaps. Pull the lever to throw all
-            three, or use the arrows and the keyboard.
-          </p>
-
           {metal ? (
             <Readout metal={metal} weight={weight} pieces={pieces} spinning={spinning} />
           ) : null}

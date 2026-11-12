@@ -605,17 +605,9 @@ button,
   text-transform: uppercase;
 }
 
-.hint {
-  margin: 0.55rem 1.15rem 0.45rem;
-  color: #f6ead2;
-  font-size: 0.95rem;
-  line-height: 1.4;
-  text-align: center;
-}
-
 .readout {
   position: relative;
-  margin: 0 0.9rem 0.75rem;
+  margin: 1rem 0.9rem 0.75rem;
   padding: 0.7rem 2.45rem 0.7rem;
   border-radius: 14px;
   background: linear-gradient(180deg, #1a120c, #0c0907);

@@ -66,6 +66,10 @@ export function AssayDialog({
           </p>
           <h3>The sum</h3>
           <p>{LIVE_SPOT_NOTE}</p>
+          <p>
+            Drag or flick a reel. It coasts and snaps. Pull the lever to throw all
+            three, or use the arrows and the keyboard.
+          </p>
           <p>Melt value = spot per troy ounce × weight in troy ounces × pieces.</p>
           {formula ? <p>{formula}</p> : null}
           <p>
