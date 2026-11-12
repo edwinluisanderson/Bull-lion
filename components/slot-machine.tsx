@@ -7,7 +7,6 @@ import { Gear } from "@/components/gear";
 import { Lever } from "@/components/lever";
 import { Readout } from "@/components/readout";
 import { Reel, type ReelSymbol } from "@/components/reel";
-import { SpotStrip } from "@/components/spot-strip";
 import { formatStamp, formatUsd } from "@/lib/format";
 import {
   COUNTS,
@@ -31,7 +30,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const [weightIndex, setWeightIndex] = useState(DEFAULT_WEIGHT_INDEX);
   const [countIndex, setCountIndex] = useState(DEFAULT_COUNT_INDEX);
   const [spinToken, setSpinToken] = useState(0);
-  const [metalLand, setMetalLand] = useState({ token: 0, index: DEFAULT_METAL_INDEX });
   const [motion, setMotion] = useState([false, false, false]);
   const lastPull = useRef(0);
 
@@ -128,10 +126,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
     setSpinToken((token) => token + 1);
   }
 
-  function selectMetal(index: number) {
-    setMetalLand((current) => ({ token: current.token + 1, index }));
-  }
-
   const sourceClass =
     book.source === "live" ? "lamp" : book.source === "partial" ? "lamp is-partial" : "lamp is-sample";
 
@@ -186,8 +180,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   initialIndex={DEFAULT_METAL_INDEX}
                   spinToken={spinToken}
                   spinOrder={0}
-                  landToken={metalLand.token}
-                  landIndex={metalLand.index}
                   onIndex={setMetalIndex}
                   onMotion={onMetalMotion}
                 />
@@ -197,8 +189,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   initialIndex={DEFAULT_WEIGHT_INDEX}
                   spinToken={spinToken}
                   spinOrder={1}
-                  landToken={0}
-                  landIndex={0}
                   onIndex={setWeightIndex}
                   onMotion={onWeightMotion}
                 />
@@ -208,8 +198,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   initialIndex={DEFAULT_COUNT_INDEX}
                   spinToken={spinToken}
                   spinOrder={2}
-                  landToken={0}
-                  landIndex={0}
                   onIndex={setCountIndex}
                   onMotion={onCountMotion}
                 />
@@ -224,12 +212,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           {metal ? (
             <Readout metal={metal} weight={weight} pieces={pieces} spinning={spinning} />
           ) : null}
-
-          <SpotStrip
-            metals={book.metals}
-            selectedSymbol={metal?.symbol ?? ""}
-            onSelect={selectMetal}
-          />
 
           <footer className="cabinet-foot">
             <p className={sourceClass} data-testid="price-source">

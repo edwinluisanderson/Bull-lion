@@ -1,4 +1,4 @@
-import { TROY_OUNCE_GRAMS, type QuotedUnit } from "@/lib/value";
+import { TROY_OUNCE_GRAMS } from "@/lib/value";
 
 const NICE_TROY_OUNCES = [0.1, 0.25, 0.5, 1, 5, 10];
 
@@ -23,11 +23,6 @@ export function formatTroyOunces(grams: number): string {
     }
   }
   return `${ounces.toFixed(6)} oz t`;
-}
-
-export function formatQuote(price: number, unit: QuotedUnit): string {
-  const suffix = unit === "lb" ? "/lb" : "/oz t";
-  return `${formatUsd(price)}${suffix}`;
 }
 
 const MONTHS = [

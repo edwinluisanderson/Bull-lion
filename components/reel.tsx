@@ -23,7 +23,6 @@ type Engine = {
   pointerUp: () => void;
   step: (direction: number) => void;
   jump: (index: number) => void;
-  land: (index: number) => void;
   lever: (order: number) => void;
   destroy: () => void;
 };
@@ -202,15 +201,6 @@ function createEngine(options: {
       const delta = mod(index, count) - mod(current, count);
       animateTo(current + delta, options.isReduced() ? 0 : 220);
     },
-    land(index) {
-      const count = options.getCount();
-      const current = Math.round(position);
-      let delta = mod(index, count) - mod(current, count);
-      if (delta === 0) return;
-      if (!options.isReduced() && delta < 0) delta += count;
-      const extra = options.isReduced() ? 0 : count;
-      animateTo(current + delta + extra, options.isReduced() ? 0 : 700);
-    },
     lever(order) {
       const count = options.getCount();
       const current = Math.round(position);
@@ -237,8 +227,6 @@ export function Reel({
   initialIndex,
   spinToken,
   spinOrder,
-  landToken,
-  landIndex,
   onIndex,
   onMotion,
 }: {
@@ -247,8 +235,6 @@ export function Reel({
   initialIndex: number;
   spinToken: number;
   spinOrder: number;
-  landToken: number;
-  landIndex: number;
   onIndex: (index: number) => void;
   onMotion: (moving: boolean) => void;
 }) {
@@ -285,11 +271,6 @@ export function Reel({
     if (spinToken === 0) return;
     engineRef.current?.lever(spinOrder);
   }, [spinToken, spinOrder]);
-
-  useEffect(() => {
-    if (landToken === 0) return;
-    engineRef.current?.land(landIndex);
-  }, [landToken, landIndex]);
 
   const count = items.length;
   const base = Math.floor(position);
