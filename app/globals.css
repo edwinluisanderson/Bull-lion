@@ -696,6 +696,15 @@ button,
 .readout-stack {
   color: #f6ecd4;
   font-size: 1rem;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.readout-metal,
+.readout-spec {
+  min-height: 1.35em;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .readout-formula,

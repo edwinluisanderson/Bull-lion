@@ -36,15 +36,10 @@ export function Readout({
       <p className="readout-value" data-testid="melt-value">
         {formatUsd(total)}
       </p>
-      <p className="readout-stack">
-        {pieces} {noun} · {weight.face} {weight.detail} · {metal.name}
+      <p className="readout-stack readout-metal">{metal.name}</p>
+      <p className="readout-stack readout-spec">
+        {weight.face} {weight.detail} · {pieces} {noun}
       </p>
-      {metal.quotedUnit === "lb" ? (
-        <p className="readout-each">
-          Copper on the wire is {formatUsd(metal.quotedPrice)}/lb. The reels use{" "}
-          {formatUsd(metal.usdPerTroyOz)}/oz t.
-        </p>
-      ) : null}
     </section>
   );
 }
