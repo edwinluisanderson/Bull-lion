@@ -10,7 +10,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-export function AssayDialog() {
+export function AssayDialog({ formula }: { formula?: string }) {
   return (
     <Dialog>
       <DialogTrigger
@@ -45,6 +45,7 @@ export function AssayDialog() {
           </p>
           <h3>The sum</h3>
           <p>Melt value = spot per troy ounce × weight in troy ounces × pieces.</p>
+          {formula ? <p>{formula}</p> : null}
           <p>
             A troy ounce is 31.1034768 grams. The 1/10 oz, 1/4 oz, 1/2 oz, 1 oz,
             5 oz, and 10 oz stops use that ounce. Gram and kilo stops are metric,

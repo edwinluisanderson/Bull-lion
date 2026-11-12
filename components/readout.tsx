@@ -1,4 +1,4 @@
-import { formatTroyOunces, formatUsd } from "@/lib/format";
+import { formatUsd } from "@/lib/format";
 import type { WeightSpec } from "@/lib/metals";
 import type { MetalQuote } from "@/lib/price-book";
 import { meltValue } from "@/lib/value";
@@ -29,9 +29,6 @@ export function Readout({
       </p>
       <p className="readout-stack">
         {pieces} {noun} · {weight.face} {weight.detail} · {metal.name}
-      </p>
-      <p className="readout-formula">
-        {formatUsd(metal.usdPerTroyOz)} / oz t × {formatTroyOunces(weight.grams)} × {pieces}
       </p>
       {pieces > 1 ? <p className="readout-each">Each piece {formatUsd(each)}</p> : null}
       {metal.quotedUnit === "lb" ? (
