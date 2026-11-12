@@ -565,9 +565,8 @@ button,
 }
 
 .readout {
-  position: relative;
   margin: 1rem 0.9rem 0.75rem;
-  padding: 0.7rem 2.45rem 0.7rem;
+  padding: 0.7rem 0.9rem;
   border-radius: 14px;
   background: linear-gradient(180deg, #1a120c, #0c0907);
   box-shadow:
@@ -588,7 +587,6 @@ button,
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 1.7rem;
   color: #e7d3ae;
   font-family: var(--font-display), Palatino, serif;
   font-size: 0.72rem;
@@ -597,11 +595,15 @@ button,
   white-space: nowrap;
 }
 
-.assay-info {
-  position: absolute;
+.page-info {
+  position: relative;
   z-index: 2;
-  top: 0.62rem;
-  right: 0.62rem;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.35rem 0.15rem 0;
+}
+
+.assay-info {
   display: grid;
   width: 1.7rem;
   height: 1.7rem;

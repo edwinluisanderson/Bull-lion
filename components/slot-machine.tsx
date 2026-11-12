@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { AssayDialog, AssayInfoIcon } from "@/components/assay-dialog";
 import { Gauge } from "@/components/gauge";
 import { Gear } from "@/components/gear";
 import { Lever } from "@/components/lever";
 import { Readout } from "@/components/readout";
 import { Reel, type ReelSymbol } from "@/components/reel";
-import { formatStamp, formatUsd } from "@/lib/format";
+import { formatStamp, formatTroyOunces, formatUsd } from "@/lib/format";
 import {
   COUNTS,
   DEFAULT_COUNT_INDEX,
@@ -86,6 +87,9 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
 
   const noun = pieces === 1 ? "piece" : "pieces";
   const total = metal ? meltValue(metal.usdPerTroyOz, weight.grams, pieces) : 0;
+  const formula = metal
+    ? `${formatUsd(metal.usdPerTroyOz)} / oz t × ${formatTroyOunces(weight.grams)} × ${pieces}`
+    : undefined;
   const announcement = spinning
     ? "Reels in motion"
     : metal
@@ -134,6 +138,16 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
       <Gear className="gear bg-gear bg-gear-left" />
       <Gear className="gear bg-gear bg-gear-right" />
       <main className="machine-wrap">
+        <div className="page-info">
+          <AssayDialog
+            formula={formula}
+            trigger={
+              <button type="button" className="assay-info" aria-label="Assay notes">
+                <AssayInfoIcon />
+              </button>
+            }
+          />
+        </div>
         <section className="cabinet" aria-label="Bullion slot machine">
           <span className="rivet" data-corner="tl" />
           <span className="rivet" data-corner="tr" />
