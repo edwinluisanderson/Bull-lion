@@ -140,16 +140,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           <span className="rivet" data-corner="bl" />
           <span className="rivet" data-corner="br" />
 
-          <header className="marquee">
-            <Gear className="gear marquee-gear" />
-            <div className="nameplate">
-              <p className="eyebrow">Aurelian Assay Works · № 1889</p>
-              <h1 className="plate-title">The Bullion Bandit</h1>
-              <p className="tagline">Spin the reels. Read the melt.</p>
-            </div>
-            <Gear className="gear marquee-gear gear-reverse" />
-          </header>
-
           <div className="gauge-row">
             <Gauge
               label="METAL"
