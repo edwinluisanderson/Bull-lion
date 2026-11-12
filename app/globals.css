@@ -635,6 +635,7 @@ button,
   font-size: 0.72rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .assay-info {

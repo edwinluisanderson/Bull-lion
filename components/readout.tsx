@@ -32,11 +32,10 @@ export function Readout({
           </button>
         }
       />
-      <p className="readout-kicker">Spot Price</p>
+      <p className="readout-kicker">{metal.name} Spot Price</p>
       <p className="readout-value" data-testid="melt-value">
         {formatUsd(total)}
       </p>
-      <p className="readout-stack readout-metal">{metal.name}</p>
       <p className="readout-stack readout-spec">
         {weight.face} {weight.detail} · {pieces} {noun}
       </p>
