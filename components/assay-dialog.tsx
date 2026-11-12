@@ -10,6 +10,24 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { LIVE_SPOT_NOTE } from "@/lib/price-book";
+
+export function AssayInfoIcon() {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <circle cx="16" cy="16" r="12.2" fill="#2a1c10" stroke="#e6cb82" strokeWidth="1.7" />
+      <circle cx="16" cy="16" r="9.3" fill="none" stroke="#6e5318" strokeWidth="0.9" />
+      <circle cx="16" cy="11.15" r="1.35" fill="#f0d78c" />
+      <path
+        d="M16 14.35v7.15"
+        fill="none"
+        stroke="#f0d78c"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
 
 export function AssayDialog({
   formula,
@@ -23,7 +41,12 @@ export function AssayDialog({
       <DialogTrigger render={trigger} />
       <DialogContent className="assay-dialog max-h-[min(85dvh,42rem)] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Assay notes</DialogTitle>
+          <DialogTitle className="assay-dialog-title">
+            <span className="assay-dialog-mark">
+              <AssayInfoIcon />
+            </span>
+            <span className="sr-only">Assay notes</span>
+          </DialogTitle>
           <DialogDescription>
             How the three reels turn a spot price into a melt value.
           </DialogDescription>
@@ -42,6 +65,7 @@ export function AssayDialog({
             is not on the machine.
           </p>
           <h3>The sum</h3>
+          <p>{LIVE_SPOT_NOTE}</p>
           <p>Melt value = spot per troy ounce × weight in troy ounces × pieces.</p>
           {formula ? <p>{formula}</p> : null}
           <p>

@@ -661,11 +661,23 @@ button,
   cursor: pointer;
 }
 
-.assay-info svg {
+.assay-info svg,
+.assay-dialog-mark svg {
   display: block;
   width: 100%;
   height: 100%;
   filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.45));
+}
+
+.assay-dialog-title {
+  display: flex;
+  align-items: center;
+}
+
+.assay-dialog-mark {
+  display: inline-grid;
+  width: 1.7rem;
+  height: 1.7rem;
 }
 
 .assay-info:hover svg {

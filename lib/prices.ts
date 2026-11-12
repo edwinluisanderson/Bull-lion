@@ -2,6 +2,7 @@ import { cacheLife } from "next/cache";
 
 import { METAL_CATALOG, SAMPLE_STAMP, type MetalSpec } from "@/lib/metals";
 import {
+  LIVE_SPOT_NOTE,
   metalQuote,
   samplePriceBook,
   type MetalQuote,
@@ -9,9 +10,6 @@ import {
 } from "@/lib/price-book";
 
 const GOLD_API = "https://api.gold-api.com/price";
-
-const LIVE_NOTE =
-  "Live spot from Gold API, cached on the server and refreshed about every 30 seconds. Precious metals are quoted per troy ounce. Copper is quoted per pound and converted before the math.";
 
 /**
  * Live spot book. Gold API real-time prices need no key.
@@ -57,7 +55,7 @@ async function loadPriceBook(): Promise<PriceBook> {
 
   const fetchedAt = latestStamp(metals);
   if (liveCount === metals.length) {
-    return { source: "live", fetchedAt, note: LIVE_NOTE, metals };
+    return { source: "live", fetchedAt, note: LIVE_SPOT_NOTE, metals };
   }
 
   const missing = metals

@@ -1,6 +1,9 @@
 import { METAL_CATALOG, SAMPLE_STAMP, type MetalSpec } from "@/lib/metals";
 import { usdPerTroyOunce, type QuotedUnit } from "@/lib/value";
 
+export const LIVE_SPOT_NOTE =
+  "Live spot from Gold API, cached on the server and refreshed about every 30 seconds. Precious metals are quoted per troy ounce. Copper is quoted per pound and converted before the math.";
+
 export type PriceSource = "live" | "sample" | "partial";
 
 export type MetalQuote = {

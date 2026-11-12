@@ -16,7 +16,7 @@ import {
   DEFAULT_WEIGHT_INDEX,
   WEIGHTS,
 } from "@/lib/metals";
-import { parsePriceBook, type PriceBook } from "@/lib/price-book";
+import { LIVE_SPOT_NOTE, parsePriceBook, type PriceBook } from "@/lib/price-book";
 import { meltValue } from "@/lib/value";
 
 function lampLabel(source: PriceBook["source"]): string {
@@ -242,7 +242,9 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
               {lampLabel(book.source)}
               <span> · {formatStamp(book.fetchedAt)}</span>
             </p>
-            <p className="fine-print">{book.note}</p>
+            {book.note === LIVE_SPOT_NOTE ? null : (
+              <p className="fine-print">{book.note}</p>
+            )}
           </footer>
         </section>
         <p className="sr-only" aria-live="polite">
