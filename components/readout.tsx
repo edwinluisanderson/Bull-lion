@@ -16,7 +16,6 @@ export function Readout({
   spinning: boolean;
 }) {
   const total = meltValue(metal.usdPerTroyOz, weight.grams, pieces);
-  const each = meltValue(metal.usdPerTroyOz, weight.grams, 1);
   const noun = pieces === 1 ? "piece" : "pieces";
   const formula = `${formatUsd(metal.usdPerTroyOz)} / oz t × ${formatTroyOunces(weight.grams)} × ${pieces}`;
 
@@ -51,7 +50,6 @@ export function Readout({
       <p className="readout-stack">
         {pieces} {noun} · {weight.face} {weight.detail} · {metal.name}
       </p>
-      {pieces > 1 ? <p className="readout-each">Each piece {formatUsd(each)}</p> : null}
       {metal.quotedUnit === "lb" ? (
         <p className="readout-each">
           Copper on the wire is {formatUsd(metal.quotedPrice)}/lb. The reels use{" "}
