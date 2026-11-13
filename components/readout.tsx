@@ -1,3 +1,4 @@
+import { Gear } from "@/components/gear";
 import { RollingPrice } from "@/components/rolling-price";
 import { formatWholeDollars } from "@/lib/format";
 import type { WeightSpec } from "@/lib/metals";
@@ -21,6 +22,8 @@ export function Readout({
   return (
     <div className="melt-stack">
       <div className="nameplate melt-plate">
+        <Gear className="gear marquee-gear melt-gear melt-gear-left" />
+        <Gear className="gear marquee-gear melt-gear melt-gear-right gear-reverse" />
         <span className="rivet" data-corner="tl" />
         <span className="rivet" data-corner="tr" />
         <span className="rivet" data-corner="bl" />

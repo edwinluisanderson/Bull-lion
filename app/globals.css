@@ -605,26 +605,12 @@ button,
   white-space: nowrap;
 }
 
-.page-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.1rem 0.15rem 0.35rem;
-}
-
-.page-top-aside {
-  display: flex;
-  align-items: center;
-  gap: 1.15rem;
-}
-
 .page-info {
   position: relative;
   z-index: 2;
   display: flex;
-  flex: none;
-  padding: 0;
+  justify-content: flex-end;
+  padding: 0.35rem 0.15rem 0;
 }
 
 .assay-info {
@@ -688,6 +674,21 @@ button,
   justify-items: center;
   width: 100%;
   box-sizing: border-box;
+}
+
+.melt-gear {
+  position: absolute;
+  z-index: 6;
+  top: -4px;
+  pointer-events: none;
+}
+
+.melt-gear-left {
+  left: -14px;
+}
+
+.melt-gear-right {
+  right: -14px;
 }
 
 .melt-heading {
