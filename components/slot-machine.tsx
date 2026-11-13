@@ -17,6 +17,7 @@ import {
   WEIGHTS,
 } from "@/lib/metals";
 import { LIVE_SPOT_NOTE, parsePriceBook, type PriceBook } from "@/lib/price-book";
+import { settleReels } from "@/lib/haptics";
 import { meltValue } from "@/lib/value";
 
 function lampLabel(source: PriceBook["source"]): string {
@@ -33,6 +34,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const [spinToken, setSpinToken] = useState(0);
   const [bendDegrees, setBendDegrees] = useState(0);
   const [motion, setMotion] = useState([false, false, false]);
+  const motionRef = useRef(motion);
   const [countGuard, setCountGuard] = useState(0);
   const lastPull = useRef(0);
 
@@ -80,12 +82,13 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   }, [metal, weight.grams]);
 
   const setReelMotion = useCallback((reel: number, moving: boolean) => {
-    setMotion((current) => {
-      if (current[reel] === moving) return current;
-      const next = [...current];
-      next[reel] = moving;
-      return next;
-    });
+    const current = motionRef.current;
+    if (current[reel] === moving) return;
+    const next = [...current];
+    next[reel] = moving;
+    motionRef.current = next;
+    settleReels(current, next);
+    setMotion(next);
   }, []);
 
   const onMetalMotion = useCallback((moving: boolean) => setReelMotion(0, moving), [setReelMotion]);
