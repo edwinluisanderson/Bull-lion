@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 
-import { hapticClick, resetHapticQueue } from "@/lib/haptics";
+import { hapticClick, resetHapticQueue, settleReels } from "@/lib/haptics";
 
 type Vibrate = (pattern: number | number[]) => boolean;
 
@@ -107,4 +107,59 @@ test("a thrown or rejected vibrate call stays inside the helper", () => {
   });
   assert.doesNotThrow(() => hapticClick());
   assert.equal(returned, false);
+});
+
+function applyMotion(previous: boolean[], reel: number, moving: boolean): boolean[] {
+  const next = previous.slice();
+  next[reel] = moving;
+  settleReels(previous, next);
+  return next;
+}
+
+test("vibrate(0) is called once when the last reel settles", () => {
+  const calls: Array<number | number[]> = [];
+  installVibrate((pattern) => {
+    calls.push(pattern);
+    return true;
+  });
+
+  let moving = [true, true, true];
+  moving = applyMotion(moving, 0, false);
+  assert.deepEqual(calls, []);
+  moving = applyMotion(moving, 1, false);
+  assert.deepEqual(calls, []);
+  applyMotion(moving, 2, false);
+  assert.deepEqual(calls, [0]);
+});
+
+test("vibrate(0) is not called when one reel settles while another is still moving", () => {
+  const calls: Array<number | number[]> = [];
+  installVibrate((pattern) => {
+    calls.push(pattern);
+    return true;
+  });
+
+  settleReels([true, true, false], [false, true, false]);
+  settleReels([true, false, false], [true, false, false]);
+
+  assert.deepEqual(calls, []);
+});
+
+test("settling the last reel clears the queued pulse", async () => {
+  const calls: Array<number | number[]> = [];
+  installVibrate((pattern) => {
+    calls.push(pattern);
+    return true;
+  });
+
+  hapticClick();
+  hapticClick();
+  hapticClick();
+  assert.deepEqual(calls, [40]);
+
+  settleReels([true, false, false], [false, false, false]);
+  assert.deepEqual(calls, [40, 0]);
+
+  await new Promise((resolve) => setTimeout(resolve, 180));
+  assert.deepEqual(calls, [40, 0]);
 });

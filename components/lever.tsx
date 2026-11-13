@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { pullStage, stageBendDegrees, type PullStage } from "@/lib/drum";
-import { hapticClick } from "@/lib/haptics";
+import { unlockReelClick, reelSnap } from "@/lib/reel-click";
 
 export function PullBall({
   onCommit,
@@ -59,7 +59,7 @@ export function PullBall({
   function noteStage(stage: PullStage) {
     const previous = stageRef.current;
     if (stage === previous) return;
-    if (previous === "a" && (stage === "b" || stage === "c")) hapticClick();
+    if (previous === "a" && (stage === "b" || stage === "c")) reelSnap();
     if (stage === "c" && !committed.current) {
       committed.current = true;
       onBend(0);
@@ -104,6 +104,7 @@ export function PullBall({
   }, []);
 
   function fullPull() {
+    unlockReelClick();
     if (committed.current) return;
     measureThrow();
     if (reduced()) {
@@ -141,6 +142,7 @@ export function PullBall({
       onPointerDown={(event) => {
         if (event.button !== 0) return;
         if (event.cancelable) event.preventDefault();
+        unlockReelClick();
         stopFrame();
         measureThrow();
         originY.current = event.clientY;

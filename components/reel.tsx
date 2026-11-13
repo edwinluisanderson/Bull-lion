@@ -11,6 +11,7 @@ import {
   STOP_DEGREES,
 } from "@/lib/drum";
 import { hapticClick } from "@/lib/haptics";
+import { reelSnap, unlockReelClick } from "@/lib/reel-click";
 import { REEL_ITEM_HEIGHT } from "@/lib/metals";
 
 export type ReelSymbol = {
@@ -90,7 +91,7 @@ function createEngine(options: {
     if (index === null || index === committed) return;
     committed = index;
     options.onIndex(index);
-    hapticClick();
+    reelSnap();
   }
 
   function stop() {
@@ -380,6 +381,7 @@ export function Reel({
         onPointerDown={(event) => {
           if (event.button !== 0) return;
           if (event.cancelable) event.preventDefault();
+          unlockReelClick();
           const viewport = event.currentTarget;
           viewport.focus({ preventScroll: true });
           const pointerId = event.pointerId;
@@ -401,6 +403,7 @@ export function Reel({
           engineRef.current?.pointerDown(event.clientY, event.timeStamp);
         }}
         onKeyDown={(event) => {
+          unlockReelClick();
           if (event.key === "ArrowDown" || event.key === "ArrowRight") {
             event.preventDefault();
             engineRef.current?.step(1);

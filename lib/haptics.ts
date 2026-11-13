@@ -46,10 +46,37 @@ function flush(): void {
   timer = setTimeout(flush, pulses);
 }
 
-export function resetHapticQueue(): void {
+function clearQueue(): void {
   queued = 0;
   if (timer !== undefined) clearTimeout(timer);
   timer = undefined;
+}
+
+export function resetHapticQueue(): void {
+  clearQueue();
+}
+
+/** Stop the motor and drop any pattern still waiting to play. */
+export function stopHaptics(): void {
+  clearQueue();
+  try {
+    if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
+    navigator.vibrate(0);
+  } catch {
+    /* Haptics are optional. */
+  }
+}
+
+/**
+ * Call when a reel reports motion. Cancels haptics only on the transition
+ * from "something is moving" to "every reel is idle".
+ */
+export function settleReels(previous: readonly boolean[], next: readonly boolean[]): boolean {
+  const wasMoving = previous.some(Boolean);
+  const moving = next.some(Boolean);
+  if (!wasMoving || moving) return false;
+  stopHaptics();
+  return true;
 }
 
 export function hapticClick(): void {
