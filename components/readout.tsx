@@ -1,3 +1,4 @@
+import { AssayDialog, AssayInfoIcon } from "@/components/assay-dialog";
 import { RollingPrice } from "@/components/rolling-price";
 import { formatWholeDollars } from "@/lib/format";
 import type { WeightSpec } from "@/lib/metals";
@@ -10,11 +11,13 @@ export function Readout({
   weight,
   pieces,
   spinning,
+  formula,
 }: {
   metal: MetalQuote;
   weight: WeightSpec;
   pieces: number;
   spinning: boolean;
+  formula?: string;
 }) {
   const total = meltValue(metal.usdPerTroyOz, weight.grams, pieces);
 
@@ -25,6 +28,14 @@ export function Readout({
         <span className="rivet" data-corner="tr" />
         <span className="rivet" data-corner="bl" />
         <span className="rivet" data-corner="br" />
+        <AssayDialog
+          formula={formula}
+          trigger={
+            <button type="button" className="assay-info" aria-label="Assay notes">
+              <AssayInfoIcon />
+            </button>
+          }
+        />
         <div className="melt-heading">
           <p className="plate-title">{metal.name}</p>
           <p className="readout-kicker melt-kicker">Melt Price</p>

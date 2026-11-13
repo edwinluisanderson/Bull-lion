@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { AssayDialog, AssayInfoIcon } from "@/components/assay-dialog";
 import { Gauge } from "@/components/gauge";
 import { Gear } from "@/components/gear";
 import { PullBall } from "@/components/lever";
@@ -160,16 +159,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
       <Gear className="gear bg-gear bg-gear-left" />
       <Gear className="gear bg-gear bg-gear-right" />
       <main className="machine-wrap">
-        <div className="page-info">
-          <AssayDialog
-            formula={formula}
-            trigger={
-              <button type="button" className="assay-info" aria-label="Assay notes">
-                <AssayInfoIcon />
-              </button>
-            }
-          />
-        </div>
         <section className="cabinet" aria-label="Bullion slot machine">
           <span className="rivet" data-corner="tl" />
           <span className="rivet" data-corner="tr" />
@@ -193,7 +182,13 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           </div>
 
           {metal ? (
-            <Readout metal={metal} weight={weight} pieces={pieces} spinning={spinning} />
+            <Readout
+              metal={metal}
+              weight={weight}
+              pieces={pieces}
+              spinning={spinning}
+              formula={formula}
+            />
           ) : null}
 
           <div className="playfield">
