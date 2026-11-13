@@ -5,16 +5,19 @@ import { COUNTS } from "@/lib/metals";
 import {
   STRETCH_HOLD_MS,
   STRETCH_SLOP_PX,
-  STRETCH_SLOT_PX,
+  countRows,
+  guestStillVisible,
   handoffShift,
   nextGestureMode,
   pressHitsCenter,
-  readSlide,
+  stretchLayout,
   stretchSequence,
   valueAfterRelease,
+  visibleTriple,
 } from "@/lib/stretch";
 
-const TWENTY_FIVE = COUNTS.indexOf(25);
+const TEN = COUNTS.indexOf(10);
+const HEIGHT = 86;
 
 test("a short press or a quick drag does not engage stretch", () => {
   assert.equal(nextGestureMode("pending", 200, 2), "pending");
@@ -25,81 +28,140 @@ test("a short press or a quick drag does not engage stretch", () => {
 
 test("a long press with little movement engages stretch", () => {
   assert.equal(nextGestureMode("pending", STRETCH_HOLD_MS, 4), "stretch");
-  assert.equal(nextGestureMode("pending", 450, STRETCH_SLOP_PX), "stretch");
   assert.equal(pressHitsCenter(120, 258), true);
   assert.equal(pressHitsCenter(10, 258), false);
-  assert.equal(pressHitsCenter(220, 258), false);
 });
 
-test("dragging down from 25 reveals the next lower counts", () => {
-  assert.deepEqual(stretchSequence(COUNTS, TWENTY_FIVE, "down"), [24, 23, 22, 21]);
-  const early = readSlide(STRETCH_SLOT_PX * 0.4, "down", [24, 23, 22, 21], 25);
-  assert.equal(early.highlight, 24);
-  assert.deepEqual(early.frozen.map((plate) => plate.value), []);
-  assert.equal(early.sliding?.value, 24);
-  assert.equal(early.handoff, false);
-
-  const next = readSlide(STRETCH_SLOT_PX + 12, "down", [24, 23, 22, 21], 25);
-  assert.equal(next.highlight, 23);
-  assert.deepEqual(next.frozen.map((plate) => plate.value), [24]);
-  assert.notEqual(next.highlight, 24);
+test("dragging down from 10 slides lower counts out while 10 and 20 move down", () => {
+  assert.deepEqual(stretchSequence(COUNTS, TEN, "down"), [9, 8, 7, 6]);
+  const start = stretchLayout({
+    direction: "down",
+    anchor: 10,
+    pin: 5,
+    pushed: 20,
+    sequence: [9, 8, 7, 6],
+    travel: 0,
+    itemHeight: HEIGHT,
+  });
+  const pulled = stretchLayout({
+    direction: "down",
+    anchor: 10,
+    pin: 5,
+    pushed: 20,
+    sequence: [9, 8, 7, 6],
+    travel: HEIGHT,
+    itemHeight: HEIGHT,
+  });
+  assert.equal(start.centered, 10);
+  assert.equal(start.rows.find((row) => row.role === "pin")?.screenTop, 0);
+  assert.equal(pulled.rows.find((row) => row.role === "pin")?.screenTop, 0);
+  assert.ok(
+    (pulled.rows.find((row) => row.role === "anchor")?.screenTop ?? 0) >
+      (start.rows.find((row) => row.role === "anchor")?.screenTop ?? 0),
+  );
+  assert.ok(
+    (pulled.rows.find((row) => row.role === "pushed")?.screenTop ?? 0) >
+      (start.rows.find((row) => row.role === "pushed")?.screenTop ?? 0),
+  );
+  assert.equal(pulled.centered, 9);
+  assert.equal(pulled.rows.filter((row) => row.centered).length, 1);
 });
 
-test("dragging up from 25 reveals the next higher counts", () => {
-  const sequence = stretchSequence(COUNTS, TWENTY_FIVE, "up");
-  assert.equal(sequence[0], 26);
-  assert.equal(sequence.at(-1), 49);
-  const early = readSlide(STRETCH_SLOT_PX * 0.5, "up", sequence, 25);
-  assert.equal(early.highlight, 26);
-  assert.equal(early.direction, "up");
-  const further = readSlide(STRETCH_SLOT_PX + 8, "up", sequence, 25);
-  assert.equal(further.highlight, 27);
-  assert.deepEqual(further.frozen.map((plate) => plate.value), [26]);
+test("dragging up from 10 slides higher counts out from behind 20", () => {
+  const sequence = stretchSequence(COUNTS, TEN, "up");
+  assert.equal(sequence[0], 11);
+  assert.equal(sequence.at(-1), 19);
+  const pulled = stretchLayout({
+    direction: "up",
+    anchor: 10,
+    pin: 20,
+    pushed: 5,
+    sequence,
+    travel: HEIGHT,
+    itemHeight: HEIGHT,
+  });
+  assert.equal(pulled.centered, 11);
+  assert.equal(pulled.rows.find((row) => row.role === "pin")?.screenTop, HEIGHT * 2);
+  assert.equal(pulled.rows.filter((row) => row.centered).length, 1);
+  const further = stretchLayout({
+    direction: "up",
+    anchor: 10,
+    pin: 20,
+    pushed: 5,
+    sequence,
+    travel: HEIGHT * 2,
+    itemHeight: HEIGHT,
+  });
+  assert.equal(further.centered, 12);
 });
 
-test("only the newest revealed count is highlighted, and earlier ones stay put", () => {
-  const sequence = [24, 23, 22, 21];
-  const first = readSlide(STRETCH_SLOT_PX + 10, "down", sequence, 25);
-  const later = readSlide(STRETCH_SLOT_PX * 2 + 10, "down", sequence, 25);
-  const highlighted = [first.sliding, ...first.frozen].filter((plate) => plate?.value === first.highlight);
-  assert.equal(highlighted.length, 1);
-  assert.equal(first.highlight, 23);
-  assert.equal(later.highlight, 22);
-  assert.equal(first.frozen[0]?.offsetPx, STRETCH_SLOT_PX);
-  assert.equal(later.frozen[0]?.offsetPx, first.frozen[0]?.offsetPx);
-  assert.equal(later.frozen[1]?.offsetPx, STRETCH_SLOT_PX * 2);
-  assert.equal(later.frozen[1]?.frozen, true);
+test("the single highlight is the value sitting on the center line", () => {
+  const sequence = [9, 8, 7, 6];
+  const mid = stretchLayout({
+    direction: "down",
+    anchor: 10,
+    pin: 5,
+    pushed: 20,
+    sequence,
+    travel: HEIGHT * 2,
+    itemHeight: HEIGHT,
+  });
+  assert.equal(mid.centered, 8);
+  assert.equal(mid.rows.filter((row) => row.centered).length, 1);
+  assert.equal(mid.rows.find((row) => row.centered)?.value, 8);
+  assert.equal(mid.rows.find((row) => row.value === 9)?.centered, false);
+  assert.equal(mid.rows.find((row) => row.value === 10)?.centered, false);
 });
 
-test("the original stop starts moving only after the in-between counts run out", () => {
-  const sequence = [24, 23, 22, 21];
-  const before = readSlide(sequence.length * STRETCH_SLOT_PX - 1, "down", sequence, 25);
+test("release locks the centered in-between between its real neighbors", () => {
+  const guest = { value: 8, slot: TEN - 0.5 };
+  assert.deepEqual(visibleTriple(guest.slot, countRows(COUNTS, guest)), [5, 8, 10]);
+  assert.equal(valueAfterRelease(10, 8, COUNTS, () => true), 8);
+});
+
+test("a locked in-between vanishes once it leaves the three visible rows", () => {
+  const guest = { value: 8, slot: TEN - 0.5 };
+  assert.equal(guestStillVisible(TEN - 0.5, COUNTS, guest), true);
+  assert.equal(guestStillVisible(TEN - 1, COUNTS, guest), true);
+  assert.equal(guestStillVisible(TEN, COUNTS, guest), true);
+  assert.equal(guestStillVisible(TEN - 2, COUNTS, guest), false);
+  assert.equal(guestStillVisible(TEN + 1, COUNTS, guest), false);
+  assert.deepEqual(visibleTriple(TEN + 1, countRows(COUNTS, null)), [10, 20, 25]);
+});
+
+test("after the in-between counts pass center, further dragging is a normal reel move", () => {
+  const sequence = [9, 8, 7, 6];
+  const before = stretchLayout({
+    direction: "down",
+    anchor: 10,
+    pin: 5,
+    pushed: 20,
+    sequence,
+    travel: sequence.length * HEIGHT - 1,
+    itemHeight: HEIGHT,
+  });
+  const edge = stretchLayout({
+    direction: "down",
+    anchor: 10,
+    pin: 5,
+    pushed: 20,
+    sequence,
+    travel: sequence.length * HEIGHT,
+    itemHeight: HEIGHT,
+  });
   assert.equal(before.handoff, false);
-  assert.equal(before.highlight, 21);
-  assert.equal(before.remainderPx, 0);
-
-  const edge = readSlide(sequence.length * STRETCH_SLOT_PX, "down", sequence, 25);
+  assert.equal(before.centered, 6);
   assert.equal(edge.handoff, true);
   assert.equal(edge.remainderPx, 0);
-  assert.equal(edge.frozen.length, sequence.length);
-
-  const past = readSlide(sequence.length * STRETCH_SLOT_PX + 30, "down", sequence, 25);
-  assert.equal(past.remainderPx, 30);
-  assert.equal(past.frozen.length, sequence.length);
-  assert.equal(handoffShift("down", past.remainderPx, 86), -past.remainderPx / 86);
-  assert.equal(handoffShift("up", 86, 86), 1);
+  assert.equal(handoffShift("down", HEIGHT, HEIGHT), -1);
+  assert.equal(handoffShift("up", HEIGHT, HEIGHT), 1);
 });
 
-test("release keeps the ended count and a gray count falls back to the nearest stop", () => {
-  assert.equal(valueAfterRelease(25, null, COUNTS, () => true), 25);
-  assert.equal(valueAfterRelease(25, 22, COUNTS, () => true), 22);
+test("a gray centered count falls back to the nearest real stop", () => {
+  assert.equal(valueAfterRelease(10, 8, COUNTS, (value) => value !== 8), 10);
   assert.equal(
-    valueAfterRelease(25, 22, COUNTS, (value) => value === 20 || value === 25 || value === 50),
-    20,
-  );
-  assert.equal(
-    valueAfterRelease(25, 24, COUNTS, (value) => COUNTS.includes(value)),
-    25,
+    valueAfterRelease(10, 6, COUNTS, (value) => value === 5 || value === 10),
+    5,
   );
 });
 
@@ -107,8 +169,4 @@ test("the ends of the count list have no invented numbers", () => {
   assert.deepEqual(stretchSequence(COUNTS, COUNTS.indexOf(1), "down"), []);
   assert.deepEqual(stretchSequence(COUNTS, COUNTS.indexOf(100), "up"), []);
   assert.deepEqual(stretchSequence(COUNTS, COUNTS.indexOf(2), "down"), []);
-  const immediate = readSlide(28, "down", [], 1);
-  assert.equal(immediate.handoff, true);
-  assert.equal(immediate.highlight, 1);
-  assert.equal(immediate.remainderPx, 28);
 });

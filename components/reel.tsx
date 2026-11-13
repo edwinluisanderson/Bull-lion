@@ -15,15 +15,19 @@ import { reelSnap, unlockReelClick } from "@/lib/reel-click";
 import { REEL_ITEM_HEIGHT } from "@/lib/metals";
 import {
   STRETCH_HOLD_MS,
-  STRETCH_SLOT_PX,
+  countRows,
+  guestStillVisible,
   handoffShift,
   nextGestureMode,
   pressHitsCenter,
-  readSlide,
+  stretchLayout,
   stretchSequence,
   valueAfterRelease,
+  visibleTriple,
+  type GuestCount,
   type GestureMode,
   type StretchDirection,
+  type StretchLayout,
 } from "@/lib/stretch";
 
 export type ReelSymbol = {
@@ -37,12 +41,8 @@ export type ReelSymbol = {
 type Phase = "idle" | "drag" | "coast" | "snap" | "script" | "contract";
 
 export type StretchFrame = {
-  direction: StretchDirection;
-  anchorIndex: number;
-  anchorValue: number;
-  pinnedOffset: -1 | 1;
-  highlight: number;
-  plates: { value: number; offsetPx: number; reveal: number; frozen: boolean; gray: boolean }[];
+  rows: StretchLayout["rows"];
+  centered: number;
 };
 
 export type StretchConfig = {
@@ -82,6 +82,7 @@ function createEngine(options: {
   getStretch: () => StretchConfig | null;
   onPieces: (pieces: number) => void;
   onStretchFrame: (frame: StretchFrame | null) => void;
+  onGuest: (guest: GuestCount | null) => void;
 }): Engine {
   let position = options.initialIndex;
   let phase: Phase = "idle";
@@ -104,8 +105,8 @@ function createEngine(options: {
   let holdTimer = 0;
   let anchorIndex = options.initialIndex;
   let slideDirection: StretchDirection | null = null;
-  let stretchActive: number | null = null;
-  let slidePlates: StretchFrame["plates"] = [];
+  let stretchTravel = 0;
+  let guest: GuestCount | null = null;
 
   function setPhase(next: Phase) {
     if (phase === next) return;
@@ -126,6 +127,24 @@ function createEngine(options: {
   function setPos(next: number) {
     position = next;
     options.setKinetics(next, velocity);
+    const stops = options.getStretch()?.stops;
+    if (guest && stops) {
+      if (!guestStillVisible(position, stops, guest)) {
+        guest = null;
+        options.onGuest(null);
+        const landed = commitIndex(position, options.getCount(), options.isEnabled);
+        if (landed !== null) {
+          const value = stops[mod(landed, stops.length)];
+          if (value !== undefined) options.onPieces(value);
+        }
+      } else {
+        const center = visibleTriple(position, countRows(stops, guest))[1];
+        if (center === guest.value) {
+          options.onPieces(guest.value);
+          return;
+        }
+      }
+    }
     const index = commitIndex(next, options.getCount(), options.isEnabled);
     if (index === null || index === committed) return;
     committed = index;
@@ -247,35 +266,47 @@ function createEngine(options: {
     options.onStretchFrame(frame);
   }
 
+  function layoutNow(direction: StretchDirection, travel: number): StretchLayout | null {
+    const config = options.getStretch();
+    const anchor = config?.stops[anchorIndex];
+    if (!config || anchor === undefined) return null;
+    const count = config.stops.length;
+    const pinIndex = direction === "down" ? anchorIndex - 1 : anchorIndex + 1;
+    const pushedIndex = direction === "down" ? anchorIndex + 1 : anchorIndex - 1;
+    const pin = config.stops[(pinIndex + count) % count];
+    const pushed = config.stops[(pushedIndex + count) % count];
+    if (pin === undefined || pushed === undefined) return null;
+    return stretchLayout({
+      direction,
+      anchor,
+      pin,
+      pushed,
+      sequence: stretchSequence(config.stops, anchorIndex, direction),
+      travel,
+      itemHeight: REEL_ITEM_HEIGHT,
+    });
+  }
+
+  function showLayout(layout: StretchLayout) {
+    publishStretch({ rows: layout.rows, centered: layout.centered });
+    options.onPieces(layout.centered);
+  }
+
   function engageStretch() {
     if (!drag || !options.getStretch()) return;
     gesture = "stretch";
-    const count = options.getCount();
-    anchorIndex = mod(Math.round(position), count);
+    anchorIndex = mod(Math.round(position), options.getCount());
     slideDirection = null;
-    stretchActive = null;
-    slidePlates = [];
+    stretchTravel = 0;
     velocity = 0;
     setPos(anchorIndex);
-    const stops = options.getStretch()?.stops ?? [];
-    const anchor = stops[anchorIndex] ?? anchorIndex;
-    publishStretch({
-      direction: "down",
-      anchorIndex,
-      anchorValue: anchor,
-      pinnedOffset: -1,
-      highlight: anchor,
-      plates: [],
-    });
+    const layout = layoutNow("down", 0);
+    if (layout) showLayout(layout);
   }
 
   function moveStretch(y: number, time: number) {
     const current = drag;
-    const config = options.getStretch();
-    if (!current || !config) return;
-    const stops = config.stops;
-    const anchor = stops[anchorIndex];
-    if (anchor === undefined) return;
+    if (!current || !options.getStretch()) return;
     const dy = y - current.originY;
     if (slideDirection === null) {
       if (Math.abs(dy) < 2) return;
@@ -286,33 +317,18 @@ function createEngine(options: {
       slideDirection = slideDirection === "down" ? "up" : "down";
       along = -along;
     }
-    const sequence = stretchSequence(stops, anchorIndex, slideDirection);
-    const reading = readSlide(along, slideDirection, sequence, anchor, STRETCH_SLOT_PX);
-    const plates = [...reading.frozen, ...(reading.sliding ? [reading.sliding] : [])].map((plate) => ({
-      ...plate,
-      gray: !config.isValueEnabled(plate.value),
-    }));
-    slidePlates = plates;
-    stretchActive = reading.highlight === anchor ? null : reading.highlight;
-    options.onPieces(reading.highlight);
-    if (!reading.handoff) {
-      publishStretch({
-        direction: slideDirection,
-        anchorIndex,
-        anchorValue: anchor,
-        pinnedOffset: slideDirection === "down" ? -1 : 1,
-        highlight: reading.highlight,
-        plates,
-      });
+    stretchTravel = along;
+    const layout = layoutNow(slideDirection, along);
+    if (!layout) return;
+    if (!layout.handoff) {
+      showLayout(layout);
       return;
     }
-    const nextPos = anchorIndex + handoffShift(slideDirection, reading.remainderPx, REEL_ITEM_HEIGHT);
+    const nextPos = anchorIndex + handoffShift(slideDirection, layout.remainderPx, REEL_ITEM_HEIGHT);
     gesture = "drag";
     slideDirection = null;
-    stretchActive = null;
-    slidePlates = [];
+    stretchTravel = 0;
     publishStretch(null);
-    options.onPieces(anchor);
     current.originY = y;
     current.originPos = nextPos;
     current.samples = [{ t: time, y }];
@@ -324,30 +340,55 @@ function createEngine(options: {
     const config = options.getStretch();
     const stops = config?.stops ?? [];
     const anchor = stops[anchorIndex] ?? anchorIndex;
-    const kept = valueAfterRelease(anchor, stretchActive, stops, config?.isValueEnabled ?? (() => true));
-    const keptIndex = stops.indexOf(kept);
-    options.onPieces(kept);
+    const direction = slideDirection ?? "down";
+    const layout = layoutNow(direction, stretchTravel);
+    const centered = layout?.centered ?? anchor;
+    const enabled = config?.isValueEnabled ?? (() => true);
     drag = null;
     gesture = "drag";
-    const direction = slideDirection ?? "down";
-    const from = slidePlates.map((plate) => ({ ...plate }));
-    slideDirection = null;
-    if (keptIndex >= 0 && keptIndex !== anchorIndex) {
-      slidePlates = [];
+    if (!enabled(centered)) {
+      const fallback = valueAfterRelease(anchor, centered, stops, enabled);
+      const index = stops.indexOf(fallback);
+      guest = null;
+      options.onGuest(null);
       publishStretch(null);
-      animateTo(keptIndex, options.isReduced() ? 0 : 280);
+      if (index >= 0) {
+        committed = index;
+        position = index;
+        velocity = 0;
+        options.setKinetics(index, 0);
+        options.onPieces(fallback);
+        options.onIndex(index);
+      }
+      setPhase("idle");
       return;
     }
+    const between = stretchSequence(stops, anchorIndex, direction).includes(centered);
+    if (!between) {
+      slideDirection = null;
+      publishStretch(null);
+      velocity = 0;
+      options.onPieces(anchor);
+      setPhase("idle");
+      return;
+    }
+    const slot = direction === "down" ? anchorIndex - 0.5 : anchorIndex + 0.5;
+    guest = { value: centered, slot };
+    const from = stretchTravel;
+    const target = (stretchSequence(stops, anchorIndex, direction).indexOf(centered) + 1) * REEL_ITEM_HEIGHT;
     const start = performance.now();
     const duration = options.isReduced() ? 0 : 320;
     const finish = () => {
-      slidePlates = [];
-      stretchActive = null;
-      publishStretch(null);
+      position = slot;
       velocity = 0;
+      options.setKinetics(slot, 0);
+      options.onPieces(centered);
+      options.onGuest(guest);
+      publishStretch(null);
+      slideDirection = null;
       setPhase("idle");
     };
-    if (duration <= 0 || from.length === 0) {
+    if (duration <= 0) {
       finish();
       return;
     }
@@ -355,20 +396,9 @@ function createEngine(options: {
     const step = (now: number) => {
       const t = Math.min(1, (now - start) / duration);
       const eased = 1 - (1 - t) ** 3;
-      const scale = 1 - eased;
-      slidePlates = from.map((plate) => ({
-        ...plate,
-        offsetPx: plate.offsetPx * scale,
-        reveal: plate.reveal * scale,
-      }));
-      publishStretch({
-        direction,
-        anchorIndex,
-        anchorValue: anchor,
-        pinnedOffset: direction === "down" ? -1 : 1,
-        highlight: kept,
-        plates: slidePlates,
-      });
+      const travel = from + (target - from) * eased;
+      const frame = layoutNow(direction, travel);
+      if (frame) showLayout(frame);
       if (t < 1) {
         raf = requestAnimationFrame(step);
         return;
@@ -450,6 +480,11 @@ function createEngine(options: {
     },
     step(direction) {
       hapticClick();
+      if (guest) {
+        const target = direction > 0 ? Math.ceil(guest.slot) : Math.floor(guest.slot);
+        animateTo(target, options.isReduced() ? 0 : 180);
+        return;
+      }
       const count = options.getCount();
       const start = Math.round(position);
       for (let delta = 1; delta <= count; delta += 1) {
@@ -461,6 +496,8 @@ function createEngine(options: {
       }
     },
     jump(index) {
+      guest = null;
+      options.onGuest(null);
       hapticClick();
       const count = options.getCount();
       const target = enabledIndex(index) ? index : nearestEnabledSlot(index);
@@ -472,6 +509,8 @@ function createEngine(options: {
       animateTo(position + delta, options.isReduced() ? 0 : 320);
     },
     lever(order) {
+      guest = null;
+      options.onGuest(null);
       hapticClick();
       const count = options.getCount();
       const current = Math.round(position);
@@ -532,12 +571,20 @@ export function Reel({
   const appliedGuard = useRef(0);
   const countRef = useRef(items.length);
   const itemsRef = useRef(items);
-  const listenerRef = useRef({ onIndex, onMotion, onPieces, onStretchFrame: (_frame: StretchFrame | null) => {} });
+  const listenerRef = useRef({
+    onIndex,
+    onMotion,
+    onPieces,
+    onStretchFrame: (_frame: StretchFrame | null) => {},
+    onGuest: (_guest: GuestCount | null) => {},
+  });
   const stretchRef = useRef<StretchConfig | null>(stretch);
   const [stretchFrame, setStretchFrame] = useState<StretchFrame | null>(null);
+  const [guestDraw, setGuestDraw] = useState<GuestCount | null>(null);
   itemsRef.current = items;
   stretchRef.current = stretch;
   listenerRef.current.onStretchFrame = setStretchFrame;
+  listenerRef.current.onGuest = setGuestDraw;
 
   useEffect(() => {
     countRef.current = items.length;
@@ -564,6 +611,7 @@ export function Reel({
       getStretch: () => stretchRef.current,
       onPieces: (pieces) => listenerRef.current.onPieces?.(pieces),
       onStretchFrame: (frame) => listenerRef.current.onStretchFrame?.(frame),
+      onGuest: (next) => listenerRef.current.onGuest?.(next),
     });
     engineRef.current = engine;
     return () => {
@@ -592,7 +640,15 @@ export function Reel({
   const activeSymbol = items[active];
   const rolling = Math.abs(velocity) > 1.2;
   const smear = rolling ? Math.min(8, Math.abs(velocity) * 0.16) : 0;
-  const spoken = stretchFrame ? stretchFrame.highlight : centerPieces;
+  const guestTriple =
+    guestDraw && stretch
+      ? visibleTriple(position, countRows(stretch.stops, guestDraw))
+      : null;
+  const spoken = stretchFrame
+    ? stretchFrame.centered
+    : guestTriple
+      ? guestTriple[1]
+      : centerPieces;
   const valueText =
     spoken != null
       ? `×${spoken} ${spoken === 1 ? "piece" : "pieces"}`
@@ -664,32 +720,75 @@ export function Reel({
         }}
       >
         <div className="reel-cylinder">
-        {WINDOW.map((offset) => {
+        {stretchFrame
+          ? stretchFrame.rows.map((row) => (
+              <div
+                key={`${row.role}-${row.value}`}
+                className="symbol"
+                style={{
+                  height: REEL_ITEM_HEIGHT,
+                  zIndex: row.role === "pin" ? 6 : row.role === "between" ? 4 : 2,
+                  transform: `translate3d(0, ${row.screenTop}px, 0)`,
+                }}
+              >
+                <div
+                  className={row.centered ? "symbol-plate is-active" : "symbol-plate"}
+                  style={{
+                    background: "#1a130e",
+                    boxShadow: row.centered
+                      ? "inset 0 0 0 1px rgba(240, 215, 140, 0.95), 0 0 16px rgba(240, 200, 90, 0.45)"
+                      : "inset 0 0 0 1px rgba(198, 161, 90, 0.28)",
+                  }}
+                >
+                  <span className="symbol-mark" style={{ color: row.centered ? "#f0d78c" : "#f0e2c4" }}>
+                    {`×${row.value}`}
+                  </span>
+                  <span className="symbol-detail">pieces</span>
+                </div>
+              </div>
+            ))
+          : guestTriple
+            ? guestTriple.map((value, index) => (
+                <div
+                  key={`guest-${index}-${value}`}
+                  className="symbol"
+                  style={{
+                    height: REEL_ITEM_HEIGHT,
+                    transform: `translate3d(0, ${index * REEL_ITEM_HEIGHT}px, 0)`,
+                  }}
+                >
+                  <div
+                    className={index === 1 ? "symbol-plate is-active" : "symbol-plate"}
+                    style={{
+                      background: "#1a130e",
+                      boxShadow:
+                        index === 1
+                          ? "inset 0 0 0 1px rgba(240, 215, 140, 0.95), 0 0 16px rgba(240, 200, 90, 0.45)"
+                          : "inset 0 0 0 1px rgba(198, 161, 90, 0.28)",
+                    }}
+                  >
+                    <span className="symbol-mark" style={{ color: "#f0e2c4" }}>{`×${value}`}</span>
+                    <span className="symbol-detail">{value === 1 ? "piece" : "pieces"}</span>
+                  </div>
+                </div>
+              ))
+            : WINDOW.map((offset) => {
           const index = mod(base + offset, count);
           const symbol = items[index];
           if (!symbol) return null;
           const pose = cylinderPose(offset - fraction);
           const y = REEL_ITEM_HEIGHT * 1.5 + pose.shift * REEL_ITEM_HEIGHT - REEL_ITEM_HEIGHT / 2;
           const isActive = index === facing;
-          const pinned = Boolean(stretchFrame && offset === stretchFrame.pinnedOffset);
-          const anchorLit = Boolean(
-            stretchFrame && offset === 0 && stretchFrame.highlight === stretchFrame.anchorValue,
-          );
-          const override = !stretchFrame && centerPieces != null && offset === 0;
+          const override = centerPieces != null && offset === 0;
           const mark = override ? `×${centerPieces}` : symbol.mark;
           const detail = override ? (centerPieces === 1 ? "piece" : "pieces") : symbol.detail;
           const smearY = -Math.sign(velocity) * smear;
-          const highlightShadow =
-            "inset 0 0 0 1px rgba(240, 215, 140, 0.95), 0 0 16px rgba(240, 200, 90, 0.45)";
-          const covered = Boolean(stretchFrame && stretchFrame.plates.length > 0 && offset === 0);
           return (
             <div
               key={offset}
               className="symbol"
               style={{
                 height: REEL_ITEM_HEIGHT,
-                zIndex: pinned ? 12 : 1,
-                opacity: covered ? 0 : 1,
                 transform: `translate3d(0, ${y}px, 0) scaleY(${pose.scaleY})`,
                 filter: smear > 0.4 ? `blur(${smear * 0.22}px)` : undefined,
               }}
@@ -698,17 +797,16 @@ export function Reel({
                 className={
                   !override && symbol.disabled
                     ? "symbol-plate is-disabled"
-                    : anchorLit || override || (!stretchFrame && isActive)
+                    : isActive || override
                       ? "symbol-plate is-active"
                       : "symbol-plate"
                 }
                 style={{
                   filter: `brightness(${pose.brightness})`,
-                  boxShadow: anchorLit
-                    ? highlightShadow
-                    : smear > 0.4
+                  boxShadow:
+                    smear > 0.4
                       ? `0 ${smearY}px ${smear}px rgba(0, 0, 0, 0.35)`
-                      : !symbol.disabled && !stretchFrame && isActive && symbol.tint
+                      : !symbol.disabled && isActive && symbol.tint
                         ? `inset 0 0 0 1px ${symbol.tint}, 0 0 16px ${symbol.tint}33`
                         : undefined,
                 }}
@@ -720,47 +818,6 @@ export function Reel({
                   {mark}
                 </span>
                 <span className="symbol-detail">{detail}</span>
-              </div>
-            </div>
-          );
-        })}
-        {stretchFrame?.plates.map((plate, index) => {
-          const pinPose = cylinderPose(stretchFrame.pinnedOffset);
-          const pinTop =
-            REEL_ITEM_HEIGHT * 1.5 + pinPose.shift * REEL_ITEM_HEIGHT - REEL_ITEM_HEIGHT / 2;
-          const pinEdge = stretchFrame.direction === "down" ? pinTop + REEL_ITEM_HEIGHT : pinTop;
-          const slot = STRETCH_SLOT_PX;
-          const emerged = Math.max(0, plate.offsetPx - slot);
-          const clipTop =
-            stretchFrame.direction === "down" ? pinEdge + emerged : pinEdge - plate.offsetPx;
-          const hidden = (1 - plate.reveal) * slot;
-          return (
-            <div
-              key={`slide-${plate.value}`}
-              className="symbol"
-              style={{
-                height: slot,
-                zIndex: 8 - index,
-                overflow: "hidden",
-                transform: `translate3d(0, ${clipTop}px, 0)`,
-              }}
-            >
-              <div
-                className={plate.gray ? "symbol-plate is-disabled" : "symbol-plate"}
-                style={{
-                  height: slot,
-                  background: "#1a130e",
-                  transform: `translateY(${stretchFrame.direction === "down" ? -hidden : hidden}px)`,
-                  boxShadow:
-                    plate.value === stretchFrame.highlight && !plate.gray
-                      ? "inset 0 0 0 1px rgba(240, 215, 140, 0.95), 0 0 16px rgba(240, 200, 90, 0.45)"
-                      : "inset 0 0 0 1px rgba(198, 161, 90, 0.28)",
-                }}
-              >
-                <span
-                  className="symbol-mark"
-                  style={{ fontSize: "1.35rem", color: plate.gray ? "#8d8478" : "#f0e2c4" }}
-                >{`×${plate.value}`}</span>
               </div>
             </div>
           );
