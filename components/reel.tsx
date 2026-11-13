@@ -4,8 +4,12 @@ import { useEffect, useRef, useState } from "react";
 
 import {
   camPastNotch,
+  coastAdvance,
+  COAST_DECAY,
+  COAST_SETTLE_SPEED,
   commitIndex,
   cylinderPose,
+  glideSettleNotch,
   nearestEnabledNotch,
   shouldApplyGuard,
   STOP_DEGREES,
@@ -56,7 +60,6 @@ export type StretchConfig = {
   isValueEnabled: (value: number) => boolean;
 };
 
-const DECAY = 2.7;
 const MAX_VELOCITY = 28;
 const WINDOW = [-2, -1, 0, 1, 2, 3];
 
@@ -234,14 +237,12 @@ function createEngine(options: {
     last = now;
 
     if (phase === "coast") {
-      const previous = velocity;
-      const retained = Math.exp(-DECAY * dt);
-      const nextVelocity = previous * retained;
-      const distance = (previous - nextVelocity) / DECAY;
-      velocity = nextVelocity;
-      setPos(position + distance);
-      if (Math.abs(nextVelocity) < 0.5) {
-        camToNotch(nearestEnabledSlot(position), 180);
+      const count = options.getCount();
+      const step = coastAdvance(position, velocity, dt, options.isEnabled, count, COAST_DECAY);
+      velocity = step.velocity;
+      setPos(step.position);
+      if (Math.abs(velocity) < COAST_SETTLE_SPEED) {
+        camToNotch(glideSettleNotch(position, velocity, count, options.isEnabled), 180);
         return;
       }
     }
@@ -480,7 +481,12 @@ function createEngine(options: {
       hapticClick();
       const speed = options.isReduced() ? 0 : velocityFrom(samples);
       if (options.isReduced() || Math.abs(speed) < 0.4) {
-        camToNotch(nearestEnabledSlot(position), 180);
+        const count = options.getCount();
+        const notch =
+          Math.abs(speed) > 0 && !enabledIndex(Math.round(position))
+            ? glideSettleNotch(position, speed, count, options.isEnabled)
+            : nearestEnabledSlot(position);
+        camToNotch(notch, 180);
         return;
       }
       velocity = speed;

@@ -64,6 +64,78 @@ export function modStop(value: number, count: number): number {
   return ((value % count) + count) % count;
 }
 
+/** Same decay the reel coast has always used on a real stop. */
+export const COAST_DECAY = 2.7;
+export const COAST_SETTLE_SPEED = 0.5;
+
+/** The integer stop whose half-stop basin contains `position`. */
+export function basinIndex(position: number): number {
+  return Math.floor(position + 0.5);
+}
+
+/**
+ * Advance a coast by `dt` seconds.
+ * Friction applies only inside an enabled stop's basin.
+ * A gray basin is ice: speed stays constant while the wheel crosses it.
+ */
+export function coastAdvance(
+  position: number,
+  velocity: number,
+  dt: number,
+  isEnabled: (index: number) => boolean,
+  count: number,
+  decay = COAST_DECAY,
+): { position: number; velocity: number } {
+  if (count <= 0 || dt <= 0 || velocity === 0) return { position, velocity };
+  let pos = position;
+  let vel = velocity;
+  let left = dt;
+  for (let hop = 0; hop < 12 && left > 1e-8 && Math.abs(vel) > 1e-8; hop += 1) {
+    const basin = basinIndex(pos);
+    const ice = !isEnabled(modStop(basin, count));
+    const boundary = vel > 0 ? basin + 0.5 : basin - 0.5;
+    const gap = vel > 0 ? boundary - pos : pos - boundary;
+    if (gap <= 1e-9) {
+      pos += Math.sign(vel) * 1e-8;
+      continue;
+    }
+    const timeToEdge = gap / Math.abs(vel);
+    const slice = Math.min(left, timeToEdge);
+    if (ice || decay <= 0) {
+      pos += vel * slice;
+    } else {
+      const retained = Math.exp(-decay * slice);
+      const next = vel * retained;
+      pos += (vel - next) / decay;
+      vel = next;
+    }
+    left -= slice;
+    if (timeToEdge <= slice + 1e-12) pos += Math.sign(vel) * 1e-8;
+  }
+  return { position: pos, velocity: vel };
+}
+
+/**
+ * Where a dying flick should land.
+ * A gray basin does not catch it: keep going in the direction of travel.
+ */
+export function glideSettleNotch(
+  position: number,
+  velocity: number,
+  count: number,
+  isEnabled: (index: number) => boolean,
+): number {
+  if (count <= 0) return 0;
+  const rounded = Math.round(position);
+  if (isEnabled(modStop(rounded, count))) return rounded;
+  const direction = velocity < 0 ? -1 : 1;
+  for (let step = 1; step <= count; step += 1) {
+    const candidate = rounded + direction * step;
+    if (isEnabled(modStop(candidate, count))) return candidate;
+  }
+  return rounded;
+}
+
 /** Nearest enabled integer stop. Ties keep the stop closer to `position`. */
 export function nearestEnabledNotch(
   position: number,
