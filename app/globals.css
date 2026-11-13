@@ -142,10 +142,12 @@ button,
 }
 
 .workshop {
+  --side: 0.85rem;
+  --ball-hang: 22px;
   position: relative;
   min-height: 100dvh;
   overflow-x: clip;
-  padding: 1.25rem 1.5rem calc(1.5rem + env(safe-area-inset-bottom)) 0.2rem;
+  padding: 1.25rem 0 calc(1.5rem + env(safe-area-inset-bottom));
   background:
     radial-gradient(ellipse at 50% 0%, rgba(150, 90, 30, 0.35), transparent 42%),
     radial-gradient(ellipse at 50% 120%, rgba(0, 0, 0, 0.55), transparent 46%),
@@ -156,8 +158,15 @@ button,
 .machine-wrap {
   position: relative;
   z-index: 1;
-  width: min(1040px, 100%);
-  margin: 0 auto;
+  width: min(1040px, calc(100% - 2 * var(--side) - var(--ball-hang)));
+  margin-left: max(var(--side), calc((100% - 1040px - var(--ball-hang)) / 2));
+  margin-right: calc(var(--ball-hang) + max(var(--side), calc((100% - 1040px - var(--ball-hang)) / 2)));
+}
+
+@media (min-width: 801px) {
+  .workshop {
+    --ball-hang: 44px;
+  }
 }
 
 .cabinet {
