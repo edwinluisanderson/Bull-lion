@@ -541,7 +541,7 @@ button,
   content: "";
   position: absolute;
   top: 50%;
-  border: 6px solid transparent;
+  border: 8px solid transparent;
   transform: translateY(-50%);
 }
 
