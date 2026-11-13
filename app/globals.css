@@ -650,13 +650,24 @@ button,
   margin: 1rem 0.9rem 0.75rem;
 }
 
-.brass-plate,
+.marquee {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 1.15rem 1rem 0.35rem;
+}
+
+.melt-marquee {
+  padding: 0;
+}
+
 .nameplate {
-  margin: 0;
+  position: relative;
+  flex: 1;
+  min-width: 0;
   padding: 0.45rem 0.6rem 0.55rem;
   border-radius: 14px;
   text-align: center;
-  color: #3a2710;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 32%),
     linear-gradient(180deg, #f3e2ad 0%, #d7b15e 42%, #a07c32 78%, #6e5318 100%);
@@ -666,55 +677,41 @@ button,
     0 8px 14px rgba(0, 0, 0, 0.28);
 }
 
-.melt-plate {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  padding-inline: 2.15rem;
+.nameplate > .rivet[data-corner="tl"] { top: 6px; left: 6px; }
+.nameplate > .rivet[data-corner="tr"] { top: 6px; right: 6px; }
+.nameplate > .rivet[data-corner="bl"] { bottom: 6px; left: 6px; }
+.nameplate > .rivet[data-corner="br"] { bottom: 6px; right: 6px; }
+
+.eyebrow,
+.tagline,
+.plate-title {
+  color: #3a2710;
 }
 
-.melt-name,
-.melt-spec {
-  min-width: 0;
+.eyebrow {
   margin: 0;
+  font-family: var(--font-display), Palatino, serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.tagline {
+  margin: 0.15rem 0 0;
+  font-size: 0.95rem;
+}
+
+.melt-marquee .plate-title,
+.melt-marquee .tagline {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.melt-name {
-  font-family: var(--font-display), Palatino, serif;
-  font-size: clamp(1.05rem, 4.4vw, 1.85rem);
-  font-weight: 900;
-  letter-spacing: 0.03em;
-  line-height: 1.05;
-  text-shadow: 0 1px 0 rgba(255, 236, 190, 0.55);
-  text-transform: uppercase;
-}
-
-.melt-spec {
-  font-family: var(--font-display), Palatino, serif;
-  font-size: clamp(0.72rem, 3.1vw, 0.95rem);
-  font-weight: 700;
-}
-
-.melt-gear {
-  position: absolute;
-  top: 50%;
-  width: 30px;
-  height: 30px;
-  margin-top: -15px;
-  animation-duration: 22s;
-  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.35));
-}
-
-.melt-gear-left { left: 6px; }
-.melt-gear-right { right: 6px; }
-
-.gear-reverse {
-  animation-direction: reverse;
+.melt-marquee .tagline {
+  font-size: 0.82rem;
 }
 
 .rolling-price {
@@ -891,6 +888,17 @@ button,
   animation: turn 36s linear infinite;
 }
 
+.marquee-gear {
+  width: 52px;
+  height: 52px;
+  animation-duration: 22s;
+  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.35));
+}
+
+.gear-reverse {
+  animation-direction: reverse;
+}
+
 .bg-gear {
   position: absolute;
   z-index: 0;
@@ -933,6 +941,11 @@ button,
   .playfield {
     grid-template-columns: 1fr;
     padding-right: 0.75rem;
+  }
+
+  .marquee-gear {
+    width: 36px;
+    height: 36px;
   }
 
   .lever-bay {

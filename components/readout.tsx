@@ -21,10 +21,16 @@ export function Readout({
 
   return (
     <div className="melt-stack">
-      <div className="nameplate melt-plate">
-        <Gear className="gear melt-gear melt-gear-left" />
-        <p className="melt-name">{metal.name}</p>
-        <Gear className="gear melt-gear melt-gear-right gear-reverse" />
+      <div className="marquee melt-marquee">
+        <Gear className="gear marquee-gear" />
+        <div className="nameplate">
+          <span className="rivet" data-corner="tl" />
+          <span className="rivet" data-corner="tr" />
+          <span className="rivet" data-corner="bl" />
+          <span className="rivet" data-corner="br" />
+          <p className="plate-title">{metal.name}</p>
+        </div>
+        <Gear className="gear marquee-gear gear-reverse" />
       </div>
       <section
         className={spinning ? "readout is-spinning" : "readout"}
@@ -33,12 +39,18 @@ export function Readout({
         <p className="readout-kicker">Melt Price</p>
         <RollingPrice value={formatWholeDollars(total)} />
       </section>
-      <div className="nameplate melt-plate">
-        <Gear className="gear melt-gear melt-gear-left" />
-        <p className="melt-spec">
-          {weight.face} {weight.detail} · {pieces} {noun}
-        </p>
-        <Gear className="gear melt-gear melt-gear-right gear-reverse" />
+      <div className="marquee melt-marquee">
+        <Gear className="gear marquee-gear" />
+        <div className="nameplate">
+          <span className="rivet" data-corner="tl" />
+          <span className="rivet" data-corner="tr" />
+          <span className="rivet" data-corner="bl" />
+          <span className="rivet" data-corner="br" />
+          <p className="tagline">
+            {weight.face} {weight.detail} · {pieces} {noun}
+          </p>
+        </div>
+        <Gear className="gear marquee-gear gear-reverse" />
       </div>
     </div>
   );
