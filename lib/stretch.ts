@@ -1,3 +1,6 @@
+import { cylinderPose } from "@/lib/drum";
+import { REEL_ITEM_HEIGHT } from "@/lib/metals";
+
 /** Long-press a count, then pull. The near stop stays pinned; the pressed number moves with the finger. */
 
 export const STRETCH_HOLD_MS = 400;
@@ -41,20 +44,92 @@ export function gapIntegers(from: number, to: number): number[] {
  * Down walks toward the stop above. Up walks toward the stop below.
  * A wrap, or two adjacent stops, has nothing to slide out.
  */
+export type StretchOrigin = {
+  anchor: number;
+  /** Set when the anchor is a real stop. */
+  anchorIndex: number | null;
+  lower: number;
+  upper: number;
+  lowerIndex: number;
+  upperIndex: number;
+  /** Set when the anchor sits between two real stops. */
+  slot: number | null;
+};
+
+/** The real stops on either side of a pressed value, wrapping at the ends of the list. */
+export function originFor(stops: readonly number[], value: number): StretchOrigin {
+  const count = stops.length;
+  const index = stops.indexOf(value);
+  if (index >= 0) {
+    const lowerIndex = (index - 1 + count) % count;
+    const upperIndex = (index + 1) % count;
+    return {
+      anchor: value,
+      anchorIndex: index,
+      lower: stops[lowerIndex] ?? value,
+      upper: stops[upperIndex] ?? value,
+      lowerIndex,
+      upperIndex,
+      slot: null,
+    };
+  }
+  let lowerIndex = -1;
+  for (let i = 0; i < count; i += 1) {
+    if ((stops[i] ?? Infinity) < value) lowerIndex = i;
+  }
+  const upperIndex = lowerIndex + 1;
+  return {
+    anchor: value,
+    anchorIndex: null,
+    lower: stops[lowerIndex] ?? value,
+    upper: stops[upperIndex] ?? value,
+    lowerIndex,
+    upperIndex,
+    slot: lowerIndex + 0.5,
+  };
+}
+
+/** Whole numbers from the pressed value toward the stop on that side. */
+export function sequenceFrom(origin: StretchOrigin, direction: StretchDirection): number[] {
+  const toward = direction === "down" ? origin.lower : origin.upper;
+  if (direction === "down" && toward >= origin.anchor) return [];
+  if (direction === "up" && toward <= origin.anchor) return [];
+  return gapIntegers(origin.anchor, toward);
+}
+
 export function stretchSequence(
   stops: readonly number[],
   index: number,
   direction: StretchDirection,
 ): number[] {
-  const count = stops.length;
   const from = stops[index];
-  if (count === 0 || from === undefined) return [];
-  const neighborIndex = direction === "down" ? index - 1 : index + 1;
-  const neighbor = stops[(neighborIndex + count) % count];
-  if (neighbor === undefined) return [];
-  if (direction === "down" && neighbor >= from) return [];
-  if (direction === "up" && neighbor <= from) return [];
-  return gapIntegers(from, neighbor);
+  if (from === undefined) return [];
+  return sequenceFrom(originFor(stops, from), direction);
+}
+
+/**
+ * Where a released in-between sits on the cylinder.
+ * Real-stop coordinates stay put; the face is inserted just after the lower stop.
+ */
+export function projectGuest(position: number, guest: GuestCount): number {
+  const lower = Math.floor(guest.slot);
+  if (position <= lower) return position;
+  if (position >= lower + 1) return position + 1;
+  return lower + (position - lower) * 2;
+}
+
+/** Screen top of a cylinder face, in reel pixels. Offset 0 is the center row. */
+export function faceTop(offset: number, itemHeight = REEL_ITEM_HEIGHT): number {
+  const pose = cylinderPose(offset);
+  return itemHeight * 1.5 + pose.shift * itemHeight - itemHeight / 2;
+}
+
+/**
+ * Settled faces use the shared reel plate.
+ * Stretch fills and clips belong only to the stretch overlay.
+ */
+export function settledPlateStyle(): null {
+  return null;
 }
 
 export type StretchRole = "pin" | "between" | "anchor" | "pushed";
@@ -188,11 +263,13 @@ export function visibleTriple(position: number, rows: readonly CountRow[]): numb
 
 export function guestStillVisible(
   position: number,
-  stops: readonly number[],
+  _stops: readonly number[],
   guest: GuestCount | null,
 ): boolean {
   if (!guest) return false;
-  return visibleTriple(position, countRows(stops, guest)).includes(guest.value);
+  const offset = Math.floor(guest.slot) + 1 - projectGuest(position, guest);
+  const top = faceTop(offset);
+  return top + REEL_ITEM_HEIGHT > 0 && top < REEL_ITEM_HEIGHT * 3;
 }
 
 /**

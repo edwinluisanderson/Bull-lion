@@ -19,16 +19,20 @@ import {
   guestStillVisible,
   handoffShift,
   nextGestureMode,
+  originFor,
   pressHitsCenter,
+  projectGuest,
+  sequenceFrom,
+  settledPlateStyle,
   stretchLayout,
   stretchRowClip,
-  stretchSequence,
   valueAfterRelease,
   visibleTriple,
   type GuestCount,
   type GestureMode,
   type StretchDirection,
   type StretchLayout,
+  type StretchOrigin,
 } from "@/lib/stretch";
 
 export type ReelSymbol = {
@@ -39,7 +43,7 @@ export type ReelSymbol = {
   disabled?: boolean;
 };
 
-type Phase = "idle" | "drag" | "coast" | "snap" | "script" | "contract";
+type Phase = "idle" | "drag" | "coast" | "snap" | "script";
 
 export type StretchFrame = {
   direction: StretchDirection;
@@ -55,6 +59,17 @@ export type StretchConfig = {
 const DECAY = 2.7;
 const MAX_VELOCITY = 28;
 const WINDOW = [-2, -1, 0, 1, 2, 3];
+
+function insertGuest(items: ReelSymbol[], guest: GuestCount): ReelSymbol[] {
+  const lower = Math.floor(guest.slot);
+  const face: ReelSymbol = {
+    key: `guest-${guest.value}`,
+    mark: `×${guest.value}`,
+    detail: guest.value === 1 ? "piece" : "pieces",
+    tint: items[lower]?.tint ?? items[0]?.tint,
+  };
+  return [...items.slice(0, lower + 1), face, ...items.slice(lower + 1)];
+}
 
 type Engine = {
   pointerDown: (y: number, time: number, localY?: number, height?: number) => void;
@@ -106,6 +121,7 @@ function createEngine(options: {
   let gesture: GestureMode = "drag";
   let holdTimer = 0;
   let anchorIndex = options.initialIndex;
+  let stretchOrigin: StretchOrigin | null = null;
   let slideDirection: StretchDirection | null = null;
   let stretchTravel = 0;
   let guest: GuestCount | null = null;
@@ -269,21 +285,16 @@ function createEngine(options: {
   }
 
   function layoutNow(direction: StretchDirection, travel: number): StretchLayout | null {
-    const config = options.getStretch();
-    const anchor = config?.stops[anchorIndex];
-    if (!config || anchor === undefined) return null;
-    const count = config.stops.length;
-    const pinIndex = direction === "down" ? anchorIndex - 1 : anchorIndex + 1;
-    const pushedIndex = direction === "down" ? anchorIndex + 1 : anchorIndex - 1;
-    const pin = config.stops[(pinIndex + count) % count];
-    const pushed = config.stops[(pushedIndex + count) % count];
-    if (pin === undefined || pushed === undefined) return null;
+    const origin = stretchOrigin;
+    if (!origin) return null;
+    const pin = direction === "down" ? origin.lower : origin.upper;
+    const pushed = direction === "down" ? origin.upper : origin.lower;
     return stretchLayout({
       direction,
-      anchor,
+      anchor: origin.anchor,
       pin,
       pushed,
-      sequence: stretchSequence(config.stops, anchorIndex, direction),
+      sequence: sequenceFrom(origin, direction),
       travel,
       itemHeight: REEL_ITEM_HEIGHT,
     });
@@ -295,13 +306,23 @@ function createEngine(options: {
   }
 
   function engageStretch() {
-    if (!drag || !options.getStretch()) return;
+    const config = options.getStretch();
+    if (!drag || !config) return;
     gesture = "stretch";
-    anchorIndex = mod(Math.round(position), options.getCount());
+    const stops = config.stops;
+    const centeredGuest =
+      guest && visibleTriple(position, countRows(stops, guest))[1] === guest.value ? guest.value : null;
+    if (centeredGuest == null) {
+      anchorIndex = mod(Math.round(position), stops.length);
+      stretchOrigin = originFor(stops, stops[anchorIndex] ?? anchorIndex);
+      setPos(anchorIndex);
+    } else {
+      stretchOrigin = originFor(stops, centeredGuest);
+      anchorIndex = stretchOrigin.lowerIndex;
+    }
     slideDirection = null;
     stretchTravel = 0;
     velocity = 0;
-    setPos(anchorIndex);
     const layout = layoutNow("down", 0);
     if (layout) showLayout(layout, "down");
   }
@@ -326,7 +347,8 @@ function createEngine(options: {
       showLayout(layout, slideDirection);
       return;
     }
-    const nextPos = anchorIndex + handoffShift(slideDirection, layout.remainderPx, REEL_ITEM_HEIGHT);
+    const base = stretchOrigin?.slot ?? stretchOrigin?.anchorIndex ?? anchorIndex;
+    const nextPos = base + handoffShift(slideDirection, layout.remainderPx, REEL_ITEM_HEIGHT);
     gesture = "drag";
     slideDirection = null;
     stretchTravel = 0;
@@ -341,19 +363,22 @@ function createEngine(options: {
   function releaseStretch() {
     const config = options.getStretch();
     const stops = config?.stops ?? [];
-    const anchor = stops[anchorIndex] ?? anchorIndex;
+    const origin = stretchOrigin;
+    const anchor = origin?.anchor ?? stops[anchorIndex] ?? anchorIndex;
     const direction = slideDirection ?? "down";
     const layout = layoutNow(direction, stretchTravel);
     const centered = layout?.centered ?? anchor;
     const enabled = config?.isValueEnabled ?? (() => true);
     drag = null;
     gesture = "drag";
+    slideDirection = null;
     if (!enabled(centered)) {
       const fallback = valueAfterRelease(anchor, centered, stops, enabled);
       const index = stops.indexOf(fallback);
       guest = null;
       options.onGuest(null);
       publishStretch(null);
+      stretchOrigin = null;
       if (index >= 0) {
         committed = index;
         position = index;
@@ -365,49 +390,31 @@ function createEngine(options: {
       setPhase("idle");
       return;
     }
-    const between = stretchSequence(stops, anchorIndex, direction).includes(centered);
+    const between = origin ? sequenceFrom(origin, direction).includes(centered) : false;
     if (!between) {
-      slideDirection = null;
       publishStretch(null);
+      stretchOrigin = null;
       velocity = 0;
+      if (typeof anchor === "number" && stops.includes(anchor)) {
+        guest = null;
+        options.onGuest(null);
+      }
       options.onPieces(anchor);
       setPhase("idle");
       return;
     }
-    const slot = direction === "down" ? anchorIndex - 0.5 : anchorIndex + 0.5;
+    const slot =
+      origin?.slot ??
+      (direction === "down" ? (origin?.lowerIndex ?? anchorIndex) + 0.5 : anchorIndex + 0.5);
     guest = { value: centered, slot };
-    const from = stretchTravel;
-    const target = (stretchSequence(stops, anchorIndex, direction).indexOf(centered) + 1) * REEL_ITEM_HEIGHT;
-    const start = performance.now();
-    const duration = options.isReduced() ? 0 : 320;
-    const finish = () => {
-      position = slot;
-      velocity = 0;
-      options.setKinetics(slot, 0);
-      options.onPieces(centered);
-      options.onGuest(guest);
-      publishStretch(null);
-      slideDirection = null;
-      setPhase("idle");
-    };
-    if (duration <= 0) {
-      finish();
-      return;
-    }
-    setPhase("contract");
-    const step = (now: number) => {
-      const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - (1 - t) ** 3;
-      const travel = from + (target - from) * eased;
-      const frame = layoutNow(direction, travel);
-      if (frame) showLayout(frame, direction);
-      if (t < 1) {
-        raf = requestAnimationFrame(step);
-        return;
-      }
-      finish();
-    };
-    raf = requestAnimationFrame(step);
+    position = slot;
+    velocity = 0;
+    options.setKinetics(slot, 0);
+    options.onPieces(centered);
+    options.onGuest(guest);
+    publishStretch(null);
+    stretchOrigin = null;
+    setPhase("idle");
   }
 
   return {
@@ -633,24 +640,21 @@ export function Reel({
     engineRef.current?.jump(guardIndex);
   }, [guardToken, guardIndex]);
 
-  const count = items.length;
-  const shown = position - bendDegrees / STOP_DEGREES;
+  const drawingGuest = Boolean(guestDraw) && !stretchFrame && stretch;
+  const viewItems = drawingGuest && guestDraw ? insertGuest(items, guestDraw) : items;
+  const viewPosition = drawingGuest && guestDraw ? projectGuest(position, guestDraw) : position;
+  const count = viewItems.length;
+  const shown = viewPosition - bendDegrees / STOP_DEGREES;
   const base = Math.floor(shown);
   const fraction = shown - base;
-  const active = mod(Math.round(position), count);
+  const active = mod(Math.round(viewPosition), count);
   const facing = mod(Math.round(shown), count);
-  const activeSymbol = items[active];
+  const activeSymbol = viewItems[active];
   const rolling = Math.abs(velocity) > 1.2;
   const smear = rolling ? Math.min(8, Math.abs(velocity) * 0.16) : 0;
-  const guestTriple =
-    guestDraw && stretch
-      ? visibleTriple(position, countRows(stretch.stops, guestDraw))
-      : null;
-  const spoken = stretchFrame
-    ? stretchFrame.centered
-    : guestTriple
-      ? guestTriple[1]
-      : centerPieces;
+  const guestCenter =
+    guestDraw && stretch ? visibleTriple(position, countRows(stretch.stops, guestDraw))[1] : null;
+  const spoken = stretchFrame ? stretchFrame.centered : guestCenter != null ? guestCenter : centerPieces;
   const valueText =
     spoken != null
       ? `×${spoken} ${spoken === 1 ? "piece" : "pieces"}`
@@ -766,39 +770,14 @@ export function Reel({
               </div>
               );
             })
-          : guestTriple
-            ? guestTriple.map((value, index) => (
-                <div
-                  key={`guest-${index}-${value}`}
-                  className="symbol"
-                  style={{
-                    height: REEL_ITEM_HEIGHT,
-                    transform: `translate3d(0, ${index * REEL_ITEM_HEIGHT}px, 0)`,
-                  }}
-                >
-                  <div
-                    className={index === 1 ? "symbol-plate is-active" : "symbol-plate"}
-                    style={{
-                      background: "#1a130e",
-                      boxShadow:
-                        index === 1
-                          ? "inset 0 0 0 1px rgba(240, 215, 140, 0.95), 0 0 16px rgba(240, 200, 90, 0.45)"
-                          : "inset 0 0 0 1px rgba(198, 161, 90, 0.28)",
-                    }}
-                  >
-                    <span className="symbol-mark" style={{ color: "#f0e2c4" }}>{`×${value}`}</span>
-                    <span className="symbol-detail">{value === 1 ? "piece" : "pieces"}</span>
-                  </div>
-                </div>
-              ))
-            : WINDOW.map((offset) => {
+          : WINDOW.map((offset) => {
           const index = mod(base + offset, count);
-          const symbol = items[index];
+          const symbol = viewItems[index];
           if (!symbol) return null;
           const pose = cylinderPose(offset - fraction);
           const y = REEL_ITEM_HEIGHT * 1.5 + pose.shift * REEL_ITEM_HEIGHT - REEL_ITEM_HEIGHT / 2;
           const isActive = index === facing;
-          const override = centerPieces != null && offset === 0;
+          const override = !drawingGuest && centerPieces != null && offset === 0;
           const mark = override ? `×${centerPieces}` : symbol.mark;
           const detail = override ? (centerPieces === 1 ? "piece" : "pieces") : symbol.detail;
           const smearY = -Math.sign(velocity) * smear;
@@ -822,6 +801,7 @@ export function Reel({
                 }
                 style={{
                   filter: `brightness(${pose.brightness})`,
+                  ...(settledPlateStyle() ?? {}),
                   boxShadow:
                     smear > 0.4
                       ? `0 ${smearY}px ${smear}px rgba(0, 0, 0, 0.35)`

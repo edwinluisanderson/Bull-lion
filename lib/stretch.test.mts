@@ -6,10 +6,15 @@ import {
   STRETCH_HOLD_MS,
   STRETCH_SLOP_PX,
   countRows,
+  faceTop,
   guestStillVisible,
   handoffShift,
   nextGestureMode,
+  originFor,
   pressHitsCenter,
+  projectGuest,
+  sequenceFrom,
+  settledPlateStyle,
   stretchLayout,
   stretchRowClip,
   stretchSequence,
@@ -120,14 +125,59 @@ test("release locks the centered in-between between its real neighbors", () => {
   assert.equal(valueAfterRelease(10, 8, COUNTS, () => true), 8);
 });
 
-test("a locked in-between vanishes once it leaves the three visible rows", () => {
+test("a locked in-between stays through the neighboring rows and then leaves the screen", () => {
   const guest = { value: 8, slot: TEN - 0.5 };
   assert.equal(guestStillVisible(TEN - 0.5, COUNTS, guest), true);
   assert.equal(guestStillVisible(TEN - 1, COUNTS, guest), true);
   assert.equal(guestStillVisible(TEN, COUNTS, guest), true);
-  assert.equal(guestStillVisible(TEN - 2, COUNTS, guest), false);
-  assert.equal(guestStillVisible(TEN + 1, COUNTS, guest), false);
+  assert.equal(guestStillVisible(TEN - 2, COUNTS, guest), true);
+  assert.equal(guestStillVisible(TEN - 3, COUNTS, guest), false);
+  assert.equal(guestStillVisible(TEN + 2, COUNTS, guest), false);
   assert.deepEqual(visibleTriple(TEN + 1, countRows(COUNTS, null)), [10, 20, 25]);
+});
+
+test("a released in-between stays on the cylinder and scrolls off the screen", () => {
+  const guest = { value: 9, slot: TEN - 0.5 };
+  const centered = projectGuest(guest.slot, guest);
+  assert.equal(centered, Math.floor(guest.slot) + 1);
+  const steps = [0, 0.1, 0.25, 0.5, 0.75, 1];
+  const ups = steps.map((step) => projectGuest(guest.slot + step, guest));
+  for (let i = 1; i < ups.length; i += 1) {
+    assert.ok(ups[i] > ups[i - 1]);
+    assert.ok(ups[i] - ups[i - 1] < 1.01);
+  }
+  assert.equal(guestStillVisible(guest.slot, COUNTS, guest), true);
+  assert.equal(guestStillVisible(guest.slot + 0.5, COUNTS, guest), true);
+  assert.ok(faceTop(0) > 0);
+  let hiddenAt: number | null = null;
+  for (let step = 0; step <= 4; step += 0.05) {
+    if (!guestStillVisible(guest.slot + step, COUNTS, guest)) {
+      hiddenAt = guest.slot + step;
+      break;
+    }
+  }
+  assert.ok(hiddenAt !== null && hiddenAt > guest.slot + 1);
+});
+
+test("the settled count does not keep the stretch plate fill", () => {
+  assert.equal(settledPlateStyle(), null);
+  const pinned = stretchRowClip(0, HEIGHT, "down", "pin");
+  assert.equal(pinned.opacity, 1);
+  assert.equal(pinned.clipTop, 0);
+});
+
+test("a settled in-between can stretch down to the next lower count and back up", () => {
+  const from19 = originFor(COUNTS, 19);
+  assert.equal(from19.anchor, 19);
+  assert.equal(from19.lower, 10);
+  assert.equal(from19.upper, 20);
+  assert.deepEqual(sequenceFrom(from19, "down").slice(0, 2), [18, 17]);
+  assert.deepEqual(sequenceFrom(from19, "up"), []);
+  const from15 = originFor(COUNTS, 15);
+  assert.equal(sequenceFrom(from15, "down")[0], 14);
+  assert.equal(sequenceFrom(from15, "up")[0], 16);
+  assert.equal(sequenceFrom(from15, "up").at(-1), 19);
+  assert.deepEqual(sequenceFrom(originFor(COUNTS, 10), "down"), [9, 8, 7, 6]);
 });
 
 test("after the in-between counts pass center, further dragging is a normal reel move", () => {
