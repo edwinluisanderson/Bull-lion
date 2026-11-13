@@ -695,12 +695,12 @@ export function Reel({
             </div>
           );
         })}
-        {stretchFrame?.revealed.map((value, index) => {
-          const countRevealed = Math.max(1, stretchFrame.revealed.length);
-          const pin = Math.min(stretchFrame.openPx, REEL_ITEM_HEIGHT);
-          const room = Math.max(stretchFrame.openPx, REEL_ITEM_HEIGHT * 1.4);
-          const slice = room / countRevealed;
-          const top = REEL_ITEM_HEIGHT * 2 - pin + index * slice;
+        {stretchFrame?.revealed.slice(-2).map((value, index, visible) => {
+          const pin = Math.min(stretchFrame.openPx, REEL_ITEM_HEIGHT * 0.85);
+          const anchorBottom = REEL_ITEM_HEIGHT * 2 - pin;
+          const available = REEL_ITEM_HEIGHT * 3 - anchorBottom - 8;
+          const slice = Math.min(68, available / visible.length);
+          const top = anchorBottom + index * slice;
           const current = value === stretchFrame.active;
           return (
             <div
