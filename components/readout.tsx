@@ -1,7 +1,9 @@
-import { formatUsd } from "@/lib/format";
+import { RollingPrice } from "@/components/rolling-price";
+import { formatWholeDollars } from "@/lib/format";
 import type { WeightSpec } from "@/lib/metals";
 import type { MetalQuote } from "@/lib/price-book";
 import { meltValue } from "@/lib/value";
+import { formatStackPhrase } from "@/lib/weight-label";
 
 export function Readout({
   metal,
@@ -15,20 +17,26 @@ export function Readout({
   spinning: boolean;
 }) {
   const total = meltValue(metal.usdPerTroyOz, weight.grams, pieces);
-  const noun = pieces === 1 ? "piece" : "pieces";
 
   return (
-    <section
-      className={spinning ? "readout is-spinning" : "readout"}
-      aria-busy={spinning}
-    >
-      <p className="readout-kicker">{metal.name} Melt Price</p>
-      <p className="readout-value" data-testid="melt-value">
-        {formatUsd(total)}
-      </p>
-      <p className="readout-stack readout-spec">
-        {weight.face} {weight.detail} · {pieces} {noun}
-      </p>
-    </section>
+    <div className="melt-stack">
+      <div className="nameplate melt-plate">
+        <span className="rivet" data-corner="tl" />
+        <span className="rivet" data-corner="tr" />
+        <span className="rivet" data-corner="bl" />
+        <span className="rivet" data-corner="br" />
+        <div className="melt-heading">
+          <p className="plate-title">{metal.name}</p>
+          <p className="readout-kicker melt-kicker">Melt Price</p>
+        </div>
+        <section
+          className={spinning ? "readout melt-digits is-spinning" : "readout melt-digits"}
+          aria-busy={spinning}
+        >
+          <RollingPrice value={formatWholeDollars(total)} />
+        </section>
+        <p className="tagline">{formatStackPhrase(weight, pieces)}</p>
+      </div>
+    </div>
   );
 }

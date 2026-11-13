@@ -8,6 +8,7 @@ import { Gear } from "@/components/gear";
 import { Lever } from "@/components/lever";
 import { Readout } from "@/components/readout";
 import { Reel, type ReelSymbol } from "@/components/reel";
+import { nearestAffordableWeightIndex, weightShowsDollars } from "@/lib/affordable-weight";
 import { formatStamp, formatTroyOunces, formatUsd } from "@/lib/format";
 import {
   COUNTS,
@@ -32,6 +33,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const [countIndex, setCountIndex] = useState(DEFAULT_COUNT_INDEX);
   const [spinToken, setSpinToken] = useState(0);
   const [motion, setMotion] = useState([false, false, false]);
+  const [weightGuard, setWeightGuard] = useState(0);
   const lastPull = useRef(0);
 
   const metal = book.metals[metalIndex] ?? book.metals[0];
@@ -50,16 +52,16 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
     [book.metals],
   );
 
-  const weightItems = useMemo<ReelSymbol[]>(
-    () =>
-      WEIGHTS.map((entry) => ({
-        key: entry.id,
-        mark: entry.face,
-        detail: entry.detail,
-        tint: "#f0d78c",
-      })),
-    [],
-  );
+  const weightItems = useMemo<ReelSymbol[]>(() => {
+    const copper = metal?.symbol === "HG" ? metal.usdPerTroyOz : null;
+    return WEIGHTS.map((entry) => ({
+      key: entry.id,
+      mark: entry.face,
+      detail: entry.detail,
+      tint: "#f0d78c",
+      disabled: copper !== null && !weightShowsDollars(copper, entry.grams, pieces),
+    }));
+  }, [metal, pieces]);
 
   const countItems = useMemo<ReelSymbol[]>(
     () =>
@@ -130,6 +132,19 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
     setSpinToken((token) => token + 1);
   }
 
+  useEffect(() => {
+    if (metal?.symbol !== "HG") return;
+    const next = nearestAffordableWeightIndex(
+      WEIGHTS,
+      weightIndex,
+      metal.usdPerTroyOz,
+      pieces,
+    );
+    if (next === weightIndex) return;
+    setWeightIndex(next);
+    setWeightGuard((token) => token + 1);
+  }, [metal?.symbol, metal?.usdPerTroyOz, pieces, weightIndex]);
+
   const sourceClass =
     book.source === "live" ? "lamp" : book.source === "partial" ? "lamp is-partial" : "lamp is-sample";
 
@@ -197,6 +212,8 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   initialIndex={DEFAULT_WEIGHT_INDEX}
                   spinToken={spinToken}
                   spinOrder={1}
+                  guardToken={weightGuard}
+                  guardIndex={weightIndex}
                   onIndex={setWeightIndex}
                   onMotion={onWeightMotion}
                 />
@@ -215,6 +232,11 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
               </div>
             </div>
             <Lever onPull={pull} />
+          </div>
+
+          <div className="cabinet-gears" aria-hidden="true">
+            <Gear className="gear marquee-gear" />
+            <Gear className="gear marquee-gear gear-reverse" />
           </div>
 
           <footer className="cabinet-foot">

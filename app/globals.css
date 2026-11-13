@@ -384,6 +384,16 @@ button,
   opacity: 1;
 }
 
+.symbol-plate.is-disabled {
+  opacity: 0.32;
+  filter: grayscale(0.9);
+}
+
+.symbol-plate.is-disabled .symbol-mark,
+.symbol-plate.is-disabled .symbol-detail {
+  color: #8d8478;
+}
+
 .symbol-mark {
   max-width: 100%;
   padding: 0 4px;
@@ -565,7 +575,7 @@ button,
 }
 
 .readout {
-  margin: 1rem 0.9rem 0.75rem;
+  margin: 0;
   padding: 0.7rem 0.9rem;
   border-radius: 14px;
   background: linear-gradient(180deg, #1a120c, #0c0907);
@@ -643,7 +653,115 @@ button,
   outline-offset: 2px;
 }
 
-.readout-value {
+.melt-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 1rem 0.9rem 0.75rem;
+}
+
+.marquee {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 1.15rem 1rem 0.35rem;
+}
+
+.melt-plate {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  align-items: center;
+  justify-items: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.cabinet-gears {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 2.15rem 0.55rem;
+}
+
+.melt-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.melt-kicker {
+  margin: 0.2rem 0 0;
+  color: #3a2710;
+}
+
+.melt-digits {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 4.8rem;
+  margin: 0 0 1.25rem;
+}
+
+.melt-digits .rolling-price {
+  margin: 0;
+}
+
+.nameplate {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  padding: 0.45rem 0.6rem 0.55rem;
+  border-radius: 14px;
+  text-align: center;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 32%),
+    linear-gradient(180deg, #f3e2ad 0%, #d7b15e 42%, #a07c32 78%, #6e5318 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -3px 5px rgba(70, 40, 8, 0.35),
+    0 8px 14px rgba(0, 0, 0, 0.28);
+}
+
+.nameplate > .rivet[data-corner="tl"] { top: 6px; left: 6px; }
+.nameplate > .rivet[data-corner="tr"] { top: 6px; right: 6px; }
+.nameplate > .rivet[data-corner="bl"] { bottom: 6px; left: 6px; }
+.nameplate > .rivet[data-corner="br"] { bottom: 6px; right: 6px; }
+
+.eyebrow,
+.tagline,
+.plate-title {
+  color: #3a2710;
+}
+
+.eyebrow {
+  margin: 0;
+  font-family: var(--font-display), Palatino, serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.tagline {
+  margin: 0.15rem 0 0;
+  font-size: 0.95rem;
+}
+
+.melt-plate .plate-title,
+.melt-plate .tagline {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.rolling-price {
+  display: flex;
+  justify-content: center;
   margin: 0.15rem 0 0.1rem;
   color: #ffd27a;
   font-family: var(--font-readout), ui-monospace, monospace;
@@ -651,8 +769,60 @@ button,
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em;
-  line-height: 1.05;
+  line-height: 1;
   text-shadow: 0 0 14px rgba(255, 180, 60, 0.35);
+}
+
+.rolling-price-wheels {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.price-mark {
+  height: 1em;
+  line-height: 1;
+}
+
+.digit-reel {
+  position: relative;
+  display: block;
+  width: 1ch;
+  height: 1.72em;
+  overflow: hidden;
+}
+
+.digit-reel::before,
+.digit-reel::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  right: 0;
+  left: 0;
+  height: 0.46em;
+  pointer-events: none;
+}
+
+.digit-reel::before {
+  top: 0;
+  background: linear-gradient(to bottom, #120e0b 0%, rgba(18, 14, 11, 0.55) 55%, transparent 100%);
+}
+
+.digit-reel::after {
+  bottom: 0;
+  background: linear-gradient(to top, #120e0b 0%, rgba(18, 14, 11, 0.55) 55%, transparent 100%);
+}
+
+.digit-reel-strip {
+  display: block;
+  transition: transform 0.62s cubic-bezier(0.16, 0.84, 0.24, 1);
+  will-change: transform;
+}
+
+.digit-reel-strip > span {
+  display: block;
+  height: 1em;
+  line-height: 1;
 }
 
 .readout-stack {
@@ -785,6 +955,17 @@ button,
   animation: turn 36s linear infinite;
 }
 
+.marquee-gear {
+  width: 52px;
+  height: 52px;
+  animation-duration: 22s;
+  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.35));
+}
+
+.gear-reverse {
+  animation-direction: reverse;
+}
+
 .bg-gear {
   position: absolute;
   z-index: 0;
@@ -827,6 +1008,11 @@ button,
   .playfield {
     grid-template-columns: 1fr;
     padding-right: 0.75rem;
+  }
+
+  .marquee-gear {
+    width: 36px;
+    height: 36px;
   }
 
   .lever-bay {
@@ -879,6 +1065,7 @@ button,
   .gear,
   .bulbs span.on,
   .lever-arm.yank,
+  .digit-reel-strip,
   .gauge-needle {
     animation: none;
     transition: none;
