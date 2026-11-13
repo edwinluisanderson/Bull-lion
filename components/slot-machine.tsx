@@ -8,7 +8,7 @@ import { Gear } from "@/components/gear";
 import { PullBall } from "@/components/lever";
 import { Readout } from "@/components/readout";
 import { Reel, type ReelSymbol } from "@/components/reel";
-import { nearestAffordableWeightIndex, weightShowsDollars } from "@/lib/affordable-weight";
+import { nearestAffordableCountIndex, weightShowsDollars } from "@/lib/affordable-weight";
 import { formatStamp, formatTroyOunces, formatUsd } from "@/lib/format";
 import {
   COUNTS,
@@ -34,7 +34,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const [spinToken, setSpinToken] = useState(0);
   const [bendDegrees, setBendDegrees] = useState(0);
   const [motion, setMotion] = useState([false, false, false]);
-  const [weightGuard, setWeightGuard] = useState(0);
+  const [countGuard, setCountGuard] = useState(0);
   const lastPull = useRef(0);
 
   const metal = book.metals[metalIndex] ?? book.metals[0];
@@ -53,27 +53,32 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
     [book.metals],
   );
 
-  const weightItems = useMemo<ReelSymbol[]>(() => {
-    const copper = metal?.symbol === "HG" ? metal.usdPerTroyOz : null;
-    return WEIGHTS.map((entry) => ({
-      key: entry.id,
-      mark: entry.face,
-      detail: entry.detail,
-      tint: "#f0d78c",
-      disabled: copper !== null && !weightShowsDollars(copper, entry.grams, pieces),
-    }));
-  }, [metal, pieces]);
-
-  const countItems = useMemo<ReelSymbol[]>(
+  const weightItems = useMemo<ReelSymbol[]>(
     () =>
-      COUNTS.map((count) => ({
-        key: String(count),
-        mark: `×${count}`,
-        detail: count === 1 ? "piece" : "pieces",
+      WEIGHTS.map((entry) => ({
+        key: entry.id,
+        mark: entry.face,
+        detail: entry.detail,
         tint: "#f0d78c",
       })),
     [],
   );
+
+  const countItems = useMemo<ReelSymbol[]>(() => {
+    const copper = metal?.symbol === "HG" ? metal.usdPerTroyOz : null;
+    const unaffordable =
+      copper === null
+        ? COUNTS.map(() => false)
+        : COUNTS.map((count) => !weightShowsDollars(copper, weight.grams, count));
+    const anyAffordable = unaffordable.some((gray) => !gray);
+    return COUNTS.map((count, index) => ({
+      key: String(count),
+      mark: `×${count}`,
+      detail: count === 1 ? "piece" : "pieces",
+      tint: "#f0d78c",
+      disabled: anyAffordable ? unaffordable[index] : index !== COUNTS.length - 1,
+    }));
+  }, [metal, weight.grams]);
 
   const setReelMotion = useCallback((reel: number, moving: boolean) => {
     setMotion((current) => {
@@ -136,16 +141,16 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
 
   useEffect(() => {
     if (metal?.symbol !== "HG") return;
-    const next = nearestAffordableWeightIndex(
-      WEIGHTS,
-      weightIndex,
+    const next = nearestAffordableCountIndex(
+      COUNTS,
+      countIndex,
+      weight.grams,
       metal.usdPerTroyOz,
-      pieces,
     );
-    if (next === weightIndex) return;
-    setWeightIndex(next);
-    setWeightGuard((token) => token + 1);
-  }, [metal?.symbol, metal?.usdPerTroyOz, pieces, weightIndex]);
+    if (next === countIndex) return;
+    setCountIndex(next);
+    setCountGuard((token) => token + 1);
+  }, [metal?.symbol, metal?.usdPerTroyOz, weight.grams, countIndex]);
 
   const sourceClass =
     book.source === "live" ? "lamp" : book.source === "partial" ? "lamp is-partial" : "lamp is-sample";
@@ -216,8 +221,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   spinToken={spinToken}
                   spinOrder={1}
                   bendDegrees={bendDegrees}
-                  guardToken={weightGuard}
-                  guardIndex={weightIndex}
                   onIndex={setWeightIndex}
                   onMotion={onWeightMotion}
                 />
@@ -228,6 +231,8 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   spinToken={spinToken}
                   spinOrder={2}
                   bendDegrees={bendDegrees}
+                  guardToken={countGuard}
+                  guardIndex={countIndex}
                   onIndex={setCountIndex}
                   onMotion={onCountMotion}
                 />

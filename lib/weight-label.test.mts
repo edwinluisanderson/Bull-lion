@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { nearestAffordableWeightIndex, weightShowsDollars } from "@/lib/affordable-weight";
+import {
+  nearestAffordableCountIndex,
+  nearestAffordableWeightIndex,
+  weightShowsDollars,
+} from "@/lib/affordable-weight";
 import { formatStackPhrase, formatWeightPhrase } from "@/lib/weight-label";
-import { WEIGHTS } from "@/lib/metals";
+import { COUNTS, WEIGHTS } from "@/lib/metals";
 import { usdPerTroyOunce } from "@/lib/value";
 
 const byId = (id: string) => {
@@ -72,6 +76,38 @@ test("a live copper price can make a smaller size affordable", () => {
 
 test("gold does not gray a one gram stop", () => {
   assert.equal(weightShowsDollars(3987.2, byId("1g").grams), true);
+});
+
+test("copper grays piece counts that round under a dollar for the selected weight", () => {
+  const copper = usdPerTroyOunce(6.3, "lb");
+  const oneGram = byId("1g").grams;
+  const oneOunce = byId("1oz").grams;
+  const oneKilo = byId("1kg").grams;
+  assert.deepEqual(
+    COUNTS.filter((pieces) => weightShowsDollars(copper, oneGram, pieces)),
+    [50, 100],
+  );
+  assert.deepEqual(
+    COUNTS.filter((pieces) => weightShowsDollars(copper, oneOunce, pieces)),
+    [2, 5, 10, 20, 25, 50, 100],
+  );
+  assert.deepEqual(
+    COUNTS.filter((pieces) => !weightShowsDollars(copper, oneKilo, pieces)),
+    [],
+  );
+  assert.equal(nearestAffordableCountIndex(COUNTS, 0, oneGram, copper), COUNTS.indexOf(50));
+  assert.equal(nearestAffordableCountIndex(COUNTS, COUNTS.indexOf(100), oneGram, copper), COUNTS.indexOf(100));
+  assert.equal(nearestAffordableCountIndex(COUNTS, 0, oneOunce, copper), COUNTS.indexOf(2));
+  assert.equal(nearestAffordableCountIndex(COUNTS, COUNTS.indexOf(25), oneOunce, copper), COUNTS.indexOf(25));
+});
+
+test("when no piece count reaches a dollar the highest count is the fallback", () => {
+  assert.equal(
+    nearestAffordableCountIndex(COUNTS, 0, byId("1kg").grams, 0.0001),
+    COUNTS.length - 1,
+  );
+  const nearer = [1, 2, 100];
+  assert.equal(nearestAffordableCountIndex(nearer, 2, byId("1oz").grams, usdPerTroyOunce(6.3, "lb")), 2);
 });
 
 test("an unaffordable copper stop moves to the nearest heavier-or-closest size", () => {
