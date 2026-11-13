@@ -11,11 +11,11 @@ function rule(selector: string): string {
   return match[1];
 }
 
-test("the selection triangles are 8px and mirrored behind the frame", () => {
+test("the selection triangles are 10px and mirrored behind the frame", () => {
   const payline = rule(".payline");
   const marks = rule(".payline::before,\n.payline::after");
   const stage = rule(".reel-stage");
-  assert.match(marks, /border:\s*8px solid transparent/);
+  assert.match(marks, /border:\s*10px solid transparent/);
   assert.match(css, /\.payline::before \{\n\s*left: 0;/);
   assert.match(css, /\.payline::after \{\n\s*right: 0;/);
   assert.match(css, /\.payline::before \{[^}]*border-left-color/);
