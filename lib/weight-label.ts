@@ -23,7 +23,7 @@ export function weightWords(weight: WeightSpec): { amount: string; unit: string 
   }
   if (Math.abs(weight.grams - 1000) < 1e-6) return { amount: "1", unit: "kilogram" };
   if (Math.abs(weight.grams - 1) < 1e-6) return { amount: "1", unit: "gram" };
-  return { amount: String(Math.round(weight.grams)), unit: "grams" };
+  return { amount: String(weight.grams), unit: "grams" };
 }
 
 export function formatWeightPhrase(weight: WeightSpec): string {

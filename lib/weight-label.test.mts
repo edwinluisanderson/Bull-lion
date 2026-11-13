@@ -7,7 +7,7 @@ import {
   weightShowsDollars,
 } from "@/lib/affordable-weight";
 import { formatStackPhrase, formatWeightPhrase } from "@/lib/weight-label";
-import { COUNTS, WEIGHTS } from "@/lib/metals";
+import { COUNTS, DEFAULT_WEIGHT_INDEX, WEIGHTS } from "@/lib/metals";
 import { usdPerTroyOunce } from "@/lib/value";
 
 const byId = (id: string) => {
@@ -21,16 +21,20 @@ test("reel faces stay on the pre-plate abbreviations", () => {
     WEIGHTS.map((weight) => [weight.face, weight.detail]),
     [
       ["1 g", "gram"],
+      ["2.5 g", "grams"],
       ["5 g", "grams"],
       ["10 g", "grams"],
+      ["20 g", "grams"],
+      ["25 g", "grams"],
+      ["50 g", "grams"],
+      ["100 g", "grams"],
+      ["1 kg", "kilogram"],
       ["1/10 oz", "troy"],
       ["1/4 oz", "troy"],
       ["1/2 oz", "troy"],
       ["1 oz", "troy"],
       ["5 oz", "troy"],
       ["10 oz", "troy"],
-      ["100 g", "grams"],
-      ["1 kg", "kilogram"],
     ],
   );
   assert.equal(`${byId("10g").face} ${byId("10g").detail}`, "10 g grams");
@@ -39,7 +43,10 @@ test("reel faces stay on the pre-plate abbreviations", () => {
 
 test("weight phrases spell grams and reserve troy for ounces", () => {
   assert.equal(formatWeightPhrase(byId("1g")), "1 gram");
+  assert.equal(formatWeightPhrase(byId("2.5g")), "2.5 grams");
+  assert.equal(formatStackPhrase(byId("2.5g"), 1), "2.5 grams, 1 piece");
   assert.equal(formatWeightPhrase(byId("10g")), "10 grams");
+  assert.equal(formatWeightPhrase(byId("25g")), "25 grams");
   assert.equal(formatWeightPhrase(byId("100g")), "100 grams");
   assert.equal(formatWeightPhrase(byId("1kg")), "1 kilogram");
   assert.equal(formatWeightPhrase(byId("1/10")), "1/10 ounce troy");
@@ -51,6 +58,15 @@ test("weight phrases spell grams and reserve troy for ounces", () => {
   assert.equal(formatStackPhrase(byId("1oz"), 100), "1 ounce troy, 100 pieces");
   assert.equal(formatWeightPhrase(byId("10g")).includes("troy"), false);
   assert.equal(formatWeightPhrase(byId("1kg")).includes("troy"), false);
+});
+
+test("weights run grams ascending, then troy ascending, and default to one ounce", () => {
+  assert.deepEqual(
+    WEIGHTS.map((weight) => weight.id),
+    ["1g", "2.5g", "5g", "10g", "20g", "25g", "50g", "100g", "1kg", "1/10", "1/4", "1/2", "1oz", "5oz", "10oz"],
+  );
+  assert.equal(WEIGHTS[DEFAULT_WEIGHT_INDEX]?.id, "1oz");
+  assert.equal(WEIGHTS.length, 15);
 });
 
 test("copper sizes that round under a dollar are not affordable", () => {
@@ -113,8 +129,8 @@ test("when no piece count reaches a dollar the highest count is the fallback", (
 test("an unaffordable copper stop moves to the nearest heavier-or-closest size", () => {
   const copper = usdPerTroyOunce(6.3, "lb");
   const oneOunce = WEIGHTS.findIndex((weight) => weight.id === "1oz");
-  const hundredGrams = WEIGHTS.findIndex((weight) => weight.id === "100g");
-  assert.equal(nearestAffordableWeightIndex(WEIGHTS, oneOunce, copper), hundredGrams);
+  const fiftyGrams = WEIGHTS.findIndex((weight) => weight.id === "50g");
+  assert.equal(nearestAffordableWeightIndex(WEIGHTS, oneOunce, copper), fiftyGrams);
 
   const tenOunce = WEIGHTS.findIndex((weight) => weight.id === "10oz");
   assert.equal(nearestAffordableWeightIndex(WEIGHTS, tenOunce, copper), tenOunce);

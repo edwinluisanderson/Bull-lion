@@ -66,16 +66,20 @@ export type WeightSpec = {
 
 export const WEIGHTS: readonly WeightSpec[] = [
   { id: "1g", face: "1 g", detail: "gram", grams: 1 },
+  { id: "2.5g", face: "2.5 g", detail: "grams", grams: 2.5 },
   { id: "5g", face: "5 g", detail: "grams", grams: 5 },
   { id: "10g", face: "10 g", detail: "grams", grams: 10 },
+  { id: "20g", face: "20 g", detail: "grams", grams: 20 },
+  { id: "25g", face: "25 g", detail: "grams", grams: 25 },
+  { id: "50g", face: "50 g", detail: "grams", grams: 50 },
+  { id: "100g", face: "100 g", detail: "grams", grams: 100 },
+  { id: "1kg", face: "1 kg", detail: "kilogram", grams: 1000 },
   { id: "1/10", face: "1/10 oz", detail: "troy", grams: TROY_OUNCE_GRAMS / 10 },
   { id: "1/4", face: "1/4 oz", detail: "troy", grams: TROY_OUNCE_GRAMS / 4 },
   { id: "1/2", face: "1/2 oz", detail: "troy", grams: TROY_OUNCE_GRAMS / 2 },
   { id: "1oz", face: "1 oz", detail: "troy", grams: TROY_OUNCE_GRAMS },
   { id: "5oz", face: "5 oz", detail: "troy", grams: TROY_OUNCE_GRAMS * 5 },
   { id: "10oz", face: "10 oz", detail: "troy", grams: TROY_OUNCE_GRAMS * 10 },
-  { id: "100g", face: "100 g", detail: "grams", grams: 100 },
-  { id: "1kg", face: "1 kg", detail: "kilogram", grams: 1000 },
 ];
 
 /** How many identical pieces of the weight on reel 2. Purity is assumed fine. */
