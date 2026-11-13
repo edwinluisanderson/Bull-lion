@@ -21,6 +21,7 @@ import {
   nextGestureMode,
   pressHitsCenter,
   stretchLayout,
+  stretchRowClip,
   stretchSequence,
   valueAfterRelease,
   visibleTriple,
@@ -41,6 +42,7 @@ export type ReelSymbol = {
 type Phase = "idle" | "drag" | "coast" | "snap" | "script" | "contract";
 
 export type StretchFrame = {
+  direction: StretchDirection;
   rows: StretchLayout["rows"];
   centered: number;
 };
@@ -287,8 +289,8 @@ function createEngine(options: {
     });
   }
 
-  function showLayout(layout: StretchLayout) {
-    publishStretch({ rows: layout.rows, centered: layout.centered });
+  function showLayout(layout: StretchLayout, direction: StretchDirection) {
+    publishStretch({ direction, rows: layout.rows, centered: layout.centered });
     options.onPieces(layout.centered);
   }
 
@@ -301,7 +303,7 @@ function createEngine(options: {
     velocity = 0;
     setPos(anchorIndex);
     const layout = layoutNow("down", 0);
-    if (layout) showLayout(layout);
+    if (layout) showLayout(layout, "down");
   }
 
   function moveStretch(y: number, time: number) {
@@ -321,7 +323,7 @@ function createEngine(options: {
     const layout = layoutNow(slideDirection, along);
     if (!layout) return;
     if (!layout.handoff) {
-      showLayout(layout);
+      showLayout(layout, slideDirection);
       return;
     }
     const nextPos = anchorIndex + handoffShift(slideDirection, layout.remainderPx, REEL_ITEM_HEIGHT);
@@ -398,7 +400,7 @@ function createEngine(options: {
       const eased = 1 - (1 - t) ** 3;
       const travel = from + (target - from) * eased;
       const frame = layoutNow(direction, travel);
-      if (frame) showLayout(frame);
+      if (frame) showLayout(frame, direction);
       if (t < 1) {
         raf = requestAnimationFrame(step);
         return;
@@ -670,7 +672,13 @@ export function Reel({
         aria-valuetext={valueText}
         data-count={spoken ?? activeSymbol?.mark ?? ""}
         data-stretching={stretchFrame ? "true" : "false"}
-        className={rolling ? "reel-viewport is-rolling" : "reel-viewport"}
+        className={
+          stretchFrame
+            ? "reel-viewport is-stretching"
+            : rolling
+              ? "reel-viewport is-rolling"
+              : "reel-viewport"
+        }
         style={{ height: REEL_ITEM_HEIGHT * 3, touchAction: "none" }}
         onPointerDown={(event) => {
           if (event.button !== 0) return;
@@ -721,23 +729,33 @@ export function Reel({
       >
         <div className="reel-cylinder">
         {stretchFrame
-          ? stretchFrame.rows.map((row) => (
+          ? stretchFrame.rows.map((row) => {
+              const clip = stretchRowClip(row.screenTop, REEL_ITEM_HEIGHT, stretchFrame.direction, row.role);
+              const clipPath =
+                clip.clipTop > 0 || clip.clipBottom > 0
+                  ? `inset(${clip.clipTop}px 0px ${clip.clipBottom}px 0px)`
+                  : undefined;
+              return (
               <div
                 key={`${row.role}-${row.value}`}
                 className="symbol"
                 style={{
                   height: REEL_ITEM_HEIGHT,
-                  zIndex: row.role === "pin" ? 6 : row.role === "between" ? 4 : 2,
+                  zIndex: row.role === "pin" ? 8 : 3,
+                  opacity: clip.opacity,
+                  background: "#120e0a",
+                  clipPath,
                   transform: `translate3d(0, ${row.screenTop}px, 0)`,
                 }}
               >
                 <div
                   className={row.centered ? "symbol-plate is-active" : "symbol-plate"}
                   style={{
+                    opacity: 1,
                     background: "#1a130e",
                     boxShadow: row.centered
                       ? "inset 0 0 0 1px rgba(240, 215, 140, 0.95), 0 0 16px rgba(240, 200, 90, 0.45)"
-                      : "inset 0 0 0 1px rgba(198, 161, 90, 0.28)",
+                      : "inset 0 0 0 1px rgba(198, 161, 90, 0.38)",
                   }}
                 >
                   <span className="symbol-mark" style={{ color: row.centered ? "#f0d78c" : "#f0e2c4" }}>
@@ -746,7 +764,8 @@ export function Reel({
                   <span className="symbol-detail">pieces</span>
                 </div>
               </div>
-            ))
+              );
+            })
           : guestTriple
             ? guestTriple.map((value, index) => (
                 <div

@@ -11,6 +11,7 @@ import {
   nextGestureMode,
   pressHitsCenter,
   stretchLayout,
+  stretchRowClip,
   stretchSequence,
   valueAfterRelease,
   visibleTriple,
@@ -163,6 +164,60 @@ test("a gray centered count falls back to the nearest real stop", () => {
     valueAfterRelease(10, 6, COUNTS, (value) => value === 5 || value === 10),
     5,
   );
+});
+
+test("the pinned stop stays opaque and the emerging count is clipped behind it", () => {
+  const sequence = [9, 8, 7, 6];
+  const emerging = stretchLayout({
+    direction: "down",
+    anchor: 10,
+    pin: 5,
+    pushed: 20,
+    sequence,
+    travel: HEIGHT / 2,
+    itemHeight: HEIGHT,
+  });
+  const pin = emerging.rows.find((row) => row.role === "pin");
+  const nine = emerging.rows.find((row) => row.value === 9);
+  assert.ok(pin);
+  assert.ok(nine);
+  const pinPaint = stretchRowClip(pin.screenTop, HEIGHT, "down", "pin");
+  const ninePaint = stretchRowClip(nine.screenTop, HEIGHT, "down", "between");
+  assert.equal(pinPaint.opacity, 1);
+  assert.equal(pinPaint.clipTop, 0);
+  assert.equal(ninePaint.opacity, 1);
+  assert.ok(ninePaint.clipTop > 0);
+
+  const arrived = stretchLayout({
+    direction: "down",
+    anchor: 10,
+    pin: 5,
+    pushed: 20,
+    sequence,
+    travel: HEIGHT,
+    itemHeight: HEIGHT,
+  });
+  const centeredNine = arrived.rows.find((row) => row.value === 9);
+  assert.ok(centeredNine);
+  const clear = stretchRowClip(centeredNine.screenTop, HEIGHT, "down", "between");
+  assert.equal(clear.opacity, 1);
+  assert.equal(clear.clipTop, 0);
+  assert.equal(clear.clipBottom, 0);
+
+  const upward = stretchLayout({
+    direction: "up",
+    anchor: 10,
+    pin: 20,
+    pushed: 5,
+    sequence: [11],
+    travel: HEIGHT / 2,
+    itemHeight: HEIGHT,
+  });
+  const eleven = upward.rows.find((row) => row.value === 11);
+  assert.ok(eleven);
+  const upPaint = stretchRowClip(eleven.screenTop, HEIGHT, "up", "between");
+  assert.equal(upPaint.opacity, 1);
+  assert.ok(upPaint.clipBottom > 0);
 });
 
 test("the ends of the count list have no invented numbers", () => {

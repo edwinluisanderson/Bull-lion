@@ -139,6 +139,26 @@ export function handoffShift(direction: StretchDirection, remainderPx: number, i
   return direction === "down" ? -stops : stops;
 }
 
+/**
+ * The pinned stop covers its whole row at full opacity.
+ * An emerging count is clipped to the area outside that row, so the part
+ * still behind the pin is hidden and the part in the center slot is solid.
+ */
+export function stretchRowClip(
+  screenTop: number,
+  itemHeight: number,
+  direction: StretchDirection,
+  role: StretchRole = "between",
+): { opacity: 1; clipTop: number; clipBottom: number } {
+  if (role !== "between") return { opacity: 1, clipTop: 0, clipBottom: 0 };
+  const pinTop = direction === "down" ? 0 : itemHeight * 2;
+  const pinBottom = pinTop + itemHeight;
+  if (direction === "down") {
+    return { opacity: 1, clipTop: Math.max(0, pinBottom - screenTop), clipBottom: 0 };
+  }
+  return { opacity: 1, clipTop: 0, clipBottom: Math.max(0, screenTop + itemHeight - pinTop) };
+}
+
 export type CountRow = { slot: number; value: number };
 export type GuestCount = { value: number; slot: number };
 

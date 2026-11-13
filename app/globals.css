@@ -357,6 +357,10 @@ button,
   pointer-events: none;
 }
 
+.reel-viewport.is-stretching {
+  mask-image: none;
+}
+
 .reel-viewport:active {
   cursor: grabbing;
 }
