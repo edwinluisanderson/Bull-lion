@@ -145,7 +145,7 @@ button,
   position: relative;
   min-height: 100dvh;
   overflow-x: clip;
-  padding: 1.25rem 0.85rem calc(1.5rem + env(safe-area-inset-bottom));
+  padding: 1.25rem 1.5rem calc(1.5rem + env(safe-area-inset-bottom)) 0.2rem;
   background:
     radial-gradient(ellipse at 50% 0%, rgba(150, 90, 30, 0.35), transparent 42%),
     radial-gradient(ellipse at 50% 120%, rgba(0, 0, 0, 0.55), transparent 46%),
@@ -260,12 +260,12 @@ button,
 
 .playfield {
   position: relative;
-  padding: 0.15rem 0.4rem 0.2rem 0.75rem;
+  overflow: visible;
+  padding: 0.15rem 0.55rem 0.2rem 0.75rem;
 }
 
 .window-frame {
   position: relative;
-  margin-right: 46px;
   padding: 14px;
   border-radius: 18px;
   background: linear-gradient(180deg, #f3e2ad 0%, #c4963e 28%, #7a5a22 62%, #e6cb82 100%);
@@ -372,12 +372,12 @@ button,
 
 .pull-ball {
   position: absolute;
-  z-index: 6;
-  top: calc(14px + var(--reel-name) - 20px);
-  right: 0;
+  z-index: 8;
+  top: -6px;
+  right: -22px;
   display: grid;
-  width: 58px;
-  height: 58px;
+  width: 48px;
+  height: 48px;
   place-items: center;
   padding: 0;
   border: 0;
@@ -394,6 +394,16 @@ button,
   text-transform: uppercase;
   cursor: grab;
   touch-action: none;
+}
+
+@media (min-width: 801px) {
+  .pull-ball {
+    top: -10px;
+    right: -44px;
+    width: 56px;
+    height: 56px;
+    font-size: 0.62rem;
+  }
 }
 
 .pull-ball:active {
@@ -1055,16 +1065,10 @@ button,
 
 @media (max-width: 800px) {
   .playfield {
-    padding-right: 0.35rem;
-  }
-
-  .window-frame {
-    margin-right: 40px;
+    padding-right: 0.75rem;
   }
 
   .pull-ball {
-    width: 48px;
-    height: 48px;
     font-size: 0.55rem;
   }
 
