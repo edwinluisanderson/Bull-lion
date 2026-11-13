@@ -730,24 +730,46 @@ button,
 
 .rolling-price-wheels {
   display: inline-flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
 }
 
 .price-mark {
+  height: 1em;
   line-height: 1;
 }
 
 .digit-reel {
+  position: relative;
   display: block;
   width: 1ch;
-  height: 1em;
+  height: 1.72em;
   overflow: hidden;
+}
+
+.digit-reel::before,
+.digit-reel::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  right: 0;
+  left: 0;
+  height: 0.46em;
+  pointer-events: none;
+}
+
+.digit-reel::before {
+  top: 0;
+  background: linear-gradient(to bottom, #120e0b 0%, rgba(18, 14, 11, 0.55) 55%, transparent 100%);
+}
+
+.digit-reel::after {
+  bottom: 0;
+  background: linear-gradient(to top, #120e0b 0%, rgba(18, 14, 11, 0.55) 55%, transparent 100%);
 }
 
 .digit-reel-strip {
   display: block;
-  transform: translate3d(0, 0, 0);
   transition: transform 0.62s cubic-bezier(0.16, 0.84, 0.24, 1);
   will-change: transform;
 }

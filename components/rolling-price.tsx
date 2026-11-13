@@ -1,6 +1,7 @@
 import { priceParts } from "@/lib/price-reels";
 
-const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+const CYCLE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+const STRIP = [...CYCLE, ...CYCLE, ...CYCLE];
 
 export function RollingPrice({ value }: { value: string }) {
   const parts = priceParts(value);
@@ -19,12 +20,12 @@ export function RollingPrice({ value }: { value: string }) {
               <span
                 className="digit-reel-strip"
                 style={{
-                  transform: `translate3d(0, calc(${part.digit} * -1em), 0)`,
+                  transform: `translate3d(0, calc(0.36em - ${10 + part.digit} * 1em), 0)`,
                   transitionDelay: `${part.order * 50}ms`,
                 }}
               >
-                {DIGITS.map((digit) => (
-                  <span key={digit}>{digit}</span>
+                {STRIP.map((digit, index) => (
+                  <span key={index}>{digit}</span>
                 ))}
               </span>
             </span>
