@@ -156,15 +156,21 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
       <Gear className="gear bg-gear bg-gear-left" />
       <Gear className="gear bg-gear bg-gear-right" />
       <main className="machine-wrap">
-        <div className="page-info">
-          <AssayDialog
-            formula={formula}
-            trigger={
-              <button type="button" className="assay-info" aria-label="Assay notes">
-                <AssayInfoIcon />
-              </button>
-            }
-          />
+        <div className="page-top">
+          <Gear className="gear marquee-gear" />
+          <div className="page-top-aside">
+            <Gear className="gear marquee-gear gear-reverse" />
+            <div className="page-info">
+              <AssayDialog
+                formula={formula}
+                trigger={
+                  <button type="button" className="assay-info" aria-label="Assay notes">
+                    <AssayInfoIcon />
+                  </button>
+                }
+              />
+            </div>
+          </div>
         </div>
         <section className="cabinet" aria-label="Bullion slot machine">
           <span className="rivet" data-corner="tl" />

@@ -1,4 +1,3 @@
-import { Gear } from "@/components/gear";
 import { RollingPrice } from "@/components/rolling-price";
 import { formatWholeDollars } from "@/lib/format";
 import type { WeightSpec } from "@/lib/metals";
@@ -21,24 +20,22 @@ export function Readout({
 
   return (
     <div className="melt-stack">
-      <div className="marquee melt-marquee">
-        <Gear className="gear marquee-gear" />
-        <div className="nameplate">
-          <span className="rivet" data-corner="tl" />
-          <span className="rivet" data-corner="tr" />
-          <span className="rivet" data-corner="bl" />
-          <span className="rivet" data-corner="br" />
+      <div className="nameplate melt-plate">
+        <span className="rivet" data-corner="tl" />
+        <span className="rivet" data-corner="tr" />
+        <span className="rivet" data-corner="bl" />
+        <span className="rivet" data-corner="br" />
+        <div className="melt-heading">
           <p className="plate-title">{metal.name}</p>
-          <section
-            className={spinning ? "readout is-spinning" : "readout"}
-            aria-busy={spinning}
-          >
-            <p className="readout-kicker">Melt Price</p>
-            <RollingPrice value={formatWholeDollars(total)} />
-          </section>
-          <p className="tagline">{formatStackPhrase(weight, pieces)}</p>
+          <p className="readout-kicker melt-kicker">Melt Price</p>
         </div>
-        <Gear className="gear marquee-gear gear-reverse" />
+        <section
+          className={spinning ? "readout melt-digits is-spinning" : "readout melt-digits"}
+          aria-busy={spinning}
+        >
+          <RollingPrice value={formatWholeDollars(total)} />
+        </section>
+        <p className="tagline">{formatStackPhrase(weight, pieces)}</p>
       </div>
     </div>
   );
