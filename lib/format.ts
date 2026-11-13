@@ -14,6 +14,17 @@ export function formatUsd(value: number): string {
   }).format(value);
 }
 
+/** Nearest whole dollar, with grouping and no cents. */
+export function formatWholeDollars(value: number): string {
+  if (!Number.isFinite(value)) return "—";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Math.round(value));
+}
+
 export function formatTroyOunces(grams: number): string {
   const ounces = grams / TROY_OUNCE_GRAMS;
   for (const nice of NICE_TROY_OUNCES) {

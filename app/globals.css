@@ -565,7 +565,7 @@ button,
 }
 
 .readout {
-  margin: 1rem 0.9rem 0.75rem;
+  margin: 0;
   padding: 0.7rem 0.9rem;
   border-radius: 14px;
   background: linear-gradient(180deg, #1a120c, #0c0907);
@@ -643,7 +643,50 @@ button,
   outline-offset: 2px;
 }
 
-.readout-value {
+.melt-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 1rem 0.9rem 0.75rem;
+}
+
+.brass-plate {
+  margin: 0;
+  padding: 0.45rem 0.6rem 0.55rem;
+  border-radius: 14px;
+  text-align: center;
+  color: #3a2710;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 32%),
+    linear-gradient(180deg, #f3e2ad 0%, #d7b15e 42%, #a07c32 78%, #6e5318 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -3px 5px rgba(70, 40, 8, 0.35),
+    0 8px 14px rgba(0, 0, 0, 0.28);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.melt-name {
+  font-family: var(--font-display), Palatino, serif;
+  font-size: clamp(1.15rem, 4vw, 1.7rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1.05;
+  text-shadow: 0 1px 0 rgba(255, 236, 190, 0.55);
+  text-transform: uppercase;
+}
+
+.melt-spec {
+  font-family: var(--font-display), Palatino, serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.rolling-price {
+  display: flex;
+  justify-content: center;
   margin: 0.15rem 0 0.1rem;
   color: #ffd27a;
   font-family: var(--font-readout), ui-monospace, monospace;
@@ -651,8 +694,38 @@ button,
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em;
-  line-height: 1.05;
+  line-height: 1;
   text-shadow: 0 0 14px rgba(255, 180, 60, 0.35);
+}
+
+.rolling-price-wheels {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.price-mark {
+  line-height: 1;
+}
+
+.digit-reel {
+  display: block;
+  width: 1ch;
+  height: 1em;
+  overflow: hidden;
+}
+
+.digit-reel-strip {
+  display: block;
+  transform: translate3d(0, 0, 0);
+  transition: transform 0.62s cubic-bezier(0.16, 0.84, 0.24, 1);
+  will-change: transform;
+}
+
+.digit-reel-strip > span {
+  display: block;
+  height: 1em;
+  line-height: 1;
 }
 
 .readout-stack {
@@ -879,6 +952,7 @@ button,
   .gear,
   .bulbs span.on,
   .lever-arm.yank,
+  .digit-reel-strip,
   .gauge-needle {
     animation: none;
     transition: none;
