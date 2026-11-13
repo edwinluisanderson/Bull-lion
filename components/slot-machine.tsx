@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AssayDialog, AssayInfoIcon } from "@/components/assay-dialog";
 import { Gauge } from "@/components/gauge";
 import { Gear } from "@/components/gear";
-import { Lever } from "@/components/lever";
+import { PullBall } from "@/components/lever";
 import { Readout } from "@/components/readout";
 import { Reel, type ReelSymbol } from "@/components/reel";
 import { nearestAffordableWeightIndex, weightShowsDollars } from "@/lib/affordable-weight";
@@ -32,6 +32,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const [weightIndex, setWeightIndex] = useState(DEFAULT_WEIGHT_INDEX);
   const [countIndex, setCountIndex] = useState(DEFAULT_COUNT_INDEX);
   const [spinToken, setSpinToken] = useState(0);
+  const [bendDegrees, setBendDegrees] = useState(0);
   const [motion, setMotion] = useState([false, false, false]);
   const [weightGuard, setWeightGuard] = useState(0);
   const lastPull = useRef(0);
@@ -129,6 +130,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
     const now = performance.now();
     if (now - lastPull.current < 450) return;
     lastPull.current = now;
+    setBendDegrees(0);
     setSpinToken((token) => token + 1);
   }
 
@@ -203,6 +205,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   initialIndex={DEFAULT_METAL_INDEX}
                   spinToken={spinToken}
                   spinOrder={0}
+                  bendDegrees={bendDegrees}
                   onIndex={setMetalIndex}
                   onMotion={onMetalMotion}
                 />
@@ -212,6 +215,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   initialIndex={DEFAULT_WEIGHT_INDEX}
                   spinToken={spinToken}
                   spinOrder={1}
+                  bendDegrees={bendDegrees}
                   guardToken={weightGuard}
                   guardIndex={weightIndex}
                   onIndex={setWeightIndex}
@@ -223,6 +227,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   initialIndex={DEFAULT_COUNT_INDEX}
                   spinToken={spinToken}
                   spinOrder={2}
+                  bendDegrees={bendDegrees}
                   onIndex={setCountIndex}
                   onMotion={onCountMotion}
                 />
@@ -231,7 +236,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                 <div className="glass" aria-hidden="true" />
               </div>
             </div>
-            <Lever onPull={pull} />
+            <PullBall onCommit={pull} onBend={setBendDegrees} />
           </div>
 
           <div className="cabinet-gears" aria-hidden="true">

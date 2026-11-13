@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { camPastNotch, cylinderPose, nearestEnabledNotch, STOP_DEGREES } from "@/lib/drum";
 import { hapticClick } from "@/lib/haptics";
 import { REEL_ITEM_HEIGHT } from "@/lib/metals";
 
@@ -29,6 +30,8 @@ type Engine = {
   destroy: () => void;
 };
 
+const NOTCH_OVERSHOOT = 0.07;
+
 function mod(value: number, count: number): number {
   if (count <= 0) return 0;
   return ((value % count) + count) % count;
@@ -36,7 +39,7 @@ function mod(value: number, count: number): number {
 
 function createEngine(options: {
   initialIndex: number;
-  setPosition: (position: number) => void;
+  setKinetics: (position: number, velocity: number) => void;
   getCount: () => number;
   onIndex: (index: number) => void;
   onMotion: (moving: boolean) => void;
@@ -53,6 +56,7 @@ function createEngine(options: {
   let animTo = position;
   let animStart = 0;
   let animDur = 1;
+  let camNotch: number | null = null;
   let drag: { originY: number; originPos: number; samples: { t: number; y: number }[] } | null =
     null;
 
@@ -69,26 +73,12 @@ function createEngine(options: {
   }
 
   function nearestEnabledSlot(from: number): number {
-    const count = options.getCount();
-    const rounded = Math.round(from);
-    if (enabledIndex(rounded)) return rounded;
-    for (let delta = 1; delta < count; delta += 1) {
-      const ahead = rounded + delta;
-      const behind = rounded - delta;
-      const aheadOk = enabledIndex(ahead);
-      const behindOk = enabledIndex(behind);
-      if (aheadOk && behindOk) {
-        return Math.abs(ahead - from) <= Math.abs(from - behind) ? ahead : behind;
-      }
-      if (aheadOk) return ahead;
-      if (behindOk) return behind;
-    }
-    return rounded;
+    return nearestEnabledNotch(from, options.getCount(), options.isEnabled);
   }
 
   function setPos(next: number) {
     position = next;
-    options.setPosition(next);
+    options.setKinetics(next, velocity);
     const index = mod(Math.round(next), options.getCount());
     if (!enabledIndex(index)) return;
     if (index !== committed) {
@@ -109,20 +99,16 @@ function createEngine(options: {
     raf = requestAnimationFrame(tick);
   }
 
-  function startSnap(from: number): boolean {
-    const target = nearestEnabledSlot(from);
-    if (options.isReduced() || Math.abs(target - from) < 0.0001) {
-      velocity = 0;
-      setPos(target);
-      setPhase("idle");
-      return false;
+  function finishScript() {
+    if (camNotch !== null) {
+      const notch = camNotch;
+      camNotch = null;
+      animateTo(notch, options.isReduced() ? 0 : 160);
+      return;
     }
-    animFrom = from;
-    animTo = target;
-    animStart = performance.now();
-    animDur = 240;
-    setPhase("snap");
-    return true;
+    velocity = 0;
+    options.setKinetics(position, 0);
+    setPhase("idle");
   }
 
   function animateTo(target: number, duration: number) {
@@ -130,6 +116,11 @@ function createEngine(options: {
     if (options.isReduced() || duration <= 0 || Math.abs(target - position) < 0.0001) {
       velocity = 0;
       setPos(target);
+      if (camNotch !== null) {
+        const notch = camNotch;
+        camNotch = null;
+        setPos(notch);
+      }
       setPhase("idle");
       return;
     }
@@ -137,9 +128,21 @@ function createEngine(options: {
     animTo = target;
     animStart = performance.now();
     animDur = duration;
-    velocity = 0;
     setPhase("script");
     schedule();
+  }
+
+  function camToNotch(notch: number, duration: number) {
+    const past = camPastNotch(position, notch, NOTCH_OVERSHOOT);
+    if (options.isReduced() || Math.abs(past - notch) < 0.0001) {
+      camNotch = null;
+      velocity = 0;
+      setPos(notch);
+      setPhase("idle");
+      return;
+    }
+    camNotch = notch;
+    animateTo(past, duration);
   }
 
   function tick(now: number) {
@@ -155,17 +158,21 @@ function createEngine(options: {
       const distance = (previous - nextVelocity) / DECAY;
       velocity = nextVelocity;
       setPos(position + distance);
-      if (Math.abs(nextVelocity) < 0.5) startSnap(position);
+      if (Math.abs(nextVelocity) < 0.5) {
+        camToNotch(nearestEnabledSlot(position), 180);
+        return;
+      }
     }
 
     if (phase === "snap" || phase === "script") {
       const progress = Math.min(1, (now - animStart) / animDur);
       const power = phase === "script" ? 4 : 3;
       const eased = 1 - (1 - progress) ** power;
-      setPos(progress >= 1 ? animTo : animFrom + (animTo - animFrom) * eased);
+      const next = progress >= 1 ? animTo : animFrom + (animTo - animFrom) * eased;
+      velocity = (next - position) / Math.max(dt, 0.001);
+      setPos(next);
       if (progress >= 1) {
-        velocity = 0;
-        setPhase("idle");
+        finishScript();
         return;
       }
     }
@@ -212,7 +219,7 @@ function createEngine(options: {
       drag = null;
       const speed = options.isReduced() ? 0 : velocityFrom(samples);
       if (options.isReduced() || Math.abs(speed) < 0.4) {
-        if (startSnap(position)) schedule();
+        camToNotch(nearestEnabledSlot(position), 180);
         return;
       }
       velocity = speed;
@@ -246,13 +253,11 @@ function createEngine(options: {
       }
       const pool = enabled.length > 0 ? enabled : Array.from({ length: count }, (_, index) => index);
       const landIndex = pool[Math.floor(Math.random() * pool.length)] ?? 0;
-      let extra = (landIndex - mod(current, count) + count) % count;
-      if (extra === 0) extra = count;
+      let down = (mod(current, count) - landIndex + count) % count;
+      if (down === 0) down = count;
       const loops = options.isReduced() ? 0 : 3 + order;
-      animateTo(
-        current + loops * count + extra,
-        options.isReduced() ? 0 : 1400 + order * 480,
-      );
+      const notch = current - loops * count - down;
+      camToNotch(notch, options.isReduced() ? 0 : 880 + order * 260);
     },
     destroy() {
       stop();
@@ -270,6 +275,7 @@ export function Reel({
   spinOrder,
   guardToken = 0,
   guardIndex = 0,
+  bendDegrees = 0,
   onIndex,
   onMotion,
 }: {
@@ -280,10 +286,13 @@ export function Reel({
   spinOrder: number;
   guardToken?: number;
   guardIndex?: number;
+  bendDegrees?: number;
   onIndex: (index: number) => void;
   onMotion: (moving: boolean) => void;
 }) {
-  const [position, setPosition] = useState(initialIndex);
+  const [kinetics, setKinetics] = useState({ position: initialIndex, velocity: 0 });
+  const position = kinetics.position;
+  const velocity = kinetics.velocity;
   const engineRef = useRef<Engine | null>(null);
   const countRef = useRef(items.length);
   const itemsRef = useRef(items);
@@ -301,7 +310,7 @@ export function Reel({
   useEffect(() => {
     const engine = createEngine({
       initialIndex,
-      setPosition,
+      setKinetics: (next, speed) => setKinetics({ position: next, velocity: speed }),
       getCount: () => countRef.current,
       onIndex: (index) => listenerRef.current.onIndex(index),
       onMotion: (moving) => listenerRef.current.onMotion(moving),
@@ -329,16 +338,19 @@ export function Reel({
   }, [guardToken, guardIndex]);
 
   const count = items.length;
-  const base = Math.floor(position);
-  const fraction = position - base;
+  const shown = position - bendDegrees / STOP_DEGREES;
+  const base = Math.floor(shown);
+  const fraction = shown - base;
   const active = mod(Math.round(position), count);
+  const facing = mod(Math.round(shown), count);
   const activeSymbol = items[active];
+  const rolling = Math.abs(velocity) > 1.2;
+  const smear = rolling ? Math.min(8, Math.abs(velocity) * 0.16) : 0;
 
   return (
     <div className="reel-column" data-testid={`reel-${label.toLowerCase()}`}>
       <div className="reel-name">{label}</div>
       <div
-        className="reel-viewport"
         role="slider"
         tabIndex={0}
         aria-label={`${label} reel`}
@@ -349,6 +361,7 @@ export function Reel({
         aria-valuetext={
           activeSymbol ? `${activeSymbol.mark} ${activeSymbol.detail}` : label
         }
+        className={rolling ? "reel-viewport is-rolling" : "reel-viewport"}
         style={{ height: REEL_ITEM_HEIGHT * 3, touchAction: "none" }}
         onPointerDown={(event) => {
           if (event.button !== 0) return;
@@ -389,17 +402,24 @@ export function Reel({
           }
         }}
       >
+        <div className="reel-cylinder">
         {WINDOW.map((offset) => {
           const index = mod(base + offset, count);
           const symbol = items[index];
           if (!symbol) return null;
-          const y = (offset - fraction) * REEL_ITEM_HEIGHT + REEL_ITEM_HEIGHT;
-          const isActive = index === active;
+          const pose = cylinderPose(offset - fraction);
+          const y = REEL_ITEM_HEIGHT * 1.5 + pose.shift * REEL_ITEM_HEIGHT - REEL_ITEM_HEIGHT / 2;
+          const isActive = index === facing;
+          const smearY = -Math.sign(velocity) * smear;
           return (
             <div
               key={offset}
               className="symbol"
-              style={{ height: REEL_ITEM_HEIGHT, transform: `translate3d(0, ${y}px, 0)` }}
+              style={{
+                height: REEL_ITEM_HEIGHT,
+                transform: `translate3d(0, ${y}px, 0) scaleY(${pose.scaleY})`,
+                filter: smear > 0.4 ? `blur(${smear * 0.22}px)` : undefined,
+              }}
             >
               <div
                 className={
@@ -409,11 +429,15 @@ export function Reel({
                       ? "symbol-plate is-active"
                       : "symbol-plate"
                 }
-                style={
-                  !symbol.disabled && isActive && symbol.tint
-                    ? { boxShadow: `inset 0 0 0 1px ${symbol.tint}, 0 0 16px ${symbol.tint}33` }
-                    : undefined
-                }
+                style={{
+                  filter: `brightness(${pose.brightness})`,
+                  boxShadow:
+                    smear > 0.4
+                      ? `0 ${smearY}px ${smear}px rgba(0, 0, 0, 0.35)`
+                      : !symbol.disabled && isActive && symbol.tint
+                        ? `inset 0 0 0 1px ${symbol.tint}, 0 0 16px ${symbol.tint}33`
+                        : undefined,
+                }}
               >
                 <span
                   className="symbol-mark"
@@ -426,6 +450,7 @@ export function Reel({
             </div>
           );
         })}
+        </div>
       </div>
       <div className="reel-nudge">
         <button
