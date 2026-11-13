@@ -1,11 +1,11 @@
-/** Long-press the selected count, then pull the gap open toward the next stop. */
+/** Long-press the selected count, then slide whole numbers out from behind the neighboring stop. */
 
 export const STRETCH_HOLD_MS = 400;
 export const STRETCH_SLOP_PX = 10;
-export const STRETCH_RUBBER_PX = 36;
-export const STRETCH_SLOT_PX = 48;
+export const STRETCH_SLOT_PX = 72;
 
 export type GestureMode = "pending" | "drag" | "stretch";
+export type StretchDirection = "down" | "up";
 
 export function nextGestureMode(
   mode: GestureMode,
@@ -38,101 +38,126 @@ export function gapIntegers(from: number, to: number): number[] {
 }
 
 /**
- * Detents from the stop after `index` through the next real stop.
- * Gray values are left out. A wrap (100 back to 1) has no integers between.
+ * Whole numbers between the pressed stop and its neighbor.
+ * Down walks toward the stop above (the previous, lower count).
+ * Up walks toward the stop below (the next, higher count).
+ * A wrap, or two adjacent stops, has nothing to slide out.
  */
-export function stretchDetents(
+export function stretchSequence(
   stops: readonly number[],
   index: number,
-  direction: 1 | -1,
-  isEnabled: (value: number) => boolean,
+  direction: StretchDirection,
 ): number[] {
   const count = stops.length;
   const from = stops[index];
   if (count === 0 || from === undefined) return [];
-  const next = stops[(index + direction + count) % count];
-  if (next === undefined) return [];
-  const wraps = direction === 1 ? next <= from : next >= from;
-  const sequence = wraps ? [next] : [...gapIntegers(from, next), next];
-  return sequence.filter((value) => isEnabled(value));
+  const neighborIndex = direction === "down" ? index - 1 : index + 1;
+  const neighbor = stops[(neighborIndex + count) % count];
+  if (neighbor === undefined) return [];
+  if (direction === "down" && neighbor >= from) return [];
+  if (direction === "up" && neighbor <= from) return [];
+  return gapIntegers(from, neighbor);
 }
 
-export type StretchMove = {
-  committed: number[];
-  active: number | null;
-  rubber: boolean;
+export type SlidePlate = {
+  value: number;
+  /** Distance the plate has traveled out from the pinned stop. Frozen plates keep this. */
+  offsetPx: number;
+  reveal: number;
+  frozen: boolean;
+};
+
+export type SlideReading = {
+  direction: StretchDirection;
+  frozen: SlidePlate[];
+  sliding: SlidePlate | null;
+  /** The one highlighted value. The newest number that has started to appear. */
+  highlight: number;
   handoff: boolean;
-  openPx: number;
   remainderPx: number;
 };
 
 /**
- * `dy` grows as the finger moves down.
- * The first rubber band moves the art but commits nothing.
- * Each later slot commits the next detent. Landing on the real stop
- * hands off, and any extra travel is `remainderPx` for a normal drag.
+ * `distancePx` is how far the finger has pulled in `direction`.
+ * Each slot slides one whole number out from behind the previous one.
+ * After the last in-between number, further travel is `remainderPx` and the
+ * original stop moves with the finger.
  */
-export function readStretch(
-  dy: number,
-  detents: readonly number[],
-  terminal: number | null,
-): StretchMove {
-  const down = Math.max(0, dy);
-  const resisted = Math.min(down, STRETCH_RUBBER_PX) * 0.35;
-  if (down <= STRETCH_RUBBER_PX || detents.length === 0) {
+export function readSlide(
+  distancePx: number,
+  direction: StretchDirection,
+  sequence: readonly number[],
+  anchor: number,
+  slotPx = STRETCH_SLOT_PX,
+): SlideReading {
+  const distance = Math.max(0, distancePx);
+  if (sequence.length === 0 || slotPx <= 0) {
     return {
-      committed: [],
-      active: null,
-      rubber: true,
-      handoff: false,
-      openPx: resisted,
-      remainderPx: 0,
+      direction,
+      frozen: [],
+      sliding: null,
+      highlight: anchor,
+      handoff: distance > 0,
+      remainderPx: distance,
     };
   }
-  const past = down - STRETCH_RUBBER_PX;
-  const reached = Math.min(detents.length, Math.floor(past / STRETCH_SLOT_PX) + 1);
-  const committed = detents.slice(0, reached);
-  const last = committed[committed.length - 1] ?? null;
-  const handoff = terminal !== null && last === terminal && reached === detents.length;
-  const shown = handoff ? Math.max(0, reached - 1) : reached;
-  const remainderPx = handoff ? past - (detents.length - 1) * STRETCH_SLOT_PX : 0;
+  const frozen: SlidePlate[] = [];
+  let sliding: SlidePlate | null = null;
+  for (let index = 0; index < sequence.length; index += 1) {
+    const into = distance - index * slotPx;
+    if (into <= 0) break;
+    const nextStarted = distance > (index + 1) * slotPx;
+    const reveal = nextStarted ? 1 : Math.min(1, into / slotPx);
+    const lastAndDone = index === sequence.length - 1 && into >= slotPx;
+    const plate: SlidePlate = {
+      value: sequence[index],
+      offsetPx: (index + reveal) * slotPx,
+      reveal,
+      frozen: nextStarted || lastAndDone,
+    };
+    if (plate.frozen) frozen.push(plate);
+    else sliding = plate;
+  }
+  const highlight = sliding?.value ?? frozen[frozen.length - 1]?.value ?? anchor;
+  const handoff = distance >= sequence.length * slotPx;
   return {
-    committed,
-    active: last,
-    rubber: false,
+    direction,
+    frozen,
+    sliding,
+    highlight,
     handoff,
-    openPx: resisted + shown * STRETCH_SLOT_PX,
-    remainderPx: Math.max(0, remainderPx),
+    remainderPx: handoff ? distance - sequence.length * slotPx : 0,
   };
 }
 
-/** After the finger lifts, keep a valid in-between count or the nearest valid one. */
+/**
+ * Keep the value under the finger. A gray count falls back to the nearest
+ * real stop that is still allowed. Ties prefer the higher stop.
+ */
 export function valueAfterRelease(
   anchor: number,
-  active: number | null,
+  ended: number | null,
   stops: readonly number[],
   isEnabled: (value: number) => boolean,
 ): number {
-  const value = active ?? anchor;
+  const value = ended ?? anchor;
   if (isEnabled(value)) return value;
-  if (stops.length === 0) return value;
-  const min = Math.min(...stops);
-  const max = Math.max(...stops);
   let best: number | null = null;
   let bestDistance = Number.POSITIVE_INFINITY;
-  for (let candidate = min; candidate <= max; candidate += 1) {
-    if (!isEnabled(candidate)) continue;
-    const distance = Math.abs(candidate - value);
-    if (distance < bestDistance || (distance === bestDistance && best !== null && candidate > best)) {
-      best = candidate;
+  for (const stop of stops) {
+    if (!isEnabled(stop)) continue;
+    const distance = Math.abs(stop - value);
+    if (distance < bestDistance || (distance === bestDistance && best !== null && stop > best)) {
+      best = stop;
       bestDistance = distance;
     }
   }
-  return best ?? max;
+  return best ?? anchor;
 }
 
-/** Normal drag continues down from the real stop the stretch just reached. */
-export function handoffPosition(nextIndex: number, remainderPx: number, itemHeight: number): number {
-  if (itemHeight <= 0) return nextIndex;
-  return nextIndex - remainderPx / itemHeight;
+/** Extra travel after the in-between numbers, in reel stops. Down lowers the index. */
+export function handoffShift(direction: StretchDirection, remainderPx: number, itemHeight: number): number {
+  if (itemHeight <= 0) return 0;
+  const stops = remainderPx / itemHeight;
+  return direction === "down" ? -stops : stops;
 }

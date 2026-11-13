@@ -15,13 +15,15 @@ import { reelSnap, unlockReelClick } from "@/lib/reel-click";
 import { REEL_ITEM_HEIGHT } from "@/lib/metals";
 import {
   STRETCH_HOLD_MS,
-  handoffPosition,
+  STRETCH_SLOT_PX,
+  handoffShift,
   nextGestureMode,
   pressHitsCenter,
-  readStretch,
-  stretchDetents,
+  readSlide,
+  stretchSequence,
   valueAfterRelease,
   type GestureMode,
+  type StretchDirection,
 } from "@/lib/stretch";
 
 export type ReelSymbol = {
@@ -35,10 +37,12 @@ export type ReelSymbol = {
 type Phase = "idle" | "drag" | "coast" | "snap" | "script" | "contract";
 
 export type StretchFrame = {
-  openPx: number;
+  direction: StretchDirection;
   anchorIndex: number;
-  active: number;
-  revealed: number[];
+  anchorValue: number;
+  pinnedOffset: -1 | 1;
+  highlight: number;
+  plates: { value: number; offsetPx: number; reveal: number; frozen: boolean; gray: boolean }[];
 };
 
 export type StretchConfig = {
@@ -99,9 +103,9 @@ function createEngine(options: {
   let gesture: GestureMode = "drag";
   let holdTimer = 0;
   let anchorIndex = options.initialIndex;
-  let fired = 0;
-  let openPx = 0;
+  let slideDirection: StretchDirection | null = null;
   let stretchActive: number | null = null;
+  let slidePlates: StretchFrame["plates"] = [];
 
   function setPhase(next: Phase) {
     if (phase === next) return;
@@ -248,18 +252,20 @@ function createEngine(options: {
     gesture = "stretch";
     const count = options.getCount();
     anchorIndex = mod(Math.round(position), count);
-    fired = 0;
+    slideDirection = null;
     stretchActive = null;
+    slidePlates = [];
     velocity = 0;
     setPos(anchorIndex);
-    reelSnap();
-    openPx = 0;
     const stops = options.getStretch()?.stops ?? [];
+    const anchor = stops[anchorIndex] ?? anchorIndex;
     publishStretch({
-      openPx: 0,
+      direction: "down",
       anchorIndex,
-      active: stops[anchorIndex] ?? anchorIndex,
-      revealed: [],
+      anchorValue: anchor,
+      pinnedOffset: -1,
+      highlight: anchor,
+      plates: [],
     });
   }
 
@@ -268,37 +274,49 @@ function createEngine(options: {
     const config = options.getStretch();
     if (!current || !config) return;
     const stops = config.stops;
-    const nextIndex = (anchorIndex + 1) % Math.max(1, stops.length);
-    const nextValue = stops[nextIndex];
-    const detents = stretchDetents(stops, anchorIndex, 1, config.isValueEnabled);
-    const terminal = detents[detents.length - 1] === nextValue ? nextValue : null;
-    const reading = readStretch(y - current.originY, detents, terminal ?? null);
-    if (reading.committed.length > fired) {
-      for (const value of reading.committed.slice(fired)) reelSnap();
+    const anchor = stops[anchorIndex];
+    if (anchor === undefined) return;
+    const dy = y - current.originY;
+    if (slideDirection === null) {
+      if (Math.abs(dy) < 2) return;
+      slideDirection = dy > 0 ? "down" : "up";
     }
-    fired = reading.committed.length;
-    stretchActive = reading.active;
-    const shown = reading.active ?? stops[anchorIndex];
-    if (shown !== undefined) options.onPieces(shown);
-    if (!reading.handoff || nextValue === undefined) {
-      openPx = reading.openPx;
+    let along = slideDirection === "down" ? dy : -dy;
+    if (along < 0) {
+      slideDirection = slideDirection === "down" ? "up" : "down";
+      along = -along;
+    }
+    const sequence = stretchSequence(stops, anchorIndex, slideDirection);
+    const reading = readSlide(along, slideDirection, sequence, anchor, STRETCH_SLOT_PX);
+    const plates = [...reading.frozen, ...(reading.sliding ? [reading.sliding] : [])].map((plate) => ({
+      ...plate,
+      gray: !config.isValueEnabled(plate.value),
+    }));
+    slidePlates = plates;
+    stretchActive = reading.highlight === anchor ? null : reading.highlight;
+    options.onPieces(reading.highlight);
+    if (!reading.handoff) {
       publishStretch({
-        openPx,
+        direction: slideDirection,
         anchorIndex,
-        active: shown ?? stops[anchorIndex] ?? 0,
-        revealed: reading.committed.filter((value) => value !== nextValue),
+        anchorValue: anchor,
+        pinnedOffset: slideDirection === "down" ? -1 : 1,
+        highlight: reading.highlight,
+        plates,
       });
       return;
     }
-    const nextPos = handoffPosition(nextIndex, reading.remainderPx, REEL_ITEM_HEIGHT);
+    const nextPos = anchorIndex + handoffShift(slideDirection, reading.remainderPx, REEL_ITEM_HEIGHT);
     gesture = "drag";
-    fired = 0;
-    openPx = 0;
+    slideDirection = null;
+    stretchActive = null;
+    slidePlates = [];
     publishStretch(null);
+    options.onPieces(anchor);
     current.originY = y;
     current.originPos = nextPos;
     current.samples = [{ t: time, y }];
-    committed = nextIndex;
+    committed = anchorIndex;
     setPos(nextPos);
   }
 
@@ -306,26 +324,30 @@ function createEngine(options: {
     const config = options.getStretch();
     const stops = config?.stops ?? [];
     const anchor = stops[anchorIndex] ?? anchorIndex;
-    const kept = valueAfterRelease(
-      anchor,
-      stretchActive,
-      stops,
-      config?.isValueEnabled ?? (() => true),
-    );
+    const kept = valueAfterRelease(anchor, stretchActive, stops, config?.isValueEnabled ?? (() => true));
+    const keptIndex = stops.indexOf(kept);
     options.onPieces(kept);
     drag = null;
     gesture = "drag";
-    const from = openPx;
+    const direction = slideDirection ?? "down";
+    const from = slidePlates.map((plate) => ({ ...plate }));
+    slideDirection = null;
+    if (keptIndex >= 0 && keptIndex !== anchorIndex) {
+      slidePlates = [];
+      publishStretch(null);
+      animateTo(keptIndex, options.isReduced() ? 0 : 280);
+      return;
+    }
     const start = performance.now();
-    const duration = options.isReduced() ? 0 : 280;
+    const duration = options.isReduced() ? 0 : 320;
     const finish = () => {
-      openPx = 0;
+      slidePlates = [];
       stretchActive = null;
       publishStretch(null);
       velocity = 0;
       setPhase("idle");
     };
-    if (duration <= 0) {
+    if (duration <= 0 || from.length === 0) {
       finish();
       return;
     }
@@ -333,13 +355,19 @@ function createEngine(options: {
     const step = (now: number) => {
       const t = Math.min(1, (now - start) / duration);
       const eased = 1 - (1 - t) ** 3;
-      openPx = from * (1 - eased);
-      const revealed = stretchActive === null || stretchActive === anchor ? [] : [stretchActive];
+      const scale = 1 - eased;
+      slidePlates = from.map((plate) => ({
+        ...plate,
+        offsetPx: plate.offsetPx * scale,
+        reveal: plate.reveal * scale,
+      }));
       publishStretch({
-        openPx,
+        direction,
         anchorIndex,
-        active: kept,
-        revealed: openPx > 4 ? revealed : [],
+        anchorValue: anchor,
+        pinnedOffset: direction === "down" ? -1 : 1,
+        highlight: kept,
+        plates: slidePlates,
       });
       if (t < 1) {
         raf = requestAnimationFrame(step);
@@ -564,9 +592,7 @@ export function Reel({
   const activeSymbol = items[active];
   const rolling = Math.abs(velocity) > 1.2;
   const smear = rolling ? Math.min(8, Math.abs(velocity) * 0.16) : 0;
-  const spoken = stretchFrame
-    ? stretchFrame.active
-    : centerPieces;
+  const spoken = stretchFrame ? stretchFrame.highlight : centerPieces;
   const valueText =
     spoken != null
       ? `×${spoken} ${spoken === 1 ? "piece" : "pieces"}`
@@ -644,23 +670,27 @@ export function Reel({
           if (!symbol) return null;
           const pose = cylinderPose(offset - fraction);
           const y = REEL_ITEM_HEIGHT * 1.5 + pose.shift * REEL_ITEM_HEIGHT - REEL_ITEM_HEIGHT / 2;
-          const pin = stretchFrame ? Math.min(stretchFrame.openPx, REEL_ITEM_HEIGHT) : 0;
-          const drop = stretchFrame ? (offset > 0 ? stretchFrame.openPx : -pin) : 0;
           const isActive = index === facing;
-          const held = Boolean(stretchFrame && offset === 0);
+          const pinned = Boolean(stretchFrame && offset === stretchFrame.pinnedOffset);
+          const anchorLit = Boolean(
+            stretchFrame && offset === 0 && stretchFrame.highlight === stretchFrame.anchorValue,
+          );
           const override = !stretchFrame && centerPieces != null && offset === 0;
           const mark = override ? `×${centerPieces}` : symbol.mark;
           const detail = override ? (centerPieces === 1 ? "piece" : "pieces") : symbol.detail;
           const smearY = -Math.sign(velocity) * smear;
-          const glow =
-            "inset 0 0 0 1px rgba(240, 215, 140, 0.95), 0 0 18px rgba(240, 200, 90, 0.55)";
+          const highlightShadow =
+            "inset 0 0 0 1px rgba(240, 215, 140, 0.95), 0 0 16px rgba(240, 200, 90, 0.45)";
+          const covered = Boolean(stretchFrame && stretchFrame.plates.length > 0 && offset === 0);
           return (
             <div
               key={offset}
               className="symbol"
               style={{
                 height: REEL_ITEM_HEIGHT,
-                transform: `translate3d(0, ${y + drop}px, 0) scaleY(${pose.scaleY})`,
+                zIndex: pinned ? 12 : 1,
+                opacity: covered ? 0 : 1,
+                transform: `translate3d(0, ${y}px, 0) scaleY(${pose.scaleY})`,
                 filter: smear > 0.4 ? `blur(${smear * 0.22}px)` : undefined,
               }}
             >
@@ -668,18 +698,17 @@ export function Reel({
                 className={
                   !override && symbol.disabled
                     ? "symbol-plate is-disabled"
-                    : isActive || override
+                    : anchorLit || override || (!stretchFrame && isActive)
                       ? "symbol-plate is-active"
                       : "symbol-plate"
                 }
                 style={{
                   filter: `brightness(${pose.brightness})`,
-                  transform: held ? "scale(1.07)" : undefined,
-                  boxShadow: held
-                    ? glow
+                  boxShadow: anchorLit
+                    ? highlightShadow
                     : smear > 0.4
                       ? `0 ${smearY}px ${smear}px rgba(0, 0, 0, 0.35)`
-                      : !symbol.disabled && isActive && symbol.tint
+                      : !symbol.disabled && !stretchFrame && isActive && symbol.tint
                         ? `inset 0 0 0 1px ${symbol.tint}, 0 0 16px ${symbol.tint}33`
                         : undefined,
                 }}
@@ -695,33 +724,43 @@ export function Reel({
             </div>
           );
         })}
-        {stretchFrame?.revealed.slice(-2).map((value, index, visible) => {
-          const pin = Math.min(stretchFrame.openPx, REEL_ITEM_HEIGHT * 0.85);
-          const anchorBottom = REEL_ITEM_HEIGHT * 2 - pin;
-          const available = REEL_ITEM_HEIGHT * 3 - anchorBottom - 8;
-          const slice = Math.min(68, available / visible.length);
-          const top = anchorBottom + index * slice;
-          const current = value === stretchFrame.active;
+        {stretchFrame?.plates.map((plate, index) => {
+          const pinPose = cylinderPose(stretchFrame.pinnedOffset);
+          const pinTop =
+            REEL_ITEM_HEIGHT * 1.5 + pinPose.shift * REEL_ITEM_HEIGHT - REEL_ITEM_HEIGHT / 2;
+          const pinEdge = stretchFrame.direction === "down" ? pinTop + REEL_ITEM_HEIGHT : pinTop;
+          const slot = STRETCH_SLOT_PX;
+          const emerged = Math.max(0, plate.offsetPx - slot);
+          const clipTop =
+            stretchFrame.direction === "down" ? pinEdge + emerged : pinEdge - plate.offsetPx;
+          const hidden = (1 - plate.reveal) * slot;
           return (
             <div
-              key={`gap-${value}`}
+              key={`slide-${plate.value}`}
               className="symbol"
               style={{
-                height: Math.max(32, slice),
-                transform: `translate3d(0, ${top}px, 0)`,
+                height: slot,
+                zIndex: 8 - index,
+                overflow: "hidden",
+                transform: `translate3d(0, ${clipTop}px, 0)`,
               }}
             >
               <div
-                className="symbol-plate is-active"
+                className={plate.gray ? "symbol-plate is-disabled" : "symbol-plate"}
                 style={{
-                  transform: current ? "scale(1.04)" : undefined,
-                  boxShadow: current
-                    ? "inset 0 0 0 1px rgba(240, 215, 140, 0.8), 0 0 12px rgba(240, 200, 90, 0.35)"
-                    : undefined,
+                  height: slot,
+                  background: "#1a130e",
+                  transform: `translateY(${stretchFrame.direction === "down" ? -hidden : hidden}px)`,
+                  boxShadow:
+                    plate.value === stretchFrame.highlight && !plate.gray
+                      ? "inset 0 0 0 1px rgba(240, 215, 140, 0.95), 0 0 16px rgba(240, 200, 90, 0.45)"
+                      : "inset 0 0 0 1px rgba(198, 161, 90, 0.28)",
                 }}
               >
-                <span className="symbol-mark" style={{ color: "#f0d78c" }}>{`×${value}`}</span>
-                <span className="symbol-detail">pieces</span>
+                <span
+                  className="symbol-mark"
+                  style={{ fontSize: "1.35rem", color: plate.gray ? "#8d8478" : "#f0e2c4" }}
+                >{`×${plate.value}`}</span>
               </div>
             </div>
           );
