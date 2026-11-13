@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 
-import { hapticClick } from "@/lib/haptics";
+import { hapticClick, resetHapticQueue } from "@/lib/haptics";
 
 type Vibrate = (pattern: number | number[]) => boolean;
 
@@ -9,6 +9,7 @@ const vibrateDescriptor = Object.getOwnPropertyDescriptor(Navigator.prototype, "
 const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, "window");
 
 afterEach(() => {
+  resetHapticQueue();
   if (vibrateDescriptor) {
     Object.defineProperty(Navigator.prototype, "vibrate", vibrateDescriptor);
   } else {
@@ -44,13 +45,24 @@ test("a reel click asks for a pulse Android motors can produce", () => {
   hapticClick();
 
   assert.equal(calls.length, 1);
-  const pulses = vibrateDurations(calls[0]);
-  assert.ok(pulses.length > 0);
-  assert.ok(
-    pulses.some((ms) => ms >= 20 && ms <= 40),
-    `expected a 20–40ms pulse, got ${JSON.stringify(calls[0])}`,
-  );
-  assert.ok(pulses.every((ms) => ms > 0));
+  assert.equal(calls[0], 40);
+});
+
+test("rapid stops keep a 40ms pulse instead of restarting the motor", async () => {
+  const calls: Array<number | number[]> = [];
+  installVibrate((pattern) => {
+    calls.push(pattern);
+    return true;
+  });
+
+  hapticClick();
+  hapticClick();
+  hapticClick();
+
+  assert.deepEqual(calls, [40]);
+  await new Promise((resolve) => setTimeout(resolve, 130));
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[1], [40, 40, 40]);
 });
 
 test("prefers-reduced-motion does not suppress the click", () => {
@@ -86,6 +98,7 @@ test("a thrown or rejected vibrate call stays inside the helper", () => {
     throw new Error("blocked");
   });
   assert.doesNotThrow(() => hapticClick());
+  resetHapticQueue();
 
   let returned = true;
   installVibrate(() => {

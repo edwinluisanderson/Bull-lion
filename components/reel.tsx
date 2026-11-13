@@ -222,6 +222,7 @@ function createEngine(options: {
       if (phase !== "drag" || !drag) return;
       const samples = drag.samples;
       drag = null;
+      hapticClick();
       const speed = options.isReduced() ? 0 : velocityFrom(samples);
       if (options.isReduced() || Math.abs(speed) < 0.4) {
         camToNotch(nearestEnabledSlot(position), 180);
@@ -232,6 +233,7 @@ function createEngine(options: {
       schedule();
     },
     step(direction) {
+      hapticClick();
       const count = options.getCount();
       const start = Math.round(position);
       for (let delta = 1; delta <= count; delta += 1) {
@@ -243,6 +245,7 @@ function createEngine(options: {
       }
     },
     jump(index) {
+      hapticClick();
       const count = options.getCount();
       const target = enabledIndex(index) ? index : nearestEnabledSlot(index);
       const targetMod = mod(target, count);
@@ -253,6 +256,7 @@ function createEngine(options: {
       animateTo(position + delta, options.isReduced() ? 0 : 320);
     },
     lever(order) {
+      hapticClick();
       const count = options.getCount();
       const current = Math.round(position);
       const enabled: number[] = [];

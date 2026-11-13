@@ -1,19 +1,63 @@
 /**
- * One short click when a reel settles on the next stop.
+ * Detent click for a reel stop.
  * Silent when the Vibration API is missing.
  *
  * Reduced motion is intentionally not checked. Android reports
  * `prefers-reduced-motion: reduce` when "Remove animations" is on,
  * and that setting should not mute the detent click.
+ *
+ * A new vibrate() call cancels the one in progress. Stops during a
+ * fast spin arrive closer together than 40ms, which restarts the
+ * pulse before an Android motor can spin up. Pulses that arrive
+ * while one is playing are kept and sent as the next pattern.
  */
-const HAPTIC_CLICK_MS = 40;
+export const HAPTIC_CLICK_MS = 40;
 
-export function hapticClick(): void {
+let queued = 0;
+let timer: ReturnType<typeof setTimeout> | undefined;
+
+function patternFor(count: number): number | number[] {
+  if (count <= 1) return HAPTIC_CLICK_MS;
+  const pattern: number[] = [];
+  for (let index = 0; index < count; index += 1) {
+    if (index > 0) pattern.push(HAPTIC_CLICK_MS);
+    pattern.push(HAPTIC_CLICK_MS);
+  }
+  return pattern;
+}
+
+function play(count: number): void {
+  if (count <= 0) return;
   try {
     if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
-    // A 10ms pulse is valid but many Android motors never spin up for it.
-    navigator.vibrate(HAPTIC_CLICK_MS);
+    navigator.vibrate(patternFor(count));
   } catch {
     /* Haptics are optional. */
   }
+}
+
+function flush(): void {
+  timer = undefined;
+  if (queued <= 0) return;
+  const count = queued;
+  queued = 0;
+  play(count);
+  const pulses = count * HAPTIC_CLICK_MS + Math.max(0, count - 1) * HAPTIC_CLICK_MS;
+  timer = setTimeout(flush, pulses);
+}
+
+export function resetHapticQueue(): void {
+  queued = 0;
+  if (timer !== undefined) clearTimeout(timer);
+  timer = undefined;
+}
+
+export function hapticClick(): void {
+  queued += 1;
+  if (timer !== undefined) return;
+  const count = queued;
+  queued = 0;
+  play(count);
+  const pulses = count * HAPTIC_CLICK_MS + Math.max(0, count - 1) * HAPTIC_CLICK_MS;
+  timer = setTimeout(flush, pulses);
 }
