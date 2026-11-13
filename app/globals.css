@@ -657,7 +657,7 @@ button,
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
-  margin: 1rem 0.9rem 0.75rem;
+  margin: 1rem 0.9rem 0;
 }
 
 .marquee {
@@ -676,19 +676,11 @@ button,
   box-sizing: border-box;
 }
 
-.melt-gear {
-  position: absolute;
-  z-index: 6;
-  top: -4px;
-  pointer-events: none;
-}
-
-.melt-gear-left {
-  left: -14px;
-}
-
-.melt-gear-right {
-  right: -14px;
+.cabinet-gears {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.15rem;
 }
 
 .melt-heading {

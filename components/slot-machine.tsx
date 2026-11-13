@@ -189,6 +189,11 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             <Readout metal={metal} weight={weight} pieces={pieces} spinning={spinning} />
           ) : null}
 
+          <div className="cabinet-gears" aria-hidden="true">
+            <Gear className="gear marquee-gear" />
+            <Gear className="gear marquee-gear gear-reverse" />
+          </div>
+
           <div className="playfield">
             <div className="window-frame">
               <span className="rivet frame-rivet" data-corner="tl" />
