@@ -27,6 +27,25 @@ export function releaseCommitsSpin(travel: number): boolean {
 }
 
 /**
+ * A parent correction (copper count fallback) is a new token.
+ * A flick that only changes the selected index must not jump the reel again.
+ */
+export function shouldApplyGuard(token: number, applied: number): boolean {
+  return token > 0 && token !== applied;
+}
+
+/** Rounded stop while a reel is moving. Disabled stops return null so the reel keeps traveling. */
+export function commitIndex(
+  position: number,
+  count: number,
+  isEnabled: (index: number) => boolean,
+): number | null {
+  if (count <= 0) return null;
+  const index = modStop(Math.round(position), count);
+  return isEnabled(index) ? index : null;
+}
+
+/**
  * Stage A: at most a fraction of a degree of strain, not a stop of rotation.
  * Stage B: 2–5 degrees backward (negative). Stage C is the free spin, so the bend is 0.
  */

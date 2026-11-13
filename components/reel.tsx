@@ -2,7 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { camPastNotch, cylinderPose, nearestEnabledNotch, STOP_DEGREES } from "@/lib/drum";
+import {
+  camPastNotch,
+  commitIndex,
+  cylinderPose,
+  nearestEnabledNotch,
+  shouldApplyGuard,
+  STOP_DEGREES,
+} from "@/lib/drum";
 import { hapticClick } from "@/lib/haptics";
 import { REEL_ITEM_HEIGHT } from "@/lib/metals";
 
@@ -79,13 +86,11 @@ function createEngine(options: {
   function setPos(next: number) {
     position = next;
     options.setKinetics(next, velocity);
-    const index = mod(Math.round(next), options.getCount());
-    if (!enabledIndex(index)) return;
-    if (index !== committed) {
-      committed = index;
-      options.onIndex(index);
-      hapticClick();
-    }
+    const index = commitIndex(next, options.getCount(), options.isEnabled);
+    if (index === null || index === committed) return;
+    committed = index;
+    options.onIndex(index);
+    hapticClick();
   }
 
   function stop() {
@@ -239,10 +244,13 @@ function createEngine(options: {
     },
     jump(index) {
       const count = options.getCount();
-      const current = Math.round(position);
       const target = enabledIndex(index) ? index : nearestEnabledSlot(index);
-      const delta = mod(target, count) - mod(current, count);
-      animateTo(current + delta, options.isReduced() ? 0 : 220);
+      const targetMod = mod(target, count);
+      const currentMod = mod(position, count);
+      let delta = targetMod - currentMod;
+      if (delta > count / 2) delta -= count;
+      if (delta < -count / 2) delta += count;
+      animateTo(position + delta, options.isReduced() ? 0 : 320);
     },
     lever(order) {
       const count = options.getCount();
@@ -294,6 +302,7 @@ export function Reel({
   const position = kinetics.position;
   const velocity = kinetics.velocity;
   const engineRef = useRef<Engine | null>(null);
+  const appliedGuard = useRef(0);
   const countRef = useRef(items.length);
   const itemsRef = useRef(items);
   const listenerRef = useRef({ onIndex, onMotion });
@@ -333,7 +342,8 @@ export function Reel({
   }, [spinToken, spinOrder]);
 
   useEffect(() => {
-    if (guardToken === 0) return;
+    if (!shouldApplyGuard(guardToken, appliedGuard.current)) return;
+    appliedGuard.current = guardToken;
     engineRef.current?.jump(guardIndex);
   }, [guardToken, guardIndex]);
 

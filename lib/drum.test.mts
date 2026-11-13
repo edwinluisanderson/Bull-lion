@@ -3,10 +3,13 @@ import { test } from "node:test";
 
 import {
   camPastNotch,
+  commitIndex,
   cylinderPose,
+  modStop,
   nearestEnabledNotch,
   pullStage,
   releaseCommitsSpin,
+  shouldApplyGuard,
   stageBendDegrees,
 } from "@/lib/drum";
 
@@ -45,6 +48,19 @@ test("the notch cam passes the nearest stop then names that center", () => {
   const skipFour = (index: number) => index % 11 !== 4;
   assert.equal(nearestEnabledNotch(4, 11, skipFour), 5);
   assert.equal(nearestEnabledNotch(3.9, 11, skipFour), 3);
+});
+
+test("a count flick keeps spinning across gray stops and only a new guard token jumps", () => {
+  const count = 8;
+  const enabled = (index: number) => index >= 6;
+  assert.equal(commitIndex(2.2, count, enabled), null);
+  assert.equal(commitIndex(6.1, count, enabled), 6);
+  const land = nearestEnabledNotch(2.2, count, enabled);
+  assert.equal(enabled(modStop(land, count)), true);
+  assert.ok(Math.abs(land - 2.2) < 4);
+  assert.equal(shouldApplyGuard(1, 0), true);
+  assert.equal(shouldApplyGuard(1, 1), false);
+  assert.equal(shouldApplyGuard(0, 0), false);
 });
 
 test("cylinder faces shrink and crowd toward the edges", () => {

@@ -1,11 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { pullStage, stageBendDegrees, type PullStage } from "@/lib/drum";
 import { hapticClick } from "@/lib/haptics";
-
-const THROW_PX = 156;
 
 export function PullBall({
   onCommit,
@@ -15,7 +13,10 @@ export function PullBall({
   onBend: (degrees: number) => void;
 }) {
   const [travel, setTravel] = useState(0);
+  const [throwPx, setThrowPx] = useState(1);
   const [motion, setMotion] = useState<"rest" | "drag" | "spring" | "rocket">("rest");
+  const ballRef = useRef<HTMLButtonElement>(null);
+  const throwRef = useRef(1);
   const originY = useRef<number | null>(null);
   const travelRef = useRef(0);
   const stageRef = useRef<PullStage>("a");
@@ -26,6 +27,20 @@ export function PullBall({
 
   function reduced() {
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function measureThrow() {
+    const ball = ballRef.current;
+    const frame = ball?.closest(".playfield")?.querySelector(".window-frame");
+    if (!ball || !frame) return throwRef.current;
+    const ballBox = ball.getBoundingClientRect();
+    const frameBox = frame.getBoundingClientRect();
+    const restTop = ballBox.top - travelRef.current * throwRef.current;
+    const distance = frameBox.bottom - (restTop + ballBox.height);
+    const next = Math.max(1, distance);
+    throwRef.current = next;
+    setThrowPx(next);
+    return next;
   }
 
   function setTravelValue(next: number) {
@@ -81,8 +96,16 @@ export function PullBall({
     frame.current = requestAnimationFrame(step);
   }
 
+  useEffect(() => {
+    measureThrow();
+    const onResize = () => measureThrow();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   function fullPull() {
     if (committed.current) return;
+    measureThrow();
     if (reduced()) {
       committed.current = true;
       onBend(0);
@@ -108,15 +131,18 @@ export function PullBall({
 
   return (
     <button
+      ref={ballRef}
       type="button"
       className={`pull-ball is-${motion}`}
       aria-label="Pull the ball to spin all three reels"
       data-stage={stageRef.current}
-      style={{ transform: `translate3d(0, ${travel * THROW_PX}px, 0)` }}
+      data-throw={Math.round(throwPx)}
+      style={{ transform: `translate3d(0, ${travel * throwPx}px, 0)` }}
       onPointerDown={(event) => {
         if (event.button !== 0) return;
         if (event.cancelable) event.preventDefault();
         stopFrame();
+        measureThrow();
         originY.current = event.clientY;
         dragged.current = false;
         setMotion("drag");
@@ -126,7 +152,7 @@ export function PullBall({
           if (move.cancelable) move.preventDefault();
           const dy = move.clientY - originY.current;
           if (dy > 6) dragged.current = true;
-          dragTo(dy / THROW_PX);
+          dragTo(dy / throwRef.current);
         };
         const onUp = (up: PointerEvent) => {
           if (up.pointerId !== pointerId) return;
