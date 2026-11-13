@@ -12,6 +12,27 @@ const byId = (id: string) => {
   return weight;
 };
 
+test("reel faces stay on the pre-plate abbreviations", () => {
+  assert.deepEqual(
+    WEIGHTS.map((weight) => [weight.face, weight.detail]),
+    [
+      ["1 g", "gram"],
+      ["5 g", "grams"],
+      ["10 g", "grams"],
+      ["1/10 oz", "troy"],
+      ["1/4 oz", "troy"],
+      ["1/2 oz", "troy"],
+      ["1 oz", "troy"],
+      ["5 oz", "troy"],
+      ["10 oz", "troy"],
+      ["100 g", "grams"],
+      ["1 kg", "kilogram"],
+    ],
+  );
+  assert.equal(`${byId("10g").face} ${byId("10g").detail}`, "10 g grams");
+  assert.notEqual(formatStackPhrase(byId("10g"), 1), "10 g grams, 1 piece");
+});
+
 test("weight phrases spell grams and reserve troy for ounces", () => {
   assert.equal(formatWeightPhrase(byId("1g")), "1 gram");
   assert.equal(formatWeightPhrase(byId("10g")), "10 grams");

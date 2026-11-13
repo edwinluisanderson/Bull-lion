@@ -19,7 +19,6 @@ import {
 } from "@/lib/metals";
 import { LIVE_SPOT_NOTE, parsePriceBook, type PriceBook } from "@/lib/price-book";
 import { meltValue } from "@/lib/value";
-import { formatStackPhrase, weightWords } from "@/lib/weight-label";
 
 function lampLabel(source: PriceBook["source"]): string {
   if (source === "live") return "Live wire";
@@ -55,16 +54,13 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
 
   const weightItems = useMemo<ReelSymbol[]>(() => {
     const copper = metal?.symbol === "HG" ? metal.usdPerTroyOz : null;
-    return WEIGHTS.map((entry) => {
-      const words = weightWords(entry);
-      return {
-        key: entry.id,
-        mark: words.amount,
-        detail: words.unit,
-        tint: "#f0d78c",
-        disabled: copper !== null && !weightShowsDollars(copper, entry.grams, pieces),
-      };
-    });
+    return WEIGHTS.map((entry) => ({
+      key: entry.id,
+      mark: entry.face,
+      detail: entry.detail,
+      tint: "#f0d78c",
+      disabled: copper !== null && !weightShowsDollars(copper, entry.grams, pieces),
+    }));
   }, [metal, pieces]);
 
   const countItems = useMemo<ReelSymbol[]>(
@@ -91,6 +87,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const onWeightMotion = useCallback((moving: boolean) => setReelMotion(1, moving), [setReelMotion]);
   const onCountMotion = useCallback((moving: boolean) => setReelMotion(2, moving), [setReelMotion]);
 
+  const noun = pieces === 1 ? "piece" : "pieces";
   const total = metal ? meltValue(metal.usdPerTroyOz, weight.grams, pieces) : 0;
   const formula = metal
     ? `${formatUsd(metal.usdPerTroyOz)} / oz t × ${formatTroyOunces(weight.grams)} × ${pieces}`
@@ -98,7 +95,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const announcement = spinning
     ? "Reels in motion"
     : metal
-      ? `${formatUsd(total)} melt value for ${formatStackPhrase(weight, pieces)} of ${metal.name}`
+      ? `${formatUsd(total)} melt value for ${pieces} ${noun} of ${weight.face} ${metal.name}`
       : "";
 
   useEffect(() => {
