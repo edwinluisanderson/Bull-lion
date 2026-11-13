@@ -13,6 +13,16 @@ import {
 import { hapticClick } from "@/lib/haptics";
 import { reelSnap, unlockReelClick } from "@/lib/reel-click";
 import { REEL_ITEM_HEIGHT } from "@/lib/metals";
+import {
+  STRETCH_HOLD_MS,
+  handoffPosition,
+  nextGestureMode,
+  pressHitsCenter,
+  readStretch,
+  stretchDetents,
+  valueAfterRelease,
+  type GestureMode,
+} from "@/lib/stretch";
 
 export type ReelSymbol = {
   key: string;
@@ -22,14 +32,26 @@ export type ReelSymbol = {
   disabled?: boolean;
 };
 
-type Phase = "idle" | "drag" | "coast" | "snap" | "script";
+type Phase = "idle" | "drag" | "coast" | "snap" | "script" | "contract";
+
+export type StretchFrame = {
+  openPx: number;
+  anchorIndex: number;
+  active: number;
+  revealed: number[];
+};
+
+export type StretchConfig = {
+  stops: readonly number[];
+  isValueEnabled: (value: number) => boolean;
+};
 
 const DECAY = 2.7;
 const MAX_VELOCITY = 28;
 const WINDOW = [-2, -1, 0, 1, 2, 3];
 
 type Engine = {
-  pointerDown: (y: number, time: number) => void;
+  pointerDown: (y: number, time: number, localY?: number, height?: number) => void;
   pointerMove: (y: number, time: number) => void;
   pointerUp: () => void;
   step: (direction: number) => void;
@@ -53,6 +75,9 @@ function createEngine(options: {
   onMotion: (moving: boolean) => void;
   isReduced: () => boolean;
   isEnabled: (index: number) => boolean;
+  getStretch: () => StretchConfig | null;
+  onPieces: (pieces: number) => void;
+  onStretchFrame: (frame: StretchFrame | null) => void;
 }): Engine {
   let position = options.initialIndex;
   let phase: Phase = "idle";
@@ -65,8 +90,18 @@ function createEngine(options: {
   let animStart = 0;
   let animDur = 1;
   let camNotch: number | null = null;
-  let drag: { originY: number; originPos: number; samples: { t: number; y: number }[] } | null =
-    null;
+  let drag: {
+    originY: number;
+    originPos: number;
+    originTime: number;
+    samples: { t: number; y: number }[];
+  } | null = null;
+  let gesture: GestureMode = "drag";
+  let holdTimer = 0;
+  let anchorIndex = options.initialIndex;
+  let fired = 0;
+  let openPx = 0;
+  let stretchActive: number | null = null;
 
   function setPhase(next: Phase) {
     if (phase === next) return;
@@ -199,19 +234,166 @@ function createEngine(options: {
     return Math.min(MAX_VELOCITY, Math.max(-MAX_VELOCITY, slotsPerSecond));
   }
 
+  function clearHold() {
+    if (holdTimer) window.clearTimeout(holdTimer);
+    holdTimer = 0;
+  }
+
+  function publishStretch(frame: StretchFrame | null) {
+    options.onStretchFrame(frame);
+  }
+
+  function engageStretch() {
+    if (!drag || !options.getStretch()) return;
+    gesture = "stretch";
+    const count = options.getCount();
+    anchorIndex = mod(Math.round(position), count);
+    fired = 0;
+    stretchActive = null;
+    velocity = 0;
+    setPos(anchorIndex);
+    reelSnap();
+    openPx = 0;
+    const stops = options.getStretch()?.stops ?? [];
+    publishStretch({
+      openPx: 0,
+      anchorIndex,
+      active: stops[anchorIndex] ?? anchorIndex,
+      revealed: [],
+    });
+  }
+
+  function moveStretch(y: number, time: number) {
+    const current = drag;
+    const config = options.getStretch();
+    if (!current || !config) return;
+    const stops = config.stops;
+    const nextIndex = (anchorIndex + 1) % Math.max(1, stops.length);
+    const nextValue = stops[nextIndex];
+    const detents = stretchDetents(stops, anchorIndex, 1, config.isValueEnabled);
+    const terminal = detents[detents.length - 1] === nextValue ? nextValue : null;
+    const reading = readStretch(y - current.originY, detents, terminal ?? null);
+    if (reading.committed.length > fired) {
+      for (const value of reading.committed.slice(fired)) reelSnap();
+    }
+    fired = reading.committed.length;
+    stretchActive = reading.active;
+    const shown = reading.active ?? stops[anchorIndex];
+    if (shown !== undefined) options.onPieces(shown);
+    if (!reading.handoff || nextValue === undefined) {
+      openPx = reading.openPx;
+      publishStretch({
+        openPx,
+        anchorIndex,
+        active: shown ?? stops[anchorIndex] ?? 0,
+        revealed: reading.committed.filter((value) => value !== nextValue),
+      });
+      return;
+    }
+    const nextPos = handoffPosition(nextIndex, reading.remainderPx, REEL_ITEM_HEIGHT);
+    gesture = "drag";
+    fired = 0;
+    openPx = 0;
+    publishStretch(null);
+    current.originY = y;
+    current.originPos = nextPos;
+    current.samples = [{ t: time, y }];
+    committed = nextIndex;
+    setPos(nextPos);
+  }
+
+  function releaseStretch() {
+    const config = options.getStretch();
+    const stops = config?.stops ?? [];
+    const anchor = stops[anchorIndex] ?? anchorIndex;
+    const kept = valueAfterRelease(
+      anchor,
+      stretchActive,
+      stops,
+      config?.isValueEnabled ?? (() => true),
+    );
+    options.onPieces(kept);
+    drag = null;
+    gesture = "drag";
+    const from = openPx;
+    const start = performance.now();
+    const duration = options.isReduced() ? 0 : 280;
+    const finish = () => {
+      openPx = 0;
+      stretchActive = null;
+      publishStretch(null);
+      velocity = 0;
+      setPhase("idle");
+    };
+    if (duration <= 0) {
+      finish();
+      return;
+    }
+    setPhase("contract");
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - (1 - t) ** 3;
+      openPx = from * (1 - eased);
+      const revealed = stretchActive === null || stretchActive === anchor ? [] : [stretchActive];
+      publishStretch({
+        openPx,
+        anchorIndex,
+        active: kept,
+        revealed: openPx > 4 ? revealed : [],
+      });
+      if (t < 1) {
+        raf = requestAnimationFrame(step);
+        return;
+      }
+      finish();
+    };
+    raf = requestAnimationFrame(step);
+  }
+
   return {
-    pointerDown(y, time) {
+    pointerDown(y, time, localY = 0, height = 0) {
       stop();
+      clearHold();
       velocity = 0;
       setPhase("drag");
+      publishStretch(null);
       drag = {
         originY: y,
         originPos: position,
+        originTime: time,
         samples: [{ t: time, y }],
       };
+      gesture = "drag";
+      const stretch = options.getStretch();
+      if (stretch && pressHitsCenter(localY, height)) {
+        gesture = "pending";
+        holdTimer = window.setTimeout(() => {
+          if (!drag || gesture !== "pending") return;
+          engageStretch();
+        }, STRETCH_HOLD_MS);
+      }
     },
     pointerMove(y, time) {
       if (phase !== "drag" || !drag) return;
+      if (gesture === "stretch") {
+        moveStretch(y, time);
+        return;
+      }
+      if (gesture === "pending") {
+        const travel = Math.abs(y - drag.originY);
+        const elapsed = time - drag.originTime;
+        const next = nextGestureMode(gesture, elapsed, travel);
+        if (next === "stretch") {
+          clearHold();
+          engageStretch();
+          moveStretch(y, time);
+          return;
+        }
+        if (next === "drag") {
+          gesture = "drag";
+          clearHold();
+        }
+      }
       setPos(drag.originPos - (y - drag.originY) / REEL_ITEM_HEIGHT);
       drag.samples.push({ t: time, y });
       const cutoff = time - 100;
@@ -220,6 +402,11 @@ function createEngine(options: {
       }
     },
     pointerUp() {
+      clearHold();
+      if (gesture === "stretch") {
+        releaseStretch();
+        return;
+      }
       if (phase !== "drag" || !drag) return;
       const samples = drag.samples;
       drag = null;
@@ -273,6 +460,7 @@ function createEngine(options: {
       camToNotch(notch, options.isReduced() ? 0 : 880 + order * 260);
     },
     destroy() {
+      clearHold();
       stop();
       drag = null;
       phase = "idle";
@@ -291,6 +479,9 @@ export function Reel({
   bendDegrees = 0,
   onIndex,
   onMotion,
+  onPieces,
+  stretch = null,
+  centerPieces = null,
 }: {
   label: string;
   items: ReelSymbol[];
@@ -302,6 +493,9 @@ export function Reel({
   bendDegrees?: number;
   onIndex: (index: number) => void;
   onMotion: (moving: boolean) => void;
+  onPieces?: (pieces: number) => void;
+  stretch?: StretchConfig | null;
+  centerPieces?: number | null;
 }) {
   const [kinetics, setKinetics] = useState({ position: initialIndex, velocity: 0 });
   const position = kinetics.position;
@@ -310,16 +504,22 @@ export function Reel({
   const appliedGuard = useRef(0);
   const countRef = useRef(items.length);
   const itemsRef = useRef(items);
-  const listenerRef = useRef({ onIndex, onMotion });
+  const listenerRef = useRef({ onIndex, onMotion, onPieces, onStretchFrame: (_frame: StretchFrame | null) => {} });
+  const stretchRef = useRef<StretchConfig | null>(stretch);
+  const [stretchFrame, setStretchFrame] = useState<StretchFrame | null>(null);
   itemsRef.current = items;
+  stretchRef.current = stretch;
+  listenerRef.current.onStretchFrame = setStretchFrame;
 
   useEffect(() => {
     countRef.current = items.length;
   }, [items.length]);
 
   useEffect(() => {
-    listenerRef.current = { onIndex, onMotion };
-  }, [onIndex, onMotion]);
+    listenerRef.current.onIndex = onIndex;
+    listenerRef.current.onMotion = onMotion;
+    listenerRef.current.onPieces = onPieces;
+  }, [onIndex, onMotion, onPieces]);
 
   useEffect(() => {
     const engine = createEngine({
@@ -333,6 +533,9 @@ export function Reel({
         const list = itemsRef.current;
         return !list[mod(index, list.length)]?.disabled;
       },
+      getStretch: () => stretchRef.current,
+      onPieces: (pieces) => listenerRef.current.onPieces?.(pieces),
+      onStretchFrame: (frame) => listenerRef.current.onStretchFrame?.(frame),
     });
     engineRef.current = engine;
     return () => {
@@ -361,6 +564,15 @@ export function Reel({
   const activeSymbol = items[active];
   const rolling = Math.abs(velocity) > 1.2;
   const smear = rolling ? Math.min(8, Math.abs(velocity) * 0.16) : 0;
+  const spoken = stretchFrame
+    ? stretchFrame.active
+    : centerPieces;
+  const valueText =
+    spoken != null
+      ? `×${spoken} ${spoken === 1 ? "piece" : "pieces"}`
+      : activeSymbol
+        ? `${activeSymbol.mark} ${activeSymbol.detail}`
+        : label;
 
   return (
     <div className="reel-column" data-testid={`reel-${label.toLowerCase()}`}>
@@ -372,10 +584,10 @@ export function Reel({
         aria-orientation="vertical"
         aria-valuemin={0}
         aria-valuemax={Math.max(0, count - 1)}
-        aria-valuenow={active}
-        aria-valuetext={
-          activeSymbol ? `${activeSymbol.mark} ${activeSymbol.detail}` : label
-        }
+        aria-valuenow={spoken ?? active}
+        aria-valuetext={valueText}
+        data-count={spoken ?? activeSymbol?.mark ?? ""}
+        data-stretching={stretchFrame ? "true" : "false"}
         className={rolling ? "reel-viewport is-rolling" : "reel-viewport"}
         style={{ height: REEL_ITEM_HEIGHT * 3, touchAction: "none" }}
         onPointerDown={(event) => {
@@ -384,6 +596,7 @@ export function Reel({
           unlockReelClick();
           const viewport = event.currentTarget;
           viewport.focus({ preventScroll: true });
+          const bounds = viewport.getBoundingClientRect();
           const pointerId = event.pointerId;
           const onMove = (moveEvent: PointerEvent) => {
             if (moveEvent.pointerId !== pointerId) return;
@@ -400,7 +613,12 @@ export function Reel({
           window.addEventListener("pointermove", onMove);
           window.addEventListener("pointerup", onUp);
           window.addEventListener("pointercancel", onUp);
-          engineRef.current?.pointerDown(event.clientY, event.timeStamp);
+          engineRef.current?.pointerDown(
+            event.clientY,
+            event.timeStamp,
+            event.clientY - bounds.top,
+            bounds.height,
+          );
         }}
         onKeyDown={(event) => {
           unlockReelClick();
@@ -426,30 +644,40 @@ export function Reel({
           if (!symbol) return null;
           const pose = cylinderPose(offset - fraction);
           const y = REEL_ITEM_HEIGHT * 1.5 + pose.shift * REEL_ITEM_HEIGHT - REEL_ITEM_HEIGHT / 2;
+          const pin = stretchFrame ? Math.min(stretchFrame.openPx, REEL_ITEM_HEIGHT) : 0;
+          const drop = stretchFrame ? (offset > 0 ? stretchFrame.openPx : -pin) : 0;
           const isActive = index === facing;
+          const held = Boolean(stretchFrame && offset === 0);
+          const override = !stretchFrame && centerPieces != null && offset === 0;
+          const mark = override ? `×${centerPieces}` : symbol.mark;
+          const detail = override ? (centerPieces === 1 ? "piece" : "pieces") : symbol.detail;
           const smearY = -Math.sign(velocity) * smear;
+          const glow =
+            "inset 0 0 0 1px rgba(240, 215, 140, 0.95), 0 0 18px rgba(240, 200, 90, 0.55)";
           return (
             <div
               key={offset}
               className="symbol"
               style={{
                 height: REEL_ITEM_HEIGHT,
-                transform: `translate3d(0, ${y}px, 0) scaleY(${pose.scaleY})`,
+                transform: `translate3d(0, ${y + drop}px, 0) scaleY(${pose.scaleY})`,
                 filter: smear > 0.4 ? `blur(${smear * 0.22}px)` : undefined,
               }}
             >
               <div
                 className={
-                  symbol.disabled
+                  !override && symbol.disabled
                     ? "symbol-plate is-disabled"
-                    : isActive
+                    : isActive || override
                       ? "symbol-plate is-active"
                       : "symbol-plate"
                 }
                 style={{
                   filter: `brightness(${pose.brightness})`,
-                  boxShadow:
-                    smear > 0.4
+                  transform: held ? "scale(1.07)" : undefined,
+                  boxShadow: held
+                    ? glow
+                    : smear > 0.4
                       ? `0 ${smearY}px ${smear}px rgba(0, 0, 0, 0.35)`
                       : !symbol.disabled && isActive && symbol.tint
                         ? `inset 0 0 0 1px ${symbol.tint}, 0 0 16px ${symbol.tint}33`
@@ -458,11 +686,42 @@ export function Reel({
               >
                 <span
                   className="symbol-mark"
-                  style={symbol.disabled ? undefined : { color: symbol.tint ?? "#f0e2c4" }}
+                  style={symbol.disabled && !override ? undefined : { color: symbol.tint ?? "#f0e2c4" }}
                 >
-                  {symbol.mark}
+                  {mark}
                 </span>
-                <span className="symbol-detail">{symbol.detail}</span>
+                <span className="symbol-detail">{detail}</span>
+              </div>
+            </div>
+          );
+        })}
+        {stretchFrame?.revealed.map((value, index) => {
+          const countRevealed = Math.max(1, stretchFrame.revealed.length);
+          const pin = Math.min(stretchFrame.openPx, REEL_ITEM_HEIGHT);
+          const room = Math.max(stretchFrame.openPx, REEL_ITEM_HEIGHT * 1.4);
+          const slice = room / countRevealed;
+          const top = REEL_ITEM_HEIGHT * 2 - pin + index * slice;
+          const current = value === stretchFrame.active;
+          return (
+            <div
+              key={`gap-${value}`}
+              className="symbol"
+              style={{
+                height: Math.max(32, slice),
+                transform: `translate3d(0, ${top}px, 0)`,
+              }}
+            >
+              <div
+                className="symbol-plate is-active"
+                style={{
+                  transform: current ? "scale(1.04)" : undefined,
+                  boxShadow: current
+                    ? "inset 0 0 0 1px rgba(240, 215, 140, 0.8), 0 0 12px rgba(240, 200, 90, 0.35)"
+                    : undefined,
+                }}
+              >
+                <span className="symbol-mark" style={{ color: "#f0d78c" }}>{`×${value}`}</span>
+                <span className="symbol-detail">pieces</span>
               </div>
             </div>
           );

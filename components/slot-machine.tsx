@@ -18,6 +18,7 @@ import {
 } from "@/lib/metals";
 import { LIVE_SPOT_NOTE, parsePriceBook, type PriceBook } from "@/lib/price-book";
 import { settleReels } from "@/lib/haptics";
+import { valueAfterRelease } from "@/lib/stretch";
 import { meltValue } from "@/lib/value";
 
 function lampLabel(source: PriceBook["source"]): string {
@@ -31,6 +32,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const [metalIndex, setMetalIndex] = useState(DEFAULT_METAL_INDEX);
   const [weightIndex, setWeightIndex] = useState(DEFAULT_WEIGHT_INDEX);
   const [countIndex, setCountIndex] = useState(DEFAULT_COUNT_INDEX);
+  const [customPieces, setCustomPieces] = useState<number | null>(null);
   const [spinToken, setSpinToken] = useState(0);
   const [bendDegrees, setBendDegrees] = useState(0);
   const [motion, setMotion] = useState([false, false, false]);
@@ -40,7 +42,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
 
   const metal = book.metals[metalIndex] ?? book.metals[0];
   const weight = WEIGHTS[weightIndex] ?? WEIGHTS[DEFAULT_WEIGHT_INDEX];
-  const pieces = COUNTS[countIndex] ?? COUNTS[0];
+  const pieces = customPieces ?? COUNTS[countIndex] ?? COUNTS[0];
   const spinning = motion.some(Boolean);
 
   const metalItems = useMemo<ReelSymbol[]>(
@@ -143,16 +145,32 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
 
   useEffect(() => {
     if (metal?.symbol !== "HG") return;
-    const next = nearestAffordableCountIndex(
-      COUNTS,
-      countIndex,
-      weight.grams,
-      metal.usdPerTroyOz,
-    );
-    if (next === countIndex) return;
-    setCountIndex(next);
-    setCountGuard((token) => token + 1);
-  }, [metal?.symbol, metal?.usdPerTroyOz, weight.grams, countIndex]);
+    const copper = metal.usdPerTroyOz;
+    const enabled = (value: number) => {
+      const marks = COUNTS.map((count) => weightShowsDollars(copper, weight.grams, count));
+      if (!marks.some(Boolean)) return value === COUNTS[COUNTS.length - 1];
+      return weightShowsDollars(copper, weight.grams, value);
+    };
+    if (customPieces === null) {
+      const next = nearestAffordableCountIndex(COUNTS, countIndex, weight.grams, copper);
+      if (next === countIndex) return;
+      setCountIndex(next);
+      setCountGuard((token) => token + 1);
+      return;
+    }
+    if (enabled(customPieces)) return;
+    const next = valueAfterRelease(customPieces, null, COUNTS, enabled);
+    const index = COUNTS.indexOf(next);
+    if (index >= 0) {
+      setCustomPieces(null);
+      if (index !== countIndex) {
+        setCountIndex(index);
+        setCountGuard((token) => token + 1);
+      }
+      return;
+    }
+    setCustomPieces(next);
+  }, [metal?.symbol, metal?.usdPerTroyOz, weight.grams, countIndex, customPieces]);
 
   const sourceClass =
     book.source === "live" ? "lamp" : book.source === "partial" ? "lamp is-partial" : "lamp is-sample";
@@ -241,7 +259,31 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   bendDegrees={bendDegrees}
                   guardToken={countGuard}
                   guardIndex={countIndex}
-                  onIndex={setCountIndex}
+                  centerPieces={customPieces}
+                  stretch={{
+                    stops: COUNTS,
+                    isValueEnabled: (value) => {
+                      if (metal?.symbol !== "HG") return true;
+                      const marks = COUNTS.map((count) =>
+                        weightShowsDollars(metal.usdPerTroyOz, weight.grams, count),
+                      );
+                      if (!marks.some(Boolean)) return value === COUNTS[COUNTS.length - 1];
+                      return weightShowsDollars(metal.usdPerTroyOz, weight.grams, value);
+                    },
+                  }}
+                  onPieces={(value) => {
+                    const index = COUNTS.indexOf(value);
+                    if (index >= 0) {
+                      setCustomPieces(null);
+                      setCountIndex(index);
+                      return;
+                    }
+                    setCustomPieces(value);
+                  }}
+                  onIndex={(index) => {
+                    setCountIndex(index);
+                    setCustomPieces(null);
+                  }}
                   onMotion={onCountMotion}
                 />
                 </div>
