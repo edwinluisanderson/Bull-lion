@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test lib/value.test.mts"
+    "test": "tsx --test lib/*.test.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
