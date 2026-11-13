@@ -170,10 +170,20 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
               label="METAL"
               fraction={metalIndex / Math.max(1, book.metals.length - 1)}
             />
-            <div className="bulbs" aria-hidden="true">
-              {Array.from({ length: 7 }, (_, index) => (
-                <span key={index} className={index % 2 === 0 ? "on" : undefined} />
-              ))}
+            <div className="gauge-crest">
+              <img
+                className="bullion-logo"
+                src="/bullion-logo.png"
+                alt=""
+                aria-hidden="true"
+                width={183}
+                height={256}
+              />
+              <div className="bulbs" aria-hidden="true">
+                {Array.from({ length: 7 }, (_, index) => (
+                  <span key={index} className={index % 2 === 0 ? "on" : undefined} />
+                ))}
+              </div>
             </div>
             <Gauge
               label="STACK"

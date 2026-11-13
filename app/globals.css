@@ -233,6 +233,21 @@ button,
   transition: transform 0.35s ease;
 }
 
+.gauge-crest {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.bullion-logo {
+  display: block;
+  width: 4rem;
+  height: auto;
+  margin-bottom: 0.2rem;
+  pointer-events: none;
+  user-select: none;
+}
+
 .bulbs {
   display: flex;
   gap: 7px;
