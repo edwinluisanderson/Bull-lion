@@ -1,3 +1,4 @@
+import { Gear } from "@/components/gear";
 import { RollingPrice } from "@/components/rolling-price";
 import { formatWholeDollars } from "@/lib/format";
 import type { WeightSpec } from "@/lib/metals";
@@ -20,7 +21,11 @@ export function Readout({
 
   return (
     <div className="melt-stack">
-      <p className="brass-plate melt-name">{metal.name}</p>
+      <div className="nameplate melt-plate">
+        <Gear className="gear melt-gear melt-gear-left" />
+        <p className="melt-name">{metal.name}</p>
+        <Gear className="gear melt-gear melt-gear-right gear-reverse" />
+      </div>
       <section
         className={spinning ? "readout is-spinning" : "readout"}
         aria-busy={spinning}
@@ -28,9 +33,13 @@ export function Readout({
         <p className="readout-kicker">Melt Price</p>
         <RollingPrice value={formatWholeDollars(total)} />
       </section>
-      <p className="brass-plate melt-spec">
-        {weight.face} {weight.detail} · {pieces} {noun}
-      </p>
+      <div className="nameplate melt-plate">
+        <Gear className="gear melt-gear melt-gear-left" />
+        <p className="melt-spec">
+          {weight.face} {weight.detail} · {pieces} {noun}
+        </p>
+        <Gear className="gear melt-gear melt-gear-right gear-reverse" />
+      </div>
     </div>
   );
 }

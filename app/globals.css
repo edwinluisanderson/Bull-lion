@@ -650,7 +650,8 @@ button,
   margin: 1rem 0.9rem 0.75rem;
 }
 
-.brass-plate {
+.brass-plate,
+.nameplate {
   margin: 0;
   padding: 0.45rem 0.6rem 0.55rem;
   border-radius: 14px;
@@ -663,16 +664,31 @@ button,
     inset 0 1px 0 rgba(255, 255, 255, 0.7),
     inset 0 -3px 5px rgba(70, 40, 8, 0.35),
     0 8px 14px rgba(0, 0, 0, 0.28);
-  white-space: nowrap;
+}
+
+.melt-plate {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding-inline: 2.15rem;
+}
+
+.melt-name,
+.melt-spec {
+  min-width: 0;
+  margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .melt-name {
   font-family: var(--font-display), Palatino, serif;
-  font-size: clamp(1.15rem, 4vw, 1.7rem);
+  font-size: clamp(1.05rem, 4.4vw, 1.85rem);
   font-weight: 900;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   line-height: 1.05;
   text-shadow: 0 1px 0 rgba(255, 236, 190, 0.55);
   text-transform: uppercase;
@@ -680,8 +696,25 @@ button,
 
 .melt-spec {
   font-family: var(--font-display), Palatino, serif;
-  font-size: 0.95rem;
+  font-size: clamp(0.72rem, 3.1vw, 0.95rem);
   font-weight: 700;
+}
+
+.melt-gear {
+  position: absolute;
+  top: 50%;
+  width: 30px;
+  height: 30px;
+  margin-top: -15px;
+  animation-duration: 22s;
+  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.35));
+}
+
+.melt-gear-left { left: 6px; }
+.melt-gear-right { right: 6px; }
+
+.gear-reverse {
+  animation-direction: reverse;
 }
 
 .rolling-price {
