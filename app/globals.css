@@ -384,6 +384,16 @@ button,
   opacity: 1;
 }
 
+.symbol-plate.is-disabled {
+  opacity: 0.32;
+  filter: grayscale(0.9);
+}
+
+.symbol-plate.is-disabled .symbol-mark,
+.symbol-plate.is-disabled .symbol-detail {
+  color: #8d8478;
+}
+
 .symbol-mark {
   max-width: 100%;
   padding: 0 4px;
@@ -702,6 +712,10 @@ button,
   font-size: 0.95rem;
 }
 
+.melt-marquee .tagline {
+  font-size: clamp(0.58rem, 2.85vw, 0.95rem);
+}
+
 .melt-marquee .plate-title,
 .melt-marquee .tagline {
   min-width: 0;
@@ -710,8 +724,8 @@ button,
   white-space: nowrap;
 }
 
-.melt-marquee .tagline {
-  font-size: 0.82rem;
+.melt-marquee .readout {
+  margin: 0.4rem 0 0.15rem;
 }
 
 .rolling-price {

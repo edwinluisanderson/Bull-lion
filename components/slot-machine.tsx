@@ -8,6 +8,7 @@ import { Gear } from "@/components/gear";
 import { Lever } from "@/components/lever";
 import { Readout } from "@/components/readout";
 import { Reel, type ReelSymbol } from "@/components/reel";
+import { nearestAffordableWeightIndex, weightShowsDollars } from "@/lib/affordable-weight";
 import { formatStamp, formatTroyOunces, formatUsd } from "@/lib/format";
 import {
   COUNTS,
@@ -18,6 +19,7 @@ import {
 } from "@/lib/metals";
 import { LIVE_SPOT_NOTE, parsePriceBook, type PriceBook } from "@/lib/price-book";
 import { meltValue } from "@/lib/value";
+import { formatStackPhrase, weightWords } from "@/lib/weight-label";
 
 function lampLabel(source: PriceBook["source"]): string {
   if (source === "live") return "Live wire";
@@ -32,6 +34,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const [countIndex, setCountIndex] = useState(DEFAULT_COUNT_INDEX);
   const [spinToken, setSpinToken] = useState(0);
   const [motion, setMotion] = useState([false, false, false]);
+  const [weightGuard, setWeightGuard] = useState(0);
   const lastPull = useRef(0);
 
   const metal = book.metals[metalIndex] ?? book.metals[0];
@@ -50,16 +53,19 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
     [book.metals],
   );
 
-  const weightItems = useMemo<ReelSymbol[]>(
-    () =>
-      WEIGHTS.map((entry) => ({
+  const weightItems = useMemo<ReelSymbol[]>(() => {
+    const copper = metal?.symbol === "HG" ? metal.usdPerTroyOz : null;
+    return WEIGHTS.map((entry) => {
+      const words = weightWords(entry);
+      return {
         key: entry.id,
-        mark: entry.face,
-        detail: entry.detail,
+        mark: words.amount,
+        detail: words.unit,
         tint: "#f0d78c",
-      })),
-    [],
-  );
+        disabled: copper !== null && !weightShowsDollars(copper, entry.grams, pieces),
+      };
+    });
+  }, [metal, pieces]);
 
   const countItems = useMemo<ReelSymbol[]>(
     () =>
@@ -85,7 +91,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const onWeightMotion = useCallback((moving: boolean) => setReelMotion(1, moving), [setReelMotion]);
   const onCountMotion = useCallback((moving: boolean) => setReelMotion(2, moving), [setReelMotion]);
 
-  const noun = pieces === 1 ? "piece" : "pieces";
   const total = metal ? meltValue(metal.usdPerTroyOz, weight.grams, pieces) : 0;
   const formula = metal
     ? `${formatUsd(metal.usdPerTroyOz)} / oz t × ${formatTroyOunces(weight.grams)} × ${pieces}`
@@ -93,7 +98,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const announcement = spinning
     ? "Reels in motion"
     : metal
-      ? `${formatUsd(total)} melt value for ${pieces} ${noun} of ${weight.face} ${metal.name}`
+      ? `${formatUsd(total)} melt value for ${formatStackPhrase(weight, pieces)} of ${metal.name}`
       : "";
 
   useEffect(() => {
@@ -129,6 +134,19 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
     lastPull.current = now;
     setSpinToken((token) => token + 1);
   }
+
+  useEffect(() => {
+    if (metal?.symbol !== "HG") return;
+    const next = nearestAffordableWeightIndex(
+      WEIGHTS,
+      weightIndex,
+      metal.usdPerTroyOz,
+      pieces,
+    );
+    if (next === weightIndex) return;
+    setWeightIndex(next);
+    setWeightGuard((token) => token + 1);
+  }, [metal?.symbol, metal?.usdPerTroyOz, pieces, weightIndex]);
 
   const sourceClass =
     book.source === "live" ? "lamp" : book.source === "partial" ? "lamp is-partial" : "lamp is-sample";
@@ -197,6 +215,8 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   initialIndex={DEFAULT_WEIGHT_INDEX}
                   spinToken={spinToken}
                   spinOrder={1}
+                  guardToken={weightGuard}
+                  guardIndex={weightIndex}
                   onIndex={setWeightIndex}
                   onMotion={onWeightMotion}
                 />

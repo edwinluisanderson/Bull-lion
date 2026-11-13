@@ -10,6 +10,7 @@ export type ReelSymbol = {
   mark: string;
   detail: string;
   tint?: string;
+  disabled?: boolean;
 };
 
 type Phase = "idle" | "drag" | "coast" | "snap" | "script";
@@ -40,6 +41,7 @@ function createEngine(options: {
   onIndex: (index: number) => void;
   onMotion: (moving: boolean) => void;
   isReduced: () => boolean;
+  isEnabled: (index: number) => boolean;
 }): Engine {
   let position = options.initialIndex;
   let phase: Phase = "idle";
@@ -62,10 +64,33 @@ function createEngine(options: {
     if (wasMoving !== moving) options.onMotion(moving);
   }
 
+  function enabledIndex(index: number): boolean {
+    return options.isEnabled(mod(index, options.getCount()));
+  }
+
+  function nearestEnabledSlot(from: number): number {
+    const count = options.getCount();
+    const rounded = Math.round(from);
+    if (enabledIndex(rounded)) return rounded;
+    for (let delta = 1; delta < count; delta += 1) {
+      const ahead = rounded + delta;
+      const behind = rounded - delta;
+      const aheadOk = enabledIndex(ahead);
+      const behindOk = enabledIndex(behind);
+      if (aheadOk && behindOk) {
+        return Math.abs(ahead - from) <= Math.abs(from - behind) ? ahead : behind;
+      }
+      if (aheadOk) return ahead;
+      if (behindOk) return behind;
+    }
+    return rounded;
+  }
+
   function setPos(next: number) {
     position = next;
     options.setPosition(next);
     const index = mod(Math.round(next), options.getCount());
+    if (!enabledIndex(index)) return;
     if (index !== committed) {
       committed = index;
       options.onIndex(index);
@@ -85,7 +110,7 @@ function createEngine(options: {
   }
 
   function startSnap(from: number): boolean {
-    const target = Math.round(from);
+    const target = nearestEnabledSlot(from);
     if (options.isReduced() || Math.abs(target - from) < 0.0001) {
       velocity = 0;
       setPos(target);
@@ -195,18 +220,32 @@ function createEngine(options: {
       schedule();
     },
     step(direction) {
-      animateTo(Math.round(position) + direction, options.isReduced() ? 0 : 180);
+      const count = options.getCount();
+      const start = Math.round(position);
+      for (let delta = 1; delta <= count; delta += 1) {
+        const candidate = start + direction * delta;
+        if (enabledIndex(candidate)) {
+          animateTo(candidate, options.isReduced() ? 0 : 180);
+          return;
+        }
+      }
     },
     jump(index) {
       const count = options.getCount();
       const current = Math.round(position);
-      const delta = mod(index, count) - mod(current, count);
+      const target = enabledIndex(index) ? index : nearestEnabledSlot(index);
+      const delta = mod(target, count) - mod(current, count);
       animateTo(current + delta, options.isReduced() ? 0 : 220);
     },
     lever(order) {
       const count = options.getCount();
       const current = Math.round(position);
-      const landIndex = Math.floor(Math.random() * count);
+      const enabled: number[] = [];
+      for (let index = 0; index < count; index += 1) {
+        if (enabledIndex(index)) enabled.push(index);
+      }
+      const pool = enabled.length > 0 ? enabled : Array.from({ length: count }, (_, index) => index);
+      const landIndex = pool[Math.floor(Math.random() * pool.length)] ?? 0;
       let extra = (landIndex - mod(current, count) + count) % count;
       if (extra === 0) extra = count;
       const loops = options.isReduced() ? 0 : 3 + order;
@@ -229,6 +268,8 @@ export function Reel({
   initialIndex,
   spinToken,
   spinOrder,
+  guardToken = 0,
+  guardIndex = 0,
   onIndex,
   onMotion,
 }: {
@@ -237,13 +278,17 @@ export function Reel({
   initialIndex: number;
   spinToken: number;
   spinOrder: number;
+  guardToken?: number;
+  guardIndex?: number;
   onIndex: (index: number) => void;
   onMotion: (moving: boolean) => void;
 }) {
   const [position, setPosition] = useState(initialIndex);
   const engineRef = useRef<Engine | null>(null);
   const countRef = useRef(items.length);
+  const itemsRef = useRef(items);
   const listenerRef = useRef({ onIndex, onMotion });
+  itemsRef.current = items;
 
   useEffect(() => {
     countRef.current = items.length;
@@ -261,6 +306,10 @@ export function Reel({
       onIndex: (index) => listenerRef.current.onIndex(index),
       onMotion: (moving) => listenerRef.current.onMotion(moving),
       isReduced: () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      isEnabled: (index) => {
+        const list = itemsRef.current;
+        return !list[mod(index, list.length)]?.disabled;
+      },
     });
     engineRef.current = engine;
     return () => {
@@ -273,6 +322,11 @@ export function Reel({
     if (spinToken === 0) return;
     engineRef.current?.lever(spinOrder);
   }, [spinToken, spinOrder]);
+
+  useEffect(() => {
+    if (guardToken === 0) return;
+    engineRef.current?.jump(guardIndex);
+  }, [guardToken, guardIndex]);
 
   const count = items.length;
   const base = Math.floor(position);
@@ -348,14 +402,23 @@ export function Reel({
               style={{ height: REEL_ITEM_HEIGHT, transform: `translate3d(0, ${y}px, 0)` }}
             >
               <div
-                className={isActive ? "symbol-plate is-active" : "symbol-plate"}
+                className={
+                  symbol.disabled
+                    ? "symbol-plate is-disabled"
+                    : isActive
+                      ? "symbol-plate is-active"
+                      : "symbol-plate"
+                }
                 style={
-                  isActive && symbol.tint
+                  !symbol.disabled && isActive && symbol.tint
                     ? { boxShadow: `inset 0 0 0 1px ${symbol.tint}, 0 0 16px ${symbol.tint}33` }
                     : undefined
                 }
               >
-                <span className="symbol-mark" style={{ color: symbol.tint ?? "#f0e2c4" }}>
+                <span
+                  className="symbol-mark"
+                  style={symbol.disabled ? undefined : { color: symbol.tint ?? "#f0e2c4" }}
+                >
                   {symbol.mark}
                 </span>
                 <span className="symbol-detail">{symbol.detail}</span>
