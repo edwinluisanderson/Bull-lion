@@ -9,16 +9,14 @@ const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8")
 
 const HEIGHT = 86;
 
-test("the stretch glow is on at the floor when the press engages", () => {
-  const engaged = activeStretchRim(true, null, 0, HEIGHT);
-  assert.equal(engaged?.edge, "both");
-  assert.equal(engaged?.opacity, STRETCH_RIM_FLOOR);
-  assert.ok(STRETCH_RIM_FLOOR >= 0.35 && STRETCH_RIM_FLOOR <= 0.4);
-  assert.equal(stretchRim("down", 0, HEIGHT).edge, "both");
-  assert.equal(stretchRim("up", 0, HEIGHT).opacity, STRETCH_RIM_FLOOR);
+test("a long press with no movement has no stretch rim", () => {
+  assert.equal(stretchRim("down", 0, HEIGHT).opacity, 0);
+  assert.equal(stretchRim("up", 0, HEIGHT).opacity, 0);
+  assert.equal(activeStretchRim(true, "down", 0, HEIGHT), null);
+  assert.equal(activeStretchRim(true, "up", 0, HEIGHT), null);
 });
 
-test("the stretch glow brightens as a new count starts out", () => {
+test("the stretch rim appears on the first movement", () => {
   const down = stretchRim("down", 1, HEIGHT);
   const up = stretchRim("up", 1, HEIGHT);
   assert.equal(down.edge, "bottom");
@@ -34,14 +32,15 @@ test("the stretch rim sits on the edge the next count leaves", () => {
   assert.equal(stretchRim("up", 10, HEIGHT).edge, "top");
 });
 
-test("the stretch glow pulses down to a floor and never goes out", () => {
+test("the stretch glow never reaches zero after the first movement", () => {
+  assert.ok(STRETCH_RIM_FLOOR >= 0.15 && STRETCH_RIM_FLOOR <= 0.2);
   const halfway = stretchRim("down", HEIGHT / 2, HEIGHT).opacity;
   const full = stretchRim("down", HEIGHT, HEIGHT).opacity;
-  assert.ok(halfway < 0.75 && halfway > STRETCH_RIM_FLOOR);
+  assert.ok(halfway < 0.7 && halfway > STRETCH_RIM_FLOOR);
   assert.equal(full, STRETCH_RIM_FLOOR);
   assert.equal(activeStretchRim(true, "down", HEIGHT, HEIGHT)?.opacity, STRETCH_RIM_FLOOR);
   assert.ok(stretchRim("up", HEIGHT + 1, HEIGHT).opacity > 0.95);
-  for (let travel = 0; travel <= HEIGHT * 3; travel += 1) {
+  for (let travel = 1; travel <= HEIGHT * 3; travel += 1) {
     const opacity = stretchRim("down", travel, HEIGHT).opacity;
     assert.ok(opacity >= STRETCH_RIM_FLOOR, `travel ${travel}`);
   }
@@ -49,7 +48,7 @@ test("the stretch glow pulses down to a floor and never goes out", () => {
 
 test("the stretch rim is gone once the gesture is released", () => {
   assert.equal(activeStretchRim(false, "down", HEIGHT / 2, HEIGHT), null);
-  assert.equal(activeStretchRim(false, null, 0, HEIGHT), null);
+  assert.equal(activeStretchRim(false, "down", 0, HEIGHT), null);
   assert.equal(activeStretchRim(false, "up", 1, HEIGHT), null);
   assert.equal(activeStretchRim(true, "down", HEIGHT / 2, HEIGHT)?.edge, "bottom");
 });

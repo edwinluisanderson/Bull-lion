@@ -234,25 +234,23 @@ export function stretchRowClip(
   return { opacity: 1, clipTop: 0, clipBottom: Math.max(0, screenTop + itemHeight - pinTop) };
 }
 
-/** Lowest the stretch glow gets while the press is still held. */
-export const STRETCH_RIM_FLOOR = 0.38;
+/** Lowest the stretch glow gets after the finger has started to move. */
+export const STRETCH_RIM_FLOOR = 0.18;
 
-export type StretchRim = { edge: "top" | "bottom" | "both"; opacity: number };
+export type StretchRim = { edge: "top" | "bottom"; opacity: number };
 
 /**
- * Soft glow for the whole stretch, from the engage pop until release.
- * Before a direction is known both edges sit at the floor. Once the finger
- * moves, the light is on the edge the next number leaves: full as that
- * number starts out, down to the floor when it is fully out, never off.
+ * Soft glow on the pinned count, along the edge the next number leaves.
+ * A held press with no travel has none. The first movement lights it,
+ * it eases toward a floor as that number comes into view, and a release removes it.
  */
 export function stretchRim(
-  direction: StretchDirection | null,
+  direction: StretchDirection,
   travel: number,
   itemHeight: number,
 ): StretchRim {
-  if (!(itemHeight > 0) || travel < 0) return { edge: "both", opacity: STRETCH_RIM_FLOOR };
-  if (direction == null || !(travel > 0)) return { edge: "both", opacity: STRETCH_RIM_FLOOR };
   const edge = direction === "down" ? "bottom" : "top";
+  if (!(itemHeight > 0) || !(travel > 0)) return { edge, opacity: 0 };
   const into = travel % itemHeight;
   const revealed = into === 0 ? 1 : into / itemHeight;
   const opacity = STRETCH_RIM_FLOOR + (1 - STRETCH_RIM_FLOOR) * (1 - revealed);
@@ -261,11 +259,11 @@ export function stretchRim(
 
 export function activeStretchRim(
   stretching: boolean,
-  direction: StretchDirection | null,
+  direction: StretchDirection,
   travel: number,
   itemHeight: number,
 ): StretchRim | null {
-  if (!stretching) return null;
+  if (!stretching || !(travel > 0)) return null;
   return stretchRim(direction, travel, itemHeight);
 }
 
