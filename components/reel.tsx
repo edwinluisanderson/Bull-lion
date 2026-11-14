@@ -326,7 +326,7 @@ function createEngine(options: {
       direction,
       rows: layout.rows,
       centered: layout.centered,
-      rim: stretchRim(direction, travel, REEL_ITEM_HEIGHT),
+      rim: stretchRim(slideDirection, travel, REEL_ITEM_HEIGHT),
     });
     options.onPieces(layout.centered);
   }
@@ -803,7 +803,13 @@ export function Reel({
                     {`×${row.value}`}
                   </span>
                   <span className="symbol-detail">pieces</span>
-                  {row.role === "pin" && stretchFrame.rim.opacity > 0 ? (
+                  {row.role === "anchor" && stretchFrame.rim.edge === "both" ? (
+                    <>
+                      <span className="stretch-rim" data-edge="top" style={{ opacity: stretchFrame.rim.opacity }} />
+                      <span className="stretch-rim" data-edge="bottom" style={{ opacity: stretchFrame.rim.opacity }} />
+                    </>
+                  ) : null}
+                  {row.role === "pin" && stretchFrame.rim.edge !== "both" ? (
                     <span
                       className="stretch-rim"
                       data-edge={stretchFrame.rim.edge}

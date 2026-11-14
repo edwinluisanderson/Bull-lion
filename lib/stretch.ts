@@ -234,34 +234,39 @@ export function stretchRowClip(
   return { opacity: 1, clipTop: 0, clipBottom: Math.max(0, screenTop + itemHeight - pinTop) };
 }
 
-export type StretchRim = { edge: "top" | "bottom"; opacity: number };
+/** Lowest the stretch glow gets while the press is still held. */
+export const STRETCH_RIM_FLOOR = 0.38;
+
+export type StretchRim = { edge: "top" | "bottom" | "both"; opacity: number };
 
 /**
- * Soft glow on the pinned count, along the edge the next number leaves.
- * A held press with no travel has none. The first movement lights it,
- * it fades as that number comes into view, and a release removes it.
+ * Soft glow for the whole stretch, from the engage pop until release.
+ * Before a direction is known both edges sit at the floor. Once the finger
+ * moves, the light is on the edge the next number leaves: full as that
+ * number starts out, down to the floor when it is fully out, never off.
  */
 export function stretchRim(
-  direction: StretchDirection,
+  direction: StretchDirection | null,
   travel: number,
   itemHeight: number,
 ): StretchRim {
+  if (!(itemHeight > 0) || travel < 0) return { edge: "both", opacity: STRETCH_RIM_FLOOR };
+  if (direction == null || !(travel > 0)) return { edge: "both", opacity: STRETCH_RIM_FLOOR };
   const edge = direction === "down" ? "bottom" : "top";
-  if (!(itemHeight > 0) || !(travel > 0)) return { edge, opacity: 0 };
   const into = travel % itemHeight;
-  const opacity = into === 0 ? 0 : 1 - into / itemHeight;
+  const revealed = into === 0 ? 1 : into / itemHeight;
+  const opacity = STRETCH_RIM_FLOOR + (1 - STRETCH_RIM_FLOOR) * (1 - revealed);
   return { edge, opacity };
 }
 
 export function activeStretchRim(
   stretching: boolean,
-  direction: StretchDirection,
+  direction: StretchDirection | null,
   travel: number,
   itemHeight: number,
 ): StretchRim | null {
-  if (!stretching || !(travel > 0)) return null;
-  const rim = stretchRim(direction, travel, itemHeight);
-  return rim.opacity > 0 ? rim : null;
+  if (!stretching) return null;
+  return stretchRim(direction, travel, itemHeight);
 }
 
 export type CountRow = { slot: number; value: number };
