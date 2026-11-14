@@ -177,29 +177,14 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           <span className="rivet" data-corner="bl" />
           <span className="rivet" data-corner="br" />
 
-          <div className="gauge-row">
-            <Gauge
-              label="METAL"
-              fraction={metalIndex / Math.max(1, book.metals.length - 1)}
-            />
-            <div className="gauge-crest">
-              <img
-                className="bullion-logo"
-                src="/bullion-logo.png"
-                alt=""
-                aria-hidden="true"
-                width={183}
-                height={256}
-              />
-              <div className="bulbs" aria-hidden="true">
-                {Array.from({ length: 7 }, (_, index) => (
-                  <span key={index} className={index % 2 === 0 ? "on" : undefined} />
-                ))}
-              </div>
-            </div>
-            <Gauge
-              label="STACK"
-              fraction={countIndex / Math.max(1, COUNTS.length - 1)}
+          <div className="cabinet-crest">
+            <img
+              className="bullion-logo"
+              src="/bullion-logo.png"
+              alt=""
+              aria-hidden="true"
+              width={183}
+              height={256}
             />
           </div>
 
@@ -214,6 +199,25 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
               fetchedAt={book.fetchedAt}
             />
           ) : null}
+
+          <div className="between-plates">
+            <div className="between-plates-dock" />
+            <div className="gauge-row">
+              <Gauge
+                label="METAL"
+                fraction={metalIndex / Math.max(1, book.metals.length - 1)}
+              />
+              <div className="bulbs" aria-hidden="true">
+                {Array.from({ length: 7 }, (_, index) => (
+                  <span key={index} className={index % 2 === 0 ? "on" : undefined} />
+                ))}
+              </div>
+              <Gauge
+                label="STACK"
+                fraction={countIndex / Math.max(1, COUNTS.length - 1)}
+              />
+            </div>
+          </div>
 
           <div className="playfield">
             <div className="window-frame">
