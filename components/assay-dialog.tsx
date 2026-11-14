@@ -74,7 +74,7 @@ export function AssayDialog({
           {formula ? <p>{formula}</p> : null}
           <p>
             A troy ounce is 31.1034768 grams. The 1/10 oz, 1/4 oz, 1/2 oz, 1 oz,
-            5 oz, and 10 oz stops use that ounce. Gram and kilo stops are metric,
+            2 oz, 5 oz, and 10 oz stops use that ounce. Gram and kilo stops are metric,
             then converted before they are multiplied.
           </p>
           <h3>Copper</h3>
