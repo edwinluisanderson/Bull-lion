@@ -8,7 +8,7 @@ import { PullBall } from "@/components/lever";
 import { Readout } from "@/components/readout";
 import { Reel, type ReelSymbol } from "@/components/reel";
 import { nearestAffordableCountIndex, weightShowsDollars } from "@/lib/affordable-weight";
-import { formatStamp, formatTroyOunces, formatUsd } from "@/lib/format";
+import { formatTroyOunces, formatUsd } from "@/lib/format";
 import {
   COUNTS,
   DEFAULT_COUNT_INDEX,
@@ -20,12 +20,6 @@ import { LIVE_SPOT_NOTE, parsePriceBook, type PriceBook } from "@/lib/price-book
 import { settleReels } from "@/lib/haptics";
 import { valueAfterRelease } from "@/lib/stretch";
 import { meltValue } from "@/lib/value";
-
-function lampLabel(source: PriceBook["source"]): string {
-  if (source === "live") return "Live wire";
-  if (source === "partial") return "Partial feed";
-  return "Sample card";
-}
 
 export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const [book, setBook] = useState(initialBook);
@@ -172,9 +166,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
     setCustomPieces(next);
   }, [metal?.symbol, metal?.usdPerTroyOz, weight.grams, countIndex, customPieces]);
 
-  const sourceClass =
-    book.source === "live" ? "lamp" : book.source === "partial" ? "lamp is-partial" : "lamp is-sample";
-
   return (
     <div className="workshop">
       <Gear className="gear bg-gear bg-gear-left" />
@@ -219,6 +210,8 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
               pieces={pieces}
               spinning={spinning}
               formula={formula}
+              source={book.source}
+              fetchedAt={book.fetchedAt}
             />
           ) : null}
 
@@ -299,16 +292,11 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             <Gear className="gear marquee-gear gear-reverse" />
           </div>
 
-          <footer className="cabinet-foot">
-            <p className={sourceClass} data-testid="price-source">
-              <i />
-              {lampLabel(book.source)}
-              <span> · {formatStamp(book.fetchedAt)}</span>
-            </p>
-            {book.note === LIVE_SPOT_NOTE ? null : (
+          {book.note === LIVE_SPOT_NOTE ? null : (
+            <footer className="cabinet-foot">
               <p className="fine-print">{book.note}</p>
-            )}
-          </footer>
+            </footer>
+          )}
         </section>
         <p className="sr-only" aria-live="polite">
           {announcement}
