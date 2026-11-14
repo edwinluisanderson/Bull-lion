@@ -772,7 +772,7 @@ button,
 
 .melt-plate {
   display: grid;
-  grid-template-rows: auto auto auto;
+  grid-template-rows: auto auto minmax(2.8rem, auto);
   align-items: center;
   justify-items: center;
   width: 100%;
@@ -804,16 +804,18 @@ button,
   justify-content: center;
   width: 100%;
   min-height: 4.8rem;
-  margin: 0 0 calc(1.25rem - 0.775rem - max(0rem, (3.4rem - 1.72 * clamp(1.8rem, 6vw, 3rem)) / 4));
+  margin: 0;
 }
 
 .melt-plate .tagline {
-  margin-top: 0.15rem;
-  margin-bottom: 0.28rem;
-}
-
-.melt-plate .lamp {
-  margin-bottom: calc(0.495rem + max(0rem, (3.4rem - 1.72 * clamp(1.8rem, 6vw, 3rem)) / 4));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 3.6rem;
+  margin: 0;
+  padding-bottom: 0.4rem;
 }
 
 .melt-digits .rolling-price {
@@ -978,6 +980,34 @@ button,
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.melt-plate .lamp,
+.melt-plate .lamp span {
+  color: #3a2710;
+}
+
+.melt-plate .lamp {
+  position: absolute;
+  z-index: 4;
+  right: 20px;
+  bottom: 6px;
+  left: 20px;
+  justify-content: center;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.melt-plate .lamp i {
+  flex: none;
+}
+
+@media (max-width: 360px) {
+  .melt-plate .lamp {
+    gap: 0.28rem;
+    font-size: 0.64rem;
+    letter-spacing: 0.06em;
+  }
 }
 
 .lamp i {
