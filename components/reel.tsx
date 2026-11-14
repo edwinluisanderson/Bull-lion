@@ -16,6 +16,8 @@ import {
 } from "@/lib/drum";
 import { hapticClick } from "@/lib/haptics";
 import { reelSnap, unlockReelClick } from "@/lib/reel-click";
+import { playStretchPop, unlockStretchPops } from "@/lib/stretch-pop";
+import { stretchPopCount } from "@/lib/stretch-pops";
 import { REEL_ITEM_HEIGHT } from "@/lib/metals";
 import {
   STRETCH_HOLD_MS,
@@ -128,6 +130,21 @@ function createEngine(options: {
   let slideDirection: StretchDirection | null = null;
   let stretchTravel = 0;
   let guest: GuestCount | null = null;
+  let popDirection: StretchDirection | null = null;
+  let popsPlayed = 0;
+
+  function syncStretchPops(direction: StretchDirection, travel: number) {
+    if (popDirection !== direction) {
+      popDirection = direction;
+      popsPlayed = 0;
+    }
+    const length = stretchOrigin ? sequenceFrom(stretchOrigin, direction).length : 0;
+    const due = stretchPopCount(travel, REEL_ITEM_HEIGHT, length);
+    while (popsPlayed < due) {
+      playStretchPop();
+      popsPlayed += 1;
+    }
+  }
 
   function setPhase(next: Phase) {
     if (phase === next) return;
@@ -324,6 +341,9 @@ function createEngine(options: {
     slideDirection = null;
     stretchTravel = 0;
     velocity = 0;
+    popDirection = null;
+    popsPlayed = 0;
+    playStretchPop();
     const layout = layoutNow("down", 0);
     if (layout) showLayout(layout, "down");
   }
@@ -344,6 +364,7 @@ function createEngine(options: {
     stretchTravel = along;
     const layout = layoutNow(slideDirection, along);
     if (!layout) return;
+    syncStretchPops(slideDirection, along);
     if (!layout.handoff) {
       showLayout(layout, slideDirection);
       return;
@@ -694,6 +715,7 @@ export function Reel({
           if (event.button !== 0) return;
           if (event.cancelable) event.preventDefault();
           unlockReelClick();
+          unlockStretchPops();
           const viewport = event.currentTarget;
           viewport.focus({ preventScroll: true });
           const bounds = viewport.getBoundingClientRect();
@@ -722,6 +744,7 @@ export function Reel({
         }}
         onKeyDown={(event) => {
           unlockReelClick();
+          unlockStretchPops();
           if (event.key === "ArrowDown" || event.key === "ArrowRight") {
             event.preventDefault();
             engineRef.current?.step(1);
