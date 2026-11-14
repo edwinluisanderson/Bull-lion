@@ -33,6 +33,7 @@ test("reel faces stay on the pre-plate abbreviations", () => {
       ["1/4 oz", "troy"],
       ["1/2 oz", "troy"],
       ["1 oz", "troy"],
+      ["2 oz", "troy"],
       ["5 oz", "troy"],
       ["10 oz", "troy"],
     ],
@@ -53,6 +54,7 @@ test("weight phrases spell grams and reserve troy for ounces", () => {
   assert.equal(formatWeightPhrase(byId("1/4")), "1/4 ounce troy");
   assert.equal(formatWeightPhrase(byId("1/2")), "1/2 ounce troy");
   assert.equal(formatWeightPhrase(byId("1oz")), "1 ounce troy");
+  assert.equal(formatWeightPhrase(byId("2oz")), "2 ounces troy");
   assert.equal(formatWeightPhrase(byId("10oz")), "10 ounces troy");
   assert.equal(formatStackPhrase(byId("10g"), 1), "10 grams, 1 piece");
   assert.equal(formatStackPhrase(byId("1oz"), 100), "1 ounce troy, 100 pieces");
@@ -63,10 +65,16 @@ test("weight phrases spell grams and reserve troy for ounces", () => {
 test("weights run grams ascending, then troy ascending, and default to one ounce", () => {
   assert.deepEqual(
     WEIGHTS.map((weight) => weight.id),
-    ["1g", "2.5g", "5g", "10g", "20g", "25g", "50g", "100g", "1kg", "1/10", "1/4", "1/2", "1oz", "5oz", "10oz"],
+    ["1g", "2.5g", "5g", "10g", "20g", "25g", "50g", "100g", "1kg", "1/10", "1/4", "1/2", "1oz", "2oz", "5oz", "10oz"],
   );
   assert.equal(WEIGHTS[DEFAULT_WEIGHT_INDEX]?.id, "1oz");
-  assert.equal(WEIGHTS.length, 15);
+  assert.equal(WEIGHTS.length, 16);
+  const twoOunce = byId("2oz");
+  assert.equal(twoOunce.grams, 31.1034768 * 2);
+  assert.equal(twoOunce.face, "2 oz");
+  assert.equal(twoOunce.detail, "troy");
+  const troy = WEIGHTS.filter((weight) => weight.detail === "troy").map((weight) => weight.id);
+  assert.deepEqual(troy, ["1/10", "1/4", "1/2", "1oz", "2oz", "5oz", "10oz"]);
 });
 
 test("copper sizes that round under a dollar are not affordable", () => {

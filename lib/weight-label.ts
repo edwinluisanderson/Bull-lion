@@ -6,6 +6,7 @@ const NICE_TROY = [
   { ounces: 0.25, amount: "1/4" },
   { ounces: 0.5, amount: "1/2" },
   { ounces: 1, amount: "1" },
+  { ounces: 2, amount: "2" },
   { ounces: 5, amount: "5" },
   { ounces: 10, amount: "10" },
 ] as const;

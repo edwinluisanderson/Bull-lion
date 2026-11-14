@@ -78,6 +78,7 @@ export const WEIGHTS: readonly WeightSpec[] = [
   { id: "1/4", face: "1/4 oz", detail: "troy", grams: TROY_OUNCE_GRAMS / 4 },
   { id: "1/2", face: "1/2 oz", detail: "troy", grams: TROY_OUNCE_GRAMS / 2 },
   { id: "1oz", face: "1 oz", detail: "troy", grams: TROY_OUNCE_GRAMS },
+  { id: "2oz", face: "2 oz", detail: "troy", grams: TROY_OUNCE_GRAMS * 2 },
   { id: "5oz", face: "5 oz", detail: "troy", grams: TROY_OUNCE_GRAMS * 5 },
   { id: "10oz", face: "10 oz", detail: "troy", grams: TROY_OUNCE_GRAMS * 10 },
 ];
