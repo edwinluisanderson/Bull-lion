@@ -237,9 +237,9 @@ export function stretchRowClip(
 export type StretchRim = { edge: "top" | "bottom"; opacity: number };
 
 /**
- * Ice-blue rim on the pinned count, along the edge the next number leaves.
- * Full strength as a reveal starts, gone once that number is fully in view.
- * A released stretch has no rim.
+ * Soft glow on the pinned count, along the edge the next number leaves.
+ * A held press with no travel has none. The first movement lights it,
+ * it fades as that number comes into view, and a release removes it.
  */
 export function stretchRim(
   direction: StretchDirection,
@@ -247,8 +247,7 @@ export function stretchRim(
   itemHeight: number,
 ): StretchRim {
   const edge = direction === "down" ? "bottom" : "top";
-  if (!(itemHeight > 0) || travel < 0) return { edge, opacity: 0 };
-  if (travel === 0) return { edge, opacity: 1 };
+  if (!(itemHeight > 0) || !(travel > 0)) return { edge, opacity: 0 };
   const into = travel % itemHeight;
   const opacity = into === 0 ? 0 : 1 - into / itemHeight;
   return { edge, opacity };
@@ -260,8 +259,9 @@ export function activeStretchRim(
   travel: number,
   itemHeight: number,
 ): StretchRim | null {
-  if (!stretching) return null;
-  return stretchRim(direction, travel, itemHeight);
+  if (!stretching || !(travel > 0)) return null;
+  const rim = stretchRim(direction, travel, itemHeight);
+  return rim.opacity > 0 ? rim : null;
 }
 
 export type CountRow = { slot: number; value: number };
