@@ -168,8 +168,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
 
   return (
     <div className="workshop">
-      <Gear className="gear bg-gear bg-gear-left" />
-      <Gear className="gear bg-gear bg-gear-right" />
       <main className="machine-wrap">
         <section className="cabinet" aria-label="Bullion slot machine">
           <span className="rivet" data-corner="tl" />
@@ -287,10 +285,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             <PullBall onCommit={pull} onBend={setBendDegrees} />
           </div>
 
-          <div className="cabinet-gears" aria-hidden="true">
-            <Gear className="gear marquee-gear" />
-            <Gear className="gear marquee-gear gear-reverse" />
-          </div>
+          <div className="cabinet-gears" aria-hidden="true" />
 
           {book.note === LIVE_SPOT_NOTE ? null : (
             <footer className="cabinet-foot">
@@ -298,6 +293,18 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             </footer>
           )}
         </section>
+        <div className="gear-panel" aria-hidden="true">
+          <span className="rivet" data-corner="tl" />
+          <span className="rivet" data-corner="tr" />
+          <span className="rivet" data-corner="bl" />
+          <span className="rivet" data-corner="br" />
+          <Gear className="gear bg-gear gear-panel-bg gear-panel-bg-left" />
+          <Gear className="gear bg-gear gear-panel-bg gear-panel-bg-right" />
+          <div className="gear-panel-row">
+            <Gear className="gear marquee-gear" />
+            <Gear className="gear marquee-gear gear-reverse" />
+          </div>
+        </div>
         <p className="sr-only" aria-live="polite">
           {announcement}
         </p>
