@@ -1018,14 +1018,14 @@ button,
   box-shadow: 0 0 8px #d6ff6a;
 }
 
-.lamp.is-partial i {
-  background: #ffcf70;
-  box-shadow: 0 0 8px #ffb347;
+.lamp[data-state="yellow"] i {
+  background: #ffd24a;
+  box-shadow: 0 0 8px #ffc83a;
 }
 
-.lamp.is-sample i {
-  background: #ff8a4a;
-  box-shadow: 0 0 8px #ff8a4a;
+.lamp[data-state="red"] i {
+  background: #ff4d3a;
+  box-shadow: 0 0 8px #ff4d3a;
 }
 
 .lamp span {

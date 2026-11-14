@@ -1,16 +1,15 @@
+"use client";
+
+import { useLayoutEffect, useState } from "react";
+
 import { AssayDialog, AssayInfoIcon } from "@/components/assay-dialog";
 import { RollingPrice } from "@/components/rolling-price";
 import { formatStamp, formatWholeDollars } from "@/lib/format";
+import { LIVE_WIRE_TICK_MS, liveWireState } from "@/lib/live-wire";
 import type { WeightSpec } from "@/lib/metals";
 import type { MetalQuote, PriceBook } from "@/lib/price-book";
 import { meltValue } from "@/lib/value";
 import { formatStackPhrase } from "@/lib/weight-label";
-
-function lampLabel(source: PriceBook["source"]): string {
-  if (source === "live") return "Live wire";
-  if (source === "partial") return "Partial feed";
-  return "Sample card";
-}
 
 export function Readout({
   metal,
@@ -30,6 +29,19 @@ export function Readout({
   fetchedAt: string;
 }) {
   const total = meltValue(metal.usdPerTroyOz, weight.grams, pieces);
+  const [now, setNow] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const tick = () => setNow(Date.now());
+    tick();
+    const id = window.setInterval(tick, LIVE_WIRE_TICK_MS);
+    return () => window.clearInterval(id);
+  }, []);
+  const wire =
+    source === "sample" || now == null
+      ? source === "sample"
+        ? "red"
+        : "green"
+      : liveWireState(fetchedAt, now, false);
 
   return (
     <div className="melt-stack">
@@ -57,14 +69,9 @@ export function Readout({
           <RollingPrice value={formatWholeDollars(total)} />
         </section>
         <p className="tagline">{formatStackPhrase(weight, pieces)}</p>
-        <p
-          className={
-            source === "live" ? "lamp" : source === "partial" ? "lamp is-partial" : "lamp is-sample"
-          }
-          data-testid="price-source"
-        >
+        <p className="lamp" data-state={wire} data-testid="price-source">
           <i />
-          {lampLabel(source)}
+          Live wire
           <span> · {formatStamp(fetchedAt)}</span>
         </p>
       </div>
