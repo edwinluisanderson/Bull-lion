@@ -1,3 +1,4 @@
+import { REEL_CLICK_GAIN } from "@/lib/reel-click";
 import { STRETCH_ECHO_HIGHPASS_HZ, STRETCH_ECHO_TAPS, stretchEchoTailMs } from "@/lib/stretch-echo";
 import { pickStretchPop } from "@/lib/stretch-pops";
 
@@ -11,7 +12,24 @@ export const STRETCH_POP_URLS = [
   "/sounds/pop-6.mp3",
 ] as const;
 
-export const STRETCH_POP_GAIN = 0.55;
+/**
+ * Loudest 50 ms of reel-click.mp3 and of pop-1.mp3 through pop-6.mp3,
+ * measured before playback gain. The pops differ, so the match uses their mean.
+ */
+export const REEL_CLICK_FILE_WINDOW_RMS = 0.2620292306;
+export const STRETCH_POP_FILE_WINDOW_RMS = 0.2650761108;
+
+/** Dry-pop gain that puts that window at the same level as the lock click. */
+export function matchedStretchPopGain(
+  clickRms = REEL_CLICK_FILE_WINDOW_RMS,
+  clickGain = REEL_CLICK_GAIN,
+  popRms = STRETCH_POP_FILE_WINDOW_RMS,
+): number {
+  if (!(popRms > 0)) return 0;
+  return (clickRms * clickGain) / popRms;
+}
+
+export const STRETCH_POP_GAIN = matchedStretchPopGain();
 
 let context: AudioContext | null = null;
 let buffers: Array<AudioBuffer | null> = STRETCH_POP_URLS.map(() => null);
