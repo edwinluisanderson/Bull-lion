@@ -1,10 +1,16 @@
 import { AssayDialog, AssayInfoIcon } from "@/components/assay-dialog";
 import { RollingPrice } from "@/components/rolling-price";
-import { formatWholeDollars } from "@/lib/format";
+import { formatStamp, formatWholeDollars } from "@/lib/format";
 import type { WeightSpec } from "@/lib/metals";
-import type { MetalQuote } from "@/lib/price-book";
+import type { MetalQuote, PriceBook } from "@/lib/price-book";
 import { meltValue } from "@/lib/value";
 import { formatStackPhrase } from "@/lib/weight-label";
+
+function lampLabel(source: PriceBook["source"]): string {
+  if (source === "live") return "Live wire";
+  if (source === "partial") return "Partial feed";
+  return "Sample card";
+}
 
 export function Readout({
   metal,
@@ -12,12 +18,16 @@ export function Readout({
   pieces,
   spinning,
   formula,
+  source,
+  fetchedAt,
 }: {
   metal: MetalQuote;
   weight: WeightSpec;
   pieces: number;
   spinning: boolean;
   formula?: string;
+  source: PriceBook["source"];
+  fetchedAt: string;
 }) {
   const total = meltValue(metal.usdPerTroyOz, weight.grams, pieces);
 
@@ -47,6 +57,16 @@ export function Readout({
           <RollingPrice value={formatWholeDollars(total)} />
         </section>
         <p className="tagline">{formatStackPhrase(weight, pieces)}</p>
+        <p
+          className={
+            source === "live" ? "lamp" : source === "partial" ? "lamp is-partial" : "lamp is-sample"
+          }
+          data-testid="price-source"
+        >
+          <i />
+          {lampLabel(source)}
+          <span> · {formatStamp(fetchedAt)}</span>
+        </p>
       </div>
     </div>
   );

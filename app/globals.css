@@ -809,7 +809,11 @@ button,
 
 .melt-plate .tagline {
   margin-top: 0.15rem;
-  margin-bottom: calc(0.775rem + max(0rem, (3.4rem - 1.72 * clamp(1.8rem, 6vw, 3rem)) / 4));
+  margin-bottom: 0.28rem;
+}
+
+.melt-plate .lamp {
+  margin-bottom: calc(0.495rem + max(0rem, (3.4rem - 1.72 * clamp(1.8rem, 6vw, 3rem)) / 4));
 }
 
 .melt-digits .rolling-price {
