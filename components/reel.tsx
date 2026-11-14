@@ -32,6 +32,7 @@ import {
   settledPlateStyle,
   stretchLayout,
   stretchRowClip,
+  stretchRim,
   valueAfterRelease,
   visibleTriple,
   type GuestCount,
@@ -39,6 +40,7 @@ import {
   type StretchDirection,
   type StretchLayout,
   type StretchOrigin,
+  type StretchRim,
 } from "@/lib/stretch";
 
 export type ReelSymbol = {
@@ -55,6 +57,7 @@ export type StretchFrame = {
   direction: StretchDirection;
   rows: StretchLayout["rows"];
   centered: number;
+  rim: StretchRim;
 };
 
 export type StretchConfig = {
@@ -318,8 +321,13 @@ function createEngine(options: {
     });
   }
 
-  function showLayout(layout: StretchLayout, direction: StretchDirection) {
-    publishStretch({ direction, rows: layout.rows, centered: layout.centered });
+  function showLayout(layout: StretchLayout, direction: StretchDirection, travel: number) {
+    publishStretch({
+      direction,
+      rows: layout.rows,
+      centered: layout.centered,
+      rim: stretchRim(direction, travel, REEL_ITEM_HEIGHT),
+    });
     options.onPieces(layout.centered);
   }
 
@@ -345,7 +353,7 @@ function createEngine(options: {
     popsPlayed = 0;
     playStretchPop();
     const layout = layoutNow("down", 0);
-    if (layout) showLayout(layout, "down");
+    if (layout) showLayout(layout, "down", 0);
   }
 
   function moveStretch(y: number, time: number) {
@@ -366,7 +374,7 @@ function createEngine(options: {
     if (!layout) return;
     syncStretchPops(slideDirection, along);
     if (!layout.handoff) {
-      showLayout(layout, slideDirection);
+      showLayout(layout, slideDirection, along);
       return;
     }
     const base = stretchOrigin?.slot ?? stretchOrigin?.anchorIndex ?? anchorIndex;
@@ -795,6 +803,13 @@ export function Reel({
                     {`×${row.value}`}
                   </span>
                   <span className="symbol-detail">pieces</span>
+                  {row.role === "pin" && stretchFrame.rim.opacity > 0 ? (
+                    <span
+                      className="stretch-rim"
+                      data-edge={stretchFrame.rim.edge}
+                      style={{ opacity: stretchFrame.rim.opacity }}
+                    />
+                  ) : null}
                 </div>
               </div>
               );

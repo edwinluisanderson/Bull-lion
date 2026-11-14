@@ -234,6 +234,36 @@ export function stretchRowClip(
   return { opacity: 1, clipTop: 0, clipBottom: Math.max(0, screenTop + itemHeight - pinTop) };
 }
 
+export type StretchRim = { edge: "top" | "bottom"; opacity: number };
+
+/**
+ * Ice-blue rim on the pinned count, along the edge the next number leaves.
+ * Full strength as a reveal starts, gone once that number is fully in view.
+ * A released stretch has no rim.
+ */
+export function stretchRim(
+  direction: StretchDirection,
+  travel: number,
+  itemHeight: number,
+): StretchRim {
+  const edge = direction === "down" ? "bottom" : "top";
+  if (!(itemHeight > 0) || travel < 0) return { edge, opacity: 0 };
+  if (travel === 0) return { edge, opacity: 1 };
+  const into = travel % itemHeight;
+  const opacity = into === 0 ? 0 : 1 - into / itemHeight;
+  return { edge, opacity };
+}
+
+export function activeStretchRim(
+  stretching: boolean,
+  direction: StretchDirection,
+  travel: number,
+  itemHeight: number,
+): StretchRim | null {
+  if (!stretching) return null;
+  return stretchRim(direction, travel, itemHeight);
+}
+
 export type CountRow = { slot: number; value: number };
 export type GuestCount = { value: number; slot: number };
 
