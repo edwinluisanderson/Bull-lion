@@ -1,3 +1,4 @@
+import { STRETCH_ECHO_HIGHPASS_HZ, STRETCH_ECHO_TAPS, stretchEchoTailMs } from "@/lib/stretch-echo";
 import { pickStretchPop } from "@/lib/stretch-pops";
 
 /** Six distinct pops cut from the virtual_vibes loop. Played at random, never twice in a row. */
@@ -73,6 +74,66 @@ export function unlockStretchPops(): void {
   }
 }
 
+function playDry(ctx: AudioContext, buffer: AudioBuffer): void {
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  const gain = ctx.createGain();
+  gain.gain.value = STRETCH_POP_GAIN;
+  source.connect(gain);
+  gain.connect(ctx.destination);
+  source.start();
+}
+
+/** Dry pop plus a few delayed, quieter, highpassed copies. No feedback loop. */
+function playEcho(ctx: AudioContext, buffer: AudioBuffer): boolean {
+  try {
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const dry = ctx.createGain();
+    dry.gain.value = STRETCH_POP_GAIN;
+    source.connect(dry);
+    dry.connect(ctx.destination);
+
+    const color = ctx.createBiquadFilter();
+    color.type = "highpass";
+    color.frequency.value = STRETCH_ECHO_HIGHPASS_HZ;
+    color.Q.value = 0.707;
+    source.connect(color);
+
+    const taps = STRETCH_ECHO_TAPS.map((tap) => {
+      const delay = ctx.createDelay(0.3);
+      delay.delayTime.value = tap.delayMs / 1000;
+      const gain = ctx.createGain();
+      gain.gain.value = STRETCH_POP_GAIN * tap.gain;
+      color.connect(delay);
+      delay.connect(gain);
+      gain.connect(ctx.destination);
+      return { delay, gain };
+    });
+
+    const held = { source, dry, color, taps };
+    source.onended = () => {
+      window.setTimeout(() => {
+        try {
+          held.source.disconnect();
+          held.dry.disconnect();
+          held.color.disconnect();
+          for (const tap of held.taps) {
+            tap.delay.disconnect();
+            tap.gain.disconnect();
+          }
+        } catch {
+          /* Already torn down. */
+        }
+      }, stretchEchoTailMs());
+    };
+    source.start();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** One random pop. Silent until the clips have decoded. */
 export function playStretchPop(): void {
   try {
@@ -86,13 +147,9 @@ export function playStretchPop(): void {
     if (ctx.state === "suspended") void ctx.resume().catch(() => {});
     const index = pickStretchPop(ready.length, lastIndex);
     lastIndex = index;
-    const source = ctx.createBufferSource();
-    source.buffer = ready[index] ?? null;
-    const gain = ctx.createGain();
-    gain.gain.value = STRETCH_POP_GAIN;
-    source.connect(gain);
-    gain.connect(ctx.destination);
-    source.start();
+    const buffer = ready[index] ?? null;
+    if (!buffer) return;
+    if (!playEcho(ctx, buffer)) playDry(ctx, buffer);
   } catch {
     /* Audio is optional. */
   }
