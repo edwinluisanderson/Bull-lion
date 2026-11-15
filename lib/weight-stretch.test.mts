@@ -8,7 +8,6 @@ import { TROY_OUNCE_GRAMS } from "@/lib/value";
 import { formatWeightPhrase } from "@/lib/weight-label";
 import {
   WEIGHT_KG_MAX,
-  WEIGHT_KG_STRETCH_CAP,
   weightStretchBetween,
   weightStretchLabel,
   weightStretchOrigin,
@@ -83,19 +82,21 @@ test("fractional ounces insert 1/20, 1/25, 1/5, and 3/4 only", () => {
   );
 });
 
-test("1 kg stretches upward through the gap-integer cap and not downward", () => {
+test("1 kg stretches upward through 10 kg and not past it or downward", () => {
   const up = weightStretchBetween(grams("1kg"), grams("1/10"), "up");
-  assert.equal(WEIGHT_KG_STRETCH_CAP, 400);
-  assert.equal(WEIGHT_KG_MAX, 401);
-  assert.equal(up.length, 400);
-  assert.equal(up[0], 2000);
-  assert.equal(up.at(-1), 401000);
-  assert.deepEqual(weightStretchLabel(2000), { mark: "2 kg", detail: "kilograms" });
+  assert.equal(WEIGHT_KG_MAX, 10);
+  assert.deepEqual(
+    up.map((grams) => weightStretchLabel(grams).mark),
+    ["2 kg", "3 kg", "4 kg", "5 kg", "6 kg", "7 kg", "8 kg", "9 kg", "10 kg"],
+  );
+  assert.equal(up.length, 9);
+  assert.deepEqual(weightStretchLabel(10000), { mark: "10 kg", detail: "kilograms" });
   assert.equal(formatWeightPhrase({ id: "2kg", face: "2 kg", detail: "kilograms", grams: 2000 }), "2 kilograms");
   assert.deepEqual(weightStretchBetween(grams("1kg"), grams("100g"), "down"), []);
+  assert.deepEqual(weightStretchBetween(10000, grams("1/10"), "up"), []);
   const fromTwo = weightStretchBetween(2000, grams("1/10"), "up");
-  assert.equal(fromTwo[0], 3000);
-  assert.equal(fromTwo.at(-1), 401000);
+  assert.equal(weightStretchLabel(fromTwo[0] ?? 0).mark, "3 kg");
+  assert.equal(weightStretchLabel(fromTwo.at(-1) ?? 0).mark, "10 kg");
   assert.deepEqual(weightStretchBetween(2000, 1000, "down"), []);
   assert.deepEqual(weightStretchBetween(3000, 1000, "down"), [2000]);
 });

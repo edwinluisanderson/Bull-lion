@@ -2,13 +2,8 @@ import { WEIGHTS } from "@/lib/metals";
 import { originFor, type StretchDirection, type StretchOrigin } from "@/lib/stretch";
 import { TROY_OUNCE_GRAMS } from "@/lib/value";
 
-/**
- * The count reel invents nothing past its top stop.
- * An open kilogram stretch still needs a ceiling, so it uses the same 400-value
- * cap as gapIntegers: 2 kg through 401 kg.
- */
-export const WEIGHT_KG_STRETCH_CAP = 400;
-export const WEIGHT_KG_MAX = 1 + WEIGHT_KG_STRETCH_CAP;
+/** Pulling up from 1 kg offers 2 kg through 10 kg, and nothing above. */
+export const WEIGHT_KG_MAX = 10;
 
 const OZ = TROY_OUNCE_GRAMS;
 const GRAM_STOPS = [1, 2.5, 5, 10, 20, 25, 50, 100, 1000];
@@ -45,7 +40,7 @@ function wholeGrams(from: number, to: number): number[] {
   while ((step > 0 && grams < to && grams > from) || (step < 0 && grams > to && grams < from)) {
     values.push(grams);
     grams += step;
-    if (values.length > WEIGHT_KG_STRETCH_CAP) break;
+    if (values.length > 400) break;
   }
   return values;
 }
@@ -67,7 +62,7 @@ function wholeOunces(from: number, to: number): number[] {
 
 function kilogramsAbove(fromKg: number): number[] {
   const values: number[] = [];
-  for (let kg = fromKg + 1; kg <= WEIGHT_KG_MAX && values.length < WEIGHT_KG_STRETCH_CAP; kg += 1) {
+  for (let kg = fromKg + 1; kg <= WEIGHT_KG_MAX; kg += 1) {
     values.push(kg * 1000);
   }
   return values;
@@ -75,7 +70,7 @@ function kilogramsAbove(fromKg: number): number[] {
 
 function kilogramsDownToOne(fromKg: number): number[] {
   const values: number[] = [];
-  for (let kg = fromKg - 1; kg > 1 && values.length < WEIGHT_KG_STRETCH_CAP; kg -= 1) {
+  for (let kg = fromKg - 1; kg > 1; kg -= 1) {
     values.push(kg * 1000);
   }
   return values;
