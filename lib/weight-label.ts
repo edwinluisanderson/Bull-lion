@@ -24,6 +24,22 @@ export function weightWords(weight: WeightSpec): { amount: string; unit: string 
   }
   if (Math.abs(weight.grams - 1000) < 1e-6) return { amount: "1", unit: "kilogram" };
   if (Math.abs(weight.grams - 1) < 1e-6) return { amount: "1", unit: "gram" };
+  const extraTroy = [
+    { ounces: 1 / 25, amount: "1/25" },
+    { ounces: 1 / 20, amount: "1/20" },
+    { ounces: 1 / 5, amount: "1/5" },
+    { ounces: 0.75, amount: "3/4" },
+  ];
+  for (const nice of extraTroy) {
+    if (Math.abs(ounces - nice.ounces) < 1e-8) return { amount: nice.amount, unit: "ounce troy" };
+  }
+  if (Math.abs(ounces - Math.round(ounces)) < 1e-8 && ounces >= 1 && ounces <= 10) {
+    const whole = Math.round(ounces);
+    return { amount: String(whole), unit: whole === 1 ? "ounce troy" : "ounces troy" };
+  }
+  if (weight.grams > 1000 && Math.abs(weight.grams / 1000 - Math.round(weight.grams / 1000)) < 1e-8) {
+    return { amount: String(Math.round(weight.grams / 1000)), unit: "kilograms" };
+  }
   return { amount: String(weight.grams), unit: "grams" };
 }
 

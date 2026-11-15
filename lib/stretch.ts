@@ -89,9 +89,17 @@ export function originFor(stops: readonly number[], value: number): StretchOrigi
   };
 }
 
-/** Whole numbers from the pressed value toward the stop on that side. */
-export function sequenceFrom(origin: StretchOrigin, direction: StretchDirection): number[] {
+/**
+ * Whole numbers from the pressed value toward the stop on that side.
+ * A custom `between` replaces the integer walk (the weight reel). Counts omit it.
+ */
+export function sequenceFrom(
+  origin: StretchOrigin,
+  direction: StretchDirection,
+  between?: (anchor: number, toward: number, direction: StretchDirection) => number[],
+): number[] {
   const toward = direction === "down" ? origin.lower : origin.upper;
+  if (between) return between(origin.anchor, toward, direction);
   if (direction === "down" && toward >= origin.anchor) return [];
   if (direction === "up" && toward <= origin.anchor) return [];
   return gapIntegers(origin.anchor, toward);
