@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Gauge } from "@/components/gauge";
+import { WeightDial } from "@/components/weight-dial";
 import { Gear } from "@/components/gear";
 import { PullBall } from "@/components/lever";
 import { Readout } from "@/components/readout";
@@ -217,10 +218,8 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                 label="METAL"
                 fraction={metalIndex / Math.max(1, book.metals.length - 1)}
               />
-              <div className="bulbs" aria-hidden="true">
-                {Array.from({ length: 7 }, (_, index) => (
-                  <span key={index} className={index % 2 === 0 ? "on" : undefined} />
-                ))}
+              <div className="gauge-center">
+                <WeightDial grams={weight.grams} />
               </div>
               <Gauge
                 label="STACK"
@@ -321,7 +320,13 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             <PullBall onCommit={pull} onBend={setBendDegrees} />
           </div>
 
-          <div className="cabinet-gears" aria-hidden="true" />
+          <div className="cabinet-gears" aria-hidden="true">
+            <div className="bulbs">
+              {Array.from({ length: 7 }, (_, index) => (
+                <span key={index} className={index % 2 === 0 ? "on" : undefined} />
+              ))}
+            </div>
+          </div>
 
           {book.note === LIVE_SPOT_NOTE ? null : (
             <footer className="cabinet-foot">
