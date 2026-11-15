@@ -23,7 +23,7 @@ function arc(cx: number, cy: number, radius: number, start: number, sweep: numbe
 }
 
 export function WeightDial({ grams }: { grams: number }) {
-  const values = weightDialValues(permanentWeightGrams(), grams);
+  const values = weightDialValues(permanentWeightGrams());
   const angle = weightDialAngle(weightDialIndex(values, grams), values.length);
   const cx = 48;
   const cy = 42;

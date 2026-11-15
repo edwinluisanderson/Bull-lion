@@ -1,5 +1,5 @@
 import { WEIGHTS } from "@/lib/metals";
-import { sameGrams, weightStretchBetween, weightStretchOrigin } from "@/lib/weight-stretch";
+import { sameGrams } from "@/lib/weight-stretch";
 
 /** Degrees of empty arc at the bottom, between the lightest and heaviest stops. */
 export const WEIGHT_DIAL_GAP_DEG = 28;
@@ -20,30 +20,33 @@ export function weightDialAngle(index: number, count: number): number {
   return WEIGHT_DIAL_MIN_DEG + fraction * WEIGHT_DIAL_SWEEP_DEG;
 }
 
-function tempsFor(permanent: readonly number[], activeGrams: number): number[] {
-  const origin = weightStretchOrigin(permanent, activeGrams);
-  const rising = weightStretchBetween(origin.lower, origin.upper, "up");
-  if (rising.some((grams) => sameGrams(grams, activeGrams))) return rising;
-  const falling = weightStretchBetween(origin.upper, origin.lower, "down");
-  if (falling.some((grams) => sameGrams(grams, activeGrams))) return falling;
-  return [activeGrams];
+/** The dial scale is only the permanent stops, lightest to heaviest. */
+export function weightDialValues(permanent: readonly number[]): number[] {
+  return [...permanent].sort((left, right) => left - right);
 }
 
 /**
- * Permanent stops, plus the temporary stops in the active gap while one of them
- * is on the wheel. Sorted lightest to heaviest so the needle can walk clockwise.
+ * Stop the needle uses for this many grams.
+ * An exact permanent stop stays there. A temporary weight uses the nearest
+ * permanent stop by absolute grams. An equal distance keeps the heavier stop.
  */
-export function weightDialValues(permanent: readonly number[], activeGrams: number | null): number[] {
-  const extras =
-    activeGrams == null || permanent.some((grams) => sameGrams(grams, activeGrams))
-      ? []
-      : tempsFor(permanent, activeGrams);
-  return [...permanent, ...extras].sort((left, right) => left - right);
+export function nearestPermanentIndex(values: readonly number[], grams: number): number {
+  let best = 0;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  values.forEach((value, index) => {
+    const distance = Math.abs(value - grams);
+    const heavierTie = distance === bestDistance && value > (values[best] ?? 0);
+    if (distance < bestDistance || heavierTie) {
+      best = index;
+      bestDistance = distance;
+    }
+  });
+  return best;
 }
 
 export function weightDialIndex(values: readonly number[], grams: number): number {
-  const index = values.findIndex((value) => sameGrams(value, grams));
-  return index < 0 ? 0 : index;
+  const exact = values.findIndex((value) => sameGrams(value, grams));
+  return exact >= 0 ? exact : nearestPermanentIndex(values, grams);
 }
 
 export function permanentWeightGrams(): number[] {
