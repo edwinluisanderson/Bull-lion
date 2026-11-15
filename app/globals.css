@@ -240,6 +240,18 @@ button,
   justify-self: center;
 }
 
+.gauge-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.gauge.weight-dial {
+  width: auto;
+  height: calc(min(148px, 34vw) * 96 / 120);
+}
+
 .gauge text {
   fill: #f6e7c8;
   font-family: var(--font-display), Palatino, serif;
