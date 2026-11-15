@@ -216,7 +216,8 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             <div className="gauge-row">
               <Gauge
                 label="METAL"
-                fraction={metalIndex / Math.max(1, book.metals.length - 1)}
+                stops={book.metals.length}
+                index={metalIndex}
               />
               <div className="gauge-center">
                 <WeightDial grams={weight.grams} />
