@@ -167,7 +167,7 @@ button,
   display: flex;
   flex-direction: column;
   border-radius: 28px;
-  padding-bottom: 0.85rem;
+  padding-bottom: 0;
   background:
     repeating-linear-gradient(
       90deg,
@@ -277,7 +277,6 @@ button,
   gap: 7px;
   align-items: center;
   justify-content: center;
-  padding-bottom: 0.85rem;
 }
 
 .bulbs span {
@@ -806,9 +805,11 @@ button,
 .cabinet-gears {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  min-height: 52px;
-  padding: 0.45rem 2.15rem 0.55rem;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: calc(52px + 2.05rem);
+  margin-top: -0.2rem;
+  padding: 0 0.75rem;
 }
 
 .gear-panel {
@@ -1240,7 +1241,7 @@ button,
   }
 
   .cabinet-gears {
-    min-height: 36px;
+    min-height: calc(36px + 2.05rem);
   }
 
   .gear-panel,
