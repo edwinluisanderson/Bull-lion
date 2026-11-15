@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { METAL_CATALOG } from "@/lib/metals";
+import { DEFAULT_METAL_INDEX, METAL_CATALOG } from "@/lib/metals";
+import { parsePriceBook, samplePriceBook } from "@/lib/price-book";
 import {
   METAL_DIAL_START_DEG,
   METAL_DIAL_SWEEP_DEG,
@@ -33,12 +34,34 @@ test("the metal needle sits on the selected metal's tick", () => {
   assert.equal(metalDialNeedleAngle(4, count), 120);
 });
 
-test("the metal dial order is gold, silver, platinum, palladium, copper", () => {
+const METAL_ORDER = ["Gold", "Silver", "Platinum", "Palladium", "Copper"];
+
+test("the metal dial and the metal wheel share one catalog order", () => {
   assert.deepEqual(
     METAL_CATALOG.map((metal) => metal.name),
-    ["Gold", "Silver", "Platinum", "Palladium", "Copper"],
+    METAL_ORDER,
   );
+  assert.equal(DEFAULT_METAL_INDEX, 0);
+  assert.equal(METAL_CATALOG[DEFAULT_METAL_INDEX]?.name, "Gold");
+
+  const sample = samplePriceBook();
+  assert.deepEqual(
+    sample.metals.map((metal) => metal.name),
+    METAL_ORDER,
+  );
+  const shuffled = {
+    ...sample,
+    metals: [...sample.metals].reverse(),
+  };
+  const parsed = parsePriceBook(JSON.parse(JSON.stringify(shuffled)));
+  assert.deepEqual(
+    parsed?.metals.map((metal) => metal.name),
+    METAL_ORDER,
+  );
+
   const machine = readFileSync(new URL("../components/slot-machine.tsx", import.meta.url), "utf8");
+  assert.match(machine, /book\.metals\.map\(\(entry\)/);
+  assert.match(machine, /initialIndex=\{DEFAULT_METAL_INDEX\}/);
   const metalGauge = machine.slice(machine.indexOf('label="METAL"'), machine.indexOf('label="STACK"'));
   assert.match(metalGauge, /stops=\{book\.metals\.length\}/);
   assert.match(metalGauge, /index=\{metalIndex\}/);
