@@ -60,23 +60,40 @@ export type StretchFrame = {
   rim: StretchRim;
 };
 
+export type StretchFace = { mark: string; detail: string };
+
 export type StretchConfig = {
   stops: readonly number[];
   isValueEnabled: (value: number) => boolean;
+  /** When omitted, the gap is the whole numbers between the stops. */
+  between?: (anchor: number, toward: number, direction: StretchDirection) => number[];
+  /** When omitted, a value that is not a stop is placed by numeric order. */
+  origin?: (stops: readonly number[], value: number) => StretchOrigin;
+  /** When omitted, faces stay on the count reel's ×N / pieces. */
+  label?: (value: number) => StretchFace;
 };
+
+function countFace(value: number): StretchFace {
+  return { mark: `×${value}`, detail: value === 1 ? "piece" : "pieces" };
+}
 
 const MAX_VELOCITY = 28;
 const WINDOW = [-2, -1, 0, 1, 2, 3];
 
-function insertGuest(items: ReelSymbol[], guest: GuestCount): ReelSymbol[] {
+function insertGuest(
+  items: ReelSymbol[],
+  guest: GuestCount,
+  label?: (value: number) => StretchFace,
+): ReelSymbol[] {
   const lower = Math.floor(guest.slot);
-  const face: ReelSymbol = {
+  const face = label?.(guest.value) ?? countFace(guest.value);
+  const symbol: ReelSymbol = {
     key: `guest-${guest.value}`,
-    mark: `×${guest.value}`,
-    detail: guest.value === 1 ? "piece" : "pieces",
+    mark: face.mark,
+    detail: face.detail,
     tint: items[lower]?.tint ?? items[0]?.tint,
   };
-  return [...items.slice(0, lower + 1), face, ...items.slice(lower + 1)];
+  return [...items.slice(0, lower + 1), symbol, ...items.slice(lower + 1)];
 }
 
 type Engine = {
@@ -141,7 +158,7 @@ function createEngine(options: {
       popDirection = direction;
       popsPlayed = 0;
     }
-    const length = stretchOrigin ? sequenceFrom(stretchOrigin, direction).length : 0;
+    const length = stretchOrigin ? sequenceNow(stretchOrigin, direction).length : 0;
     const due = stretchPopCount(travel, REEL_ITEM_HEIGHT, length);
     while (popsPlayed < due) {
       playStretchPop();
@@ -305,6 +322,14 @@ function createEngine(options: {
     options.onStretchFrame(frame);
   }
 
+  function sequenceNow(origin: StretchOrigin, direction: StretchDirection) {
+    return sequenceFrom(origin, direction, options.getStretch()?.between);
+  }
+
+  function originNow(stops: readonly number[], value: number) {
+    return options.getStretch()?.origin?.(stops, value) ?? originFor(stops, value);
+  }
+
   function layoutNow(direction: StretchDirection, travel: number): StretchLayout | null {
     const origin = stretchOrigin;
     if (!origin) return null;
@@ -315,7 +340,7 @@ function createEngine(options: {
       anchor: origin.anchor,
       pin,
       pushed,
-      sequence: sequenceFrom(origin, direction),
+      sequence: sequenceNow(origin, direction),
       travel,
       itemHeight: REEL_ITEM_HEIGHT,
     });
@@ -340,10 +365,10 @@ function createEngine(options: {
       guest && visibleTriple(position, countRows(stops, guest))[1] === guest.value ? guest.value : null;
     if (centeredGuest == null) {
       anchorIndex = mod(Math.round(position), stops.length);
-      stretchOrigin = originFor(stops, stops[anchorIndex] ?? anchorIndex);
+      stretchOrigin = originNow(stops, stops[anchorIndex] ?? anchorIndex);
       setPos(anchorIndex);
     } else {
-      stretchOrigin = originFor(stops, centeredGuest);
+      stretchOrigin = originNow(stops, centeredGuest);
       anchorIndex = stretchOrigin.lowerIndex;
     }
     slideDirection = null;
@@ -420,7 +445,7 @@ function createEngine(options: {
       setPhase("idle");
       return;
     }
-    const between = origin ? sequenceFrom(origin, direction).includes(centered) : false;
+    const between = origin ? sequenceNow(origin, direction).includes(centered) : false;
     if (!between) {
       publishStretch(null);
       stretchOrigin = null;
@@ -676,7 +701,7 @@ export function Reel({
   }, [guardToken, guardIndex]);
 
   const drawingGuest = Boolean(guestDraw) && !stretchFrame && stretch;
-  const viewItems = drawingGuest && guestDraw ? insertGuest(items, guestDraw) : items;
+  const viewItems = drawingGuest && guestDraw ? insertGuest(items, guestDraw, stretch?.label) : items;
   const viewPosition = drawingGuest && guestDraw ? projectGuest(position, guestDraw) : position;
   const count = viewItems.length;
   const shown = viewPosition - bendDegrees / STOP_DEGREES;
@@ -690,12 +715,12 @@ export function Reel({
   const guestCenter =
     guestDraw && stretch ? visibleTriple(position, countRows(stretch.stops, guestDraw))[1] : null;
   const spoken = stretchFrame ? stretchFrame.centered : guestCenter != null ? guestCenter : centerPieces;
-  const valueText =
-    spoken != null
-      ? `×${spoken} ${spoken === 1 ? "piece" : "pieces"}`
-      : activeSymbol
-        ? `${activeSymbol.mark} ${activeSymbol.detail}`
-        : label;
+  const spokenFace = spoken != null ? (stretch?.label?.(spoken) ?? countFace(spoken)) : null;
+  const valueText = spokenFace
+    ? `${spokenFace.mark} ${spokenFace.detail}`
+    : activeSymbol
+      ? `${activeSymbol.mark} ${activeSymbol.detail}`
+      : label;
 
   return (
     <div className="reel-column" data-testid={`reel-${label.toLowerCase()}`}>
@@ -800,9 +825,11 @@ export function Reel({
                   }}
                 >
                   <span className="symbol-mark" style={{ color: row.centered ? "#f0d78c" : "#f0e2c4" }}>
-                    {`×${row.value}`}
+                    {(stretch?.label?.(row.value) ?? countFace(row.value)).mark}
                   </span>
-                  <span className="symbol-detail">pieces</span>
+                  <span className="symbol-detail">
+                    {(stretch?.label?.(row.value) ?? countFace(row.value)).detail}
+                  </span>
                   {row.role === "pin" && stretchFrame.rim.opacity > 0 ? (
                     <span
                       className="stretch-rim"
@@ -822,8 +849,9 @@ export function Reel({
           const y = REEL_ITEM_HEIGHT * 1.5 + pose.shift * REEL_ITEM_HEIGHT - REEL_ITEM_HEIGHT / 2;
           const isActive = index === facing;
           const override = !drawingGuest && centerPieces != null && offset === 0;
-          const mark = override ? `×${centerPieces}` : symbol.mark;
-          const detail = override ? (centerPieces === 1 ? "piece" : "pieces") : symbol.detail;
+          const customFace = override ? (stretch?.label?.(centerPieces) ?? countFace(centerPieces)) : null;
+          const mark = customFace ? customFace.mark : symbol.mark;
+          const detail = customFace ? customFace.detail : symbol.detail;
           const smearY = -Math.sign(velocity) * smear;
           return (
             <div

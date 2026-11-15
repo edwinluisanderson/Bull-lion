@@ -20,6 +20,11 @@ import { LIVE_SPOT_NOTE, parsePriceBook, type PriceBook } from "@/lib/price-book
 import { settleReels } from "@/lib/haptics";
 import { valueAfterRelease } from "@/lib/stretch";
 import { meltValue } from "@/lib/value";
+import {
+  weightStretchBetween,
+  weightStretchLabel,
+  weightStretchOrigin,
+} from "@/lib/weight-stretch";
 
 export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const [book, setBook] = useState(initialBook);
@@ -27,6 +32,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const [weightIndex, setWeightIndex] = useState(DEFAULT_WEIGHT_INDEX);
   const [countIndex, setCountIndex] = useState(DEFAULT_COUNT_INDEX);
   const [customPieces, setCustomPieces] = useState<number | null>(null);
+  const [customGrams, setCustomGrams] = useState<number | null>(null);
   const [spinToken, setSpinToken] = useState(0);
   const [bendDegrees, setBendDegrees] = useState(0);
   const [motion, setMotion] = useState([false, false, false]);
@@ -35,7 +41,12 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const lastPull = useRef(0);
 
   const metal = book.metals[metalIndex] ?? book.metals[0];
-  const weight = WEIGHTS[weightIndex] ?? WEIGHTS[DEFAULT_WEIGHT_INDEX];
+  const listedWeight = WEIGHTS[weightIndex] ?? WEIGHTS[DEFAULT_WEIGHT_INDEX];
+  const customFace = customGrams == null ? null : weightStretchLabel(customGrams);
+  const weight =
+    customGrams == null || !customFace
+      ? listedWeight
+      : { id: `stretch-${customGrams}`, face: customFace.mark, detail: customFace.detail, grams: customGrams };
   const pieces = customPieces ?? COUNTS[countIndex] ?? COUNTS[0];
   const spinning = motion.some(Boolean);
 
@@ -50,6 +61,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
     [book.metals],
   );
 
+  const weightStops = useMemo(() => WEIGHTS.map((entry) => entry.grams), []);
   const weightItems = useMemo<ReelSymbol[]>(
     () =>
       WEIGHTS.map((entry) => ({
@@ -242,7 +254,27 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   spinToken={spinToken}
                   spinOrder={1}
                   bendDegrees={bendDegrees}
-                  onIndex={setWeightIndex}
+                  centerPieces={customGrams}
+                  stretch={{
+                    stops: weightStops,
+                    isValueEnabled: () => true,
+                    between: weightStretchBetween,
+                    origin: weightStretchOrigin,
+                    label: weightStretchLabel,
+                  }}
+                  onPieces={(grams) => {
+                    const index = WEIGHTS.findIndex((entry) => entry.grams === grams);
+                    if (index >= 0) {
+                      setCustomGrams(null);
+                      setWeightIndex(index);
+                      return;
+                    }
+                    setCustomGrams(grams);
+                  }}
+                  onIndex={(index) => {
+                    setWeightIndex(index);
+                    setCustomGrams(null);
+                  }}
                   onMotion={onWeightMotion}
                 />
                 <Reel
