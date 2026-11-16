@@ -32,19 +32,16 @@ test("the dials and lights sit between the melt plate and the wheels", () => {
   assert.match(css, /\.bulbs span\.on \{[^}]*animation:\s*blink 2\.6s infinite;/);
 });
 
-test("the weight dial drops by the label baseline gap", () => {
-  const gaugeY = Number(gauge.match(/<text x="60" y="(\d+)"/)?.[1]);
-  const weightY = Number(weightDial.match(/<text x="48" y="(\d+)"/)?.[1]);
-  const viewHeight = Number(weightDial.match(/viewBox="0 0 \d+ (\d+)"/)?.[1]);
-  const units = gaugeY - weightY;
-  assert.equal(viewHeight, 96);
-  assert.equal(units, 2);
+test("the weight dial shares the side dials' vertical center", () => {
+  assert.equal(gauge.match(/viewBox="([^"]+)"/)?.[1], "0 0 120 96");
+  assert.equal(weightDial.match(/viewBox="([^"]+)"/)?.[1], "0 0 96 96");
+  assert.match(css, /\.gauge-row \{[^}]*align-items:\s*end;/);
+  assert.match(css, /\.gauge \{\s*width:\s*min\(148px, 100%\);\s*height:\s*auto;/);
   assert.match(
     css,
-    new RegExp(
-      `\\.gauge\\.weight-dial \\{[^}]*transform:\\s*translateY\\(calc\\(100% \\/ ${viewHeight / units}\\)\\);`,
-    ),
+    /\.gauge\.weight-dial \{\s*width:\s*min\(calc\(148px \* 96 \/ 120\), 80%\);\s*height:\s*auto;/,
   );
+  assert.doesNotMatch(css, /\.gauge\.weight-dial \{[^}]*transform:/);
   assert.doesNotMatch(css, /\.gauge \{[^}]*transform:/);
   assert.doesNotMatch(css, /\.gauge-center \{[^}]*transform:/);
 });
