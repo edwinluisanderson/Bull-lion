@@ -5,21 +5,32 @@ import { resetHapticQueue } from "@/lib/haptics";
 import {
   REEL_CLICK_GAIN,
   REEL_CLICKS_PER_FRAME,
+  SPIN_FILTER_RAMP_S,
+  SPIN_LOWPASS_HZ,
+  SPIN_LOWPASS_Q,
+  SPIN_OPEN_HZ,
   loadReelClick,
+  noteReelSpinning,
   playReelClick,
   reelSnap,
   resetReelClickForTests,
   unlockReelClick,
 } from "@/lib/reel-click";
 
-type GainNode = { gain: { value: number }; connect: () => void };
+type GainNode = { gain: { value: number }; connect: (target?: object) => void };
 
 class FakeAudio {
   state: AudioContextState = "running";
   destination = {};
+  currentTime = 0;
   resumeCalls = 0;
   starts = 0;
   gains: number[] = [];
+  routes: string[] = [];
+  filterTargets: number[] = [];
+  filterType = "";
+  filterQ = 0;
+  rampTau = 0;
 
   resume() {
     this.resumeCalls += 1;
@@ -32,7 +43,48 @@ class FakeAudio {
   }
 
   createGain(): GainNode {
-    return { gain: { value: 1 }, connect() {} };
+    const audio = this;
+    return {
+      gain: { value: 1 },
+      connect(target?: object) {
+        audio.routes.push(target === audio.destination ? "dest" : "bus");
+      },
+    };
+  }
+
+  createBiquadFilter() {
+    const audio = this;
+    const frequency = {
+      value: SPIN_OPEN_HZ,
+      cancelScheduledValues() {},
+      setValueAtTime(value: number) {
+        frequency.value = value;
+      },
+      setTargetAtTime(value: number, _time: number, tau: number) {
+        audio.filterTargets.push(value);
+        audio.rampTau = tau;
+        frequency.value = value;
+      },
+    };
+    const filter = {
+      type: "",
+      Q: { value: 0 },
+      frequency,
+      connect() {},
+    };
+    Object.defineProperty(filter, "type", {
+      get: () => audio.filterType,
+      set: (value: string) => {
+        audio.filterType = value;
+      },
+    });
+    Object.defineProperty(filter.Q, "value", {
+      get: () => audio.filterQ,
+      set: (value: number) => {
+        audio.filterQ = value;
+      },
+    });
+    return filter;
   }
 
   createBufferSource() {
@@ -113,6 +165,34 @@ test("the first user gesture resumes a suspended audio context", () => {
   fake.state = "suspended";
   unlockReelClick();
   assert.equal(fake.resumeCalls, 1);
+});
+
+test("the spin bus rolls off only while a reel is spinning", async () => {
+  const fake = installAudio();
+  await loadReelClick();
+
+  reelSnap();
+  assert.deepEqual(fake.routes, ["dest"]);
+  assert.deepEqual(fake.filterTargets, []);
+
+  noteReelSpinning(true);
+  noteReelSpinning(true);
+  playReelClick(true);
+  assert.equal(fake.filterType, "lowpass");
+  assert.equal(fake.filterQ, SPIN_LOWPASS_Q);
+  assert.equal(fake.rampTau, SPIN_FILTER_RAMP_S);
+  assert.equal(fake.filterTargets.at(-1), SPIN_LOWPASS_HZ);
+  assert.equal(fake.routes.at(-1), "bus");
+  assert.equal(fake.gains.at(-1), REEL_CLICK_GAIN);
+
+  noteReelSpinning(false);
+  assert.equal(fake.filterTargets.at(-1), SPIN_LOWPASS_HZ);
+  noteReelSpinning(false);
+  assert.equal(fake.filterTargets.at(-1), SPIN_OPEN_HZ);
+
+  playReelClick(false);
+  assert.equal(fake.routes.at(-1), "dest");
+  assert.equal(fake.gains.at(-1), REEL_CLICK_GAIN);
 });
 
 test("missing audio support stays silent", () => {

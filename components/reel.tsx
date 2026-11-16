@@ -15,7 +15,7 @@ import {
   STOP_DEGREES,
 } from "@/lib/drum";
 import { hapticClick } from "@/lib/haptics";
-import { reelSnap, unlockReelClick } from "@/lib/reel-click";
+import { noteReelSpinning, playReelClick, reelSnap, unlockReelClick } from "@/lib/reel-click";
 import { playStretchPop, unlockStretchPops } from "@/lib/stretch-pop";
 import { stretchPopCount } from "@/lib/stretch-pops";
 import { REEL_ITEM_HEIGHT } from "@/lib/metals";
@@ -162,6 +162,13 @@ function createEngine(options: {
   let guest: GuestCount | null = null;
   let popDirection: StretchDirection | null = null;
   let popsPlayed = 0;
+  let audioSpin = false;
+
+  function setAudioSpin(next: boolean) {
+    if (audioSpin === next) return;
+    audioSpin = next;
+    noteReelSpinning(next);
+  }
 
   function syncStretchPops(direction: StretchDirection, travel: number) {
     if (popDirection !== direction) {
@@ -180,6 +187,7 @@ function createEngine(options: {
     if (phase === next) return;
     const wasMoving = phase !== "idle";
     phase = next;
+    if (next === "idle") setAudioSpin(false);
     const moving = next !== "idle";
     if (wasMoving !== moving) options.onMotion(moving);
   }
@@ -238,9 +246,16 @@ function createEngine(options: {
     }
     const index = commitIndex(next, options.getCount(), options.isEnabled);
     if (index === null || index === committed) return;
+    const count = options.getCount();
+    const landing =
+      camNotch !== null &&
+      Math.abs(position - camNotch) < 0.5 &&
+      index === mod(Math.round(camNotch), count);
+    if (landing) setAudioSpin(false);
     committed = index;
     options.onIndex(index);
-    reelSnap();
+    hapticClick();
+    playReelClick(audioSpin && !landing);
   }
 
   function stop() {
@@ -263,6 +278,7 @@ function createEngine(options: {
     }
     velocity = 0;
     options.setKinetics(position, 0);
+    setAudioSpin(false);
     setPhase("idle");
   }
 
@@ -290,9 +306,10 @@ function createEngine(options: {
   function camToNotch(notch: number, duration: number) {
     const past = camPastNotch(position, notch, NOTCH_OVERSHOOT);
     if (options.isReduced() || Math.abs(past - notch) < 0.0001) {
-      camNotch = null;
+      camNotch = notch;
       velocity = 0;
       setPos(notch);
+      camNotch = null;
       setPhase("idle");
       return;
     }
@@ -595,6 +612,7 @@ function createEngine(options: {
         return;
       }
       velocity = speed;
+      setAudioSpin(true);
       setPhase("coast");
       schedule();
     },
@@ -632,6 +650,7 @@ function createEngine(options: {
       guest = null;
       options.onGuest(null);
       hapticClick();
+      setAudioSpin(true);
       const count = options.getCount();
       const current = Math.round(position);
       const enabled: number[] = [];
@@ -647,6 +666,7 @@ function createEngine(options: {
       camToNotch(notch, options.isReduced() ? 0 : 880 + order * 260);
     },
     destroy() {
+      setAudioSpin(false);
       clearHold();
       stop();
       drag = null;
