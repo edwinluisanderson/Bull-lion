@@ -56,9 +56,11 @@ test("half-circle needles stay between the arc ends", () => {
   assert.match(gauge, /M16 78 A44 44 0 1 1 104 78/);
   assert.match(gauge, /halfCircleNeedleAngle\(clamped\)/);
   assert.match(gauge, /const inner = 34;\s*const outer = 42;/);
-  const stackTicks = Array.from({ length: 9 }, (_, tick) => -120 + tick * 30);
-  assert.ok(stackTicks.includes(ticks[0]));
-  assert.ok(stackTicks.includes(ticks.at(-1) ?? NaN));
+  assert.match(gauge, /Array\.from\(\{ length: 7 \}, \(_, tick\) => -90 \+ tick \* 30\)/);
+  assert.doesNotMatch(gauge, /-120 \+ tick \* 30/);
+  const stackTicks = Array.from({ length: 7 }, (_, tick) => -90 + tick * 30);
+  assert.equal(stackTicks[0], ticks[0]);
+  assert.equal(stackTicks.at(-1), ticks.at(-1));
 });
 
 const METAL_ORDER = ["Gold", "Silver", "Platinum", "Palladium", "Copper"];

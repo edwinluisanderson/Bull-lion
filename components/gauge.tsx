@@ -16,7 +16,7 @@ export function Gauge({
   const angle = counted ? metalDialNeedleAngle(index, stops) : halfCircleNeedleAngle(clamped);
   const tickAngles = counted
     ? metalDialTickAngles(stops)
-    : Array.from({ length: 9 }, (_, tick) => -120 + tick * 30);
+    : Array.from({ length: 7 }, (_, tick) => -90 + tick * 30);
 
   return (
     <svg className="gauge" viewBox="0 0 120 96" aria-hidden="true">
