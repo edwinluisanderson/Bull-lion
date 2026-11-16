@@ -12,12 +12,23 @@ export const REEL_CLICK_URL = "/sounds/reel-click.mp3";
 export const REEL_CLICK_GAIN = 0.3;
 export const REEL_CLICKS_PER_FRAME = 3;
 
+/** Shared spin bus. Low Q keeps the click's body; the cutoff only takes the hiss. */
+export const SPIN_LOWPASS_HZ = 4000;
+export const SPIN_LOWPASS_Q = 0.7;
+/** Open enough to leave a stopped click full-range. */
+export const SPIN_OPEN_HZ = 20000;
+/** setTargetAtTime time constant. About 30ms, no zipper. */
+export const SPIN_FILTER_RAMP_S = 0.03;
+
 let context: AudioContext | null = null;
 let buffer: AudioBuffer | null = null;
 let loading: Promise<void> | null = null;
 let bytes: Promise<ArrayBuffer | null> | null = null;
 let frameStamp = -1;
 let framePlays = 0;
+let spinVoices = 0;
+let spinTrim: GainNode | null = null;
+let spinFilter: BiquadFilterNode | null = null;
 
 function audioCtor(): (new () => AudioContext) | null {
   if (typeof window === "undefined") return null;
@@ -88,6 +99,50 @@ export function loadReelClick(): Promise<void> {
   }
 }
 
+function ensureSpinBus(ctx: AudioContext): GainNode | null {
+  if (spinTrim && spinFilter) return spinTrim;
+  try {
+    spinTrim = ctx.createGain();
+    spinTrim.gain.value = 1;
+    spinFilter = ctx.createBiquadFilter();
+    spinFilter.type = "lowpass";
+    spinFilter.Q.value = SPIN_LOWPASS_Q;
+    spinFilter.frequency.value = SPIN_OPEN_HZ;
+    spinTrim.connect(spinFilter);
+    spinFilter.connect(ctx.destination);
+    return spinTrim;
+  } catch {
+    spinTrim = null;
+    spinFilter = null;
+    return null;
+  }
+}
+
+function rampSpinFilter(closed: boolean): void {
+  const ctx = getContext();
+  if (!ctx) return;
+  const bus = ensureSpinBus(ctx);
+  if (!bus || !spinFilter) return;
+  try {
+    const now = ctx.currentTime;
+    const freq = spinFilter.frequency;
+    const target = closed ? SPIN_LOWPASS_HZ : SPIN_OPEN_HZ;
+    freq.cancelScheduledValues(now);
+    freq.setValueAtTime(freq.value, now);
+    freq.setTargetAtTime(target, now, SPIN_FILTER_RAMP_S);
+  } catch {
+    /* Audio is optional. */
+  }
+}
+
+/** One reel entered or left a multi-stop spin. The bus filters only while any reel is spinning. */
+export function noteReelSpinning(active: boolean): void {
+  const next = Math.max(0, spinVoices + (active ? 1 : -1));
+  const was = spinVoices > 0;
+  spinVoices = next;
+  if (was !== spinVoices > 0) rampSpinFilter(spinVoices > 0);
+}
+
 function allowThisFrame(): boolean {
   const now = typeof performance !== "undefined" ? performance.now() : Date.now();
   const stamp = Math.floor(now / 16);
@@ -100,8 +155,11 @@ function allowThisFrame(): boolean {
   return true;
 }
 
-/** Play one snap. Silent when audio is missing, blocked, or not decoded yet. */
-export function playReelClick(): void {
+/**
+ * Play one snap. `spin` routes it through the shared lowpass bus.
+ * Stopped clicks, the lock, and the pull's stage B stay on the dry output.
+ */
+export function playReelClick(spin = false): void {
   try {
     const ctx = getContext();
     if (!ctx || !buffer) {
@@ -115,7 +173,13 @@ export function playReelClick(): void {
     const gain = ctx.createGain();
     gain.gain.value = REEL_CLICK_GAIN;
     source.connect(gain);
-    gain.connect(ctx.destination);
+    if (spin) {
+      const bus = ensureSpinBus(ctx);
+      if (bus) gain.connect(bus);
+      else gain.connect(ctx.destination);
+    } else {
+      gain.connect(ctx.destination);
+    }
     source.start();
   } catch {
     /* Audio is optional. */
@@ -135,4 +199,7 @@ export function resetReelClickForTests(): void {
   bytes = null;
   frameStamp = -1;
   framePlays = 0;
+  spinVoices = 0;
+  spinTrim = null;
+  spinFilter = null;
 }
