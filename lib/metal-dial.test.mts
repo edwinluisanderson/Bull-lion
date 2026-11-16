@@ -7,6 +7,7 @@ import { parsePriceBook, samplePriceBook } from "@/lib/price-book";
 import {
   METAL_DIAL_START_DEG,
   METAL_DIAL_SWEEP_DEG,
+  halfCircleNeedleAngle,
   metalDialNeedleAngle,
   metalDialTickAngles,
 } from "@/lib/metal-dial";
@@ -29,9 +30,35 @@ test("the metal needle sits on the selected metal's tick", () => {
   METAL_CATALOG.forEach((_, index) => {
     assert.equal(metalDialNeedleAngle(index, count), ticks[index]);
   });
-  assert.equal(metalDialNeedleAngle(0, count), -120);
-  assert.equal(metalDialNeedleAngle(3, count), 60);
-  assert.equal(metalDialNeedleAngle(4, count), 120);
+  assert.equal(metalDialNeedleAngle(0, count), -90);
+  assert.equal(metalDialNeedleAngle(2, count), 0);
+  assert.equal(metalDialNeedleAngle(4, count), 90);
+});
+
+test("half-circle needles stay between the arc ends", () => {
+  assert.equal(METAL_DIAL_START_DEG, -90);
+  assert.equal(METAL_DIAL_SWEEP_DEG, 180);
+  const end = METAL_DIAL_START_DEG + METAL_DIAL_SWEEP_DEG;
+  assert.equal(halfCircleNeedleAngle(0), METAL_DIAL_START_DEG);
+  assert.equal(halfCircleNeedleAngle(1), end);
+  assert.equal(halfCircleNeedleAngle(0.5), 0);
+  assert.equal(halfCircleNeedleAngle(-0.4), METAL_DIAL_START_DEG);
+  assert.equal(halfCircleNeedleAngle(1.6), end);
+
+  const ticks = metalDialTickAngles(METAL_CATALOG.length);
+  for (const angle of [...ticks, ...ticks.map((_, index) => metalDialNeedleAngle(index, ticks.length))]) {
+    assert.ok(angle >= METAL_DIAL_START_DEG && angle <= end);
+  }
+  assert.equal(ticks[0], METAL_DIAL_START_DEG);
+  assert.equal(ticks.at(-1), end);
+
+  const gauge = readFileSync(new URL("../components/gauge.tsx", import.meta.url), "utf8");
+  assert.match(gauge, /M16 78 A44 44 0 1 1 104 78/);
+  assert.match(gauge, /halfCircleNeedleAngle\(clamped\)/);
+  assert.match(gauge, /const inner = 34;\s*const outer = 42;/);
+  const stackTicks = Array.from({ length: 9 }, (_, tick) => -120 + tick * 30);
+  assert.ok(stackTicks.includes(ticks[0]));
+  assert.ok(stackTicks.includes(ticks.at(-1) ?? NaN));
 });
 
 const METAL_ORDER = ["Gold", "Silver", "Platinum", "Palladium", "Copper"];

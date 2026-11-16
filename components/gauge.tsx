@@ -1,4 +1,4 @@
-import { metalDialNeedleAngle, metalDialTickAngles } from "@/lib/metal-dial";
+import { halfCircleNeedleAngle, metalDialNeedleAngle, metalDialTickAngles } from "@/lib/metal-dial";
 
 export function Gauge({
   label,
@@ -13,7 +13,7 @@ export function Gauge({
 }) {
   const counted = stops != null && stops > 0;
   const clamped = Math.min(1, Math.max(0, fraction));
-  const angle = counted ? metalDialNeedleAngle(index, stops) : -120 + clamped * 240;
+  const angle = counted ? metalDialNeedleAngle(index, stops) : halfCircleNeedleAngle(clamped);
   const tickAngles = counted
     ? metalDialTickAngles(stops)
     : Array.from({ length: 9 }, (_, tick) => -120 + tick * 30);
