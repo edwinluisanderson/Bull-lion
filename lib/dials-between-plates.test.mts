@@ -4,6 +4,8 @@ import test from "node:test";
 
 const machine = readFileSync(new URL("../components/slot-machine.tsx", import.meta.url), "utf8");
 const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+const gauge = readFileSync(new URL("../components/gauge.tsx", import.meta.url), "utf8");
+const weightDial = readFileSync(new URL("../components/weight-dial.tsx", import.meta.url), "utf8");
 
 test("the dials and lights sit between the melt plate and the wheels", () => {
   const logo = machine.indexOf('className="bullion-logo"');
@@ -28,4 +30,21 @@ test("the dials and lights sit between the melt plate and the wheels", () => {
   assert.match(css, /\.gauge \{\s*width:\s*min\(148px, 100%\);/);
   assert.match(css, /\.between-plates-dock:empty \{\s*display:\s*none;/);
   assert.match(css, /\.bulbs span\.on \{[^}]*animation:\s*blink 2\.6s infinite;/);
+});
+
+test("the weight dial drops by the label baseline gap", () => {
+  const gaugeY = Number(gauge.match(/<text x="60" y="(\d+)"/)?.[1]);
+  const weightY = Number(weightDial.match(/<text x="48" y="(\d+)"/)?.[1]);
+  const viewHeight = Number(weightDial.match(/viewBox="0 0 \d+ (\d+)"/)?.[1]);
+  const units = gaugeY - weightY;
+  assert.equal(viewHeight, 96);
+  assert.equal(units, 2);
+  assert.match(
+    css,
+    new RegExp(
+      `\\.gauge\\.weight-dial \\{[^}]*transform:\\s*translateY\\(calc\\(100% \\/ ${viewHeight / units}\\)\\);`,
+    ),
+  );
+  assert.doesNotMatch(css, /\.gauge \{[^}]*transform:/);
+  assert.doesNotMatch(css, /\.gauge-center \{[^}]*transform:/);
 });

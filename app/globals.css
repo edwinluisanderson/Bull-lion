@@ -253,6 +253,7 @@ button,
   width: min(calc(148px * 96 / 120), 80%);
   height: auto;
   max-width: 100%;
+  transform: translateY(calc(100% / 48));
 }
 
 .gauge text {
