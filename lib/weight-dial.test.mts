@@ -67,21 +67,22 @@ test("a temporary stretch weight keeps the permanent scale and aims at the neare
   assert.equal(weightDialAngle(scale.length - 1, scale.length), WEIGHT_DIAL_MIN_DEG + WEIGHT_DIAL_SWEEP_DEG);
 });
 
-test("seven ticks span the arc and only four share a needle stop", () => {
+test("nine ticks span the arc and only the ends share a needle stop", () => {
   const ticks = weightDialTickAngles();
-  assert.equal(WEIGHT_DIAL_TICK_COUNT, 7);
-  assert.equal(ticks.length, 7);
-  assert.equal(ticks[0], WEIGHT_DIAL_MIN_DEG);
-  assert.equal(ticks.at(-1), WEIGHT_DIAL_MIN_DEG + WEIGHT_DIAL_SWEEP_DEG);
+  assert.equal(WEIGHT_DIAL_TICK_COUNT, 9);
+  assert.equal(ticks.length, 9);
+  assert.equal(ticks[0], 194);
+  assert.equal(ticks.at(-1), 526);
   ticks.forEach((angle, index) => {
-    assert.equal(angle, weightDialAngle(index, 7));
+    assert.equal(angle, weightDialAngle(index, 9));
+    if (index > 0) assert.equal(angle - ticks[index - 1], 41.5);
   });
 
   const stops = permanent.map((_, index) => weightDialAngle(index, permanent.length));
   const shared = ticks.map((tick) =>
     stops.findIndex((stop) => Math.abs(stop - tick) < 1e-6),
   );
-  assert.deepEqual(shared, [0, -1, 5, -1, 10, -1, 15]);
+  assert.deepEqual(shared, [0, -1, -1, -1, -1, -1, -1, -1, 15]);
 
   const source = readFileSync(new URL("../components/weight-dial.tsx", import.meta.url), "utf8");
   assert.match(source, /weightDialTickAngles\(\)/);

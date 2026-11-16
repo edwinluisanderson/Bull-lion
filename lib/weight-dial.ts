@@ -11,9 +11,9 @@ export const WEIGHT_DIAL_MIN_DEG = 180 + WEIGHT_DIAL_GAP_DEG / 2;
 export const WEIGHT_DIAL_SWEEP_DEG = 360 - WEIGHT_DIAL_GAP_DEG;
 
 /** Painted marks only. The needle still uses every permanent stop. */
-export const WEIGHT_DIAL_TICK_COUNT = 7;
+export const WEIGHT_DIAL_TICK_COUNT = 9;
 
-/** Seven marks from the lightest end of the arc to the heaviest. */
+/** Nine marks from the lightest end of the arc to the heaviest. */
 export function weightDialTickAngles(count = WEIGHT_DIAL_TICK_COUNT): number[] {
   return Array.from({ length: count }, (_, index) => weightDialAngle(index, count));
 }
