@@ -269,8 +269,8 @@ button,
 
 .bullion-logo {
   display: block;
-  width: 4rem;
-  height: auto;
+  width: auto;
+  height: 150px;
   margin-bottom: 0.2rem;
   pointer-events: none;
   user-select: none;
