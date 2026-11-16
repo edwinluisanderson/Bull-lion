@@ -2,6 +2,7 @@ import {
   permanentWeightGrams,
   weightDialAngle,
   weightDialIndex,
+  weightDialTickAngles,
   weightDialValues,
   WEIGHT_DIAL_MIN_DEG,
   WEIGHT_DIAL_SWEEP_DEG,
@@ -34,13 +35,12 @@ export function WeightDial({ grams }: { grams: number }) {
     <svg className="gauge weight-dial" viewBox="0 0 96 96" aria-hidden="true">
       <path d={track} fill="none" stroke="#140e09" strokeWidth="9" strokeLinecap="round" />
       <path d={track} fill="none" stroke="#c6a15a" strokeWidth="2.2" strokeLinecap="round" />
-      {values.map((value, index) => {
-        const tick = weightDialAngle(index, values.length);
+      {weightDialTickAngles().map((tick, index) => {
         const inner = point(cx, cy, radius - 8, tick);
         const outer = point(cx, cy, radius - 1.5, tick);
         return (
           <line
-            key={value}
+            key={index}
             x1={inner.x}
             y1={inner.y}
             x2={outer.x}
