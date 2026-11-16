@@ -194,8 +194,8 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
               src="/bullion-logo.png"
               alt=""
               aria-hidden="true"
-              width={165}
-              height={179}
+              width={276}
+              height={300}
             />
           </div>
 

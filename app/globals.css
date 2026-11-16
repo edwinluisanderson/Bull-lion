@@ -270,8 +270,7 @@ button,
 .bullion-logo {
   display: block;
   width: auto;
-  /* Previous mark was 4rem wide at 183×256, so this keeps that rendered height. */
-  height: calc(4rem * 256 / 183);
+  height: 150px;
   margin-bottom: 0.2rem;
   pointer-events: none;
   user-select: none;
