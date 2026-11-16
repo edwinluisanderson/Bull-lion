@@ -276,7 +276,57 @@ export function activeStretchRim(
 }
 
 export type CountRow = { slot: number; value: number };
-export type GuestCount = { value: number; slot: number };
+export type GuestCount = {
+  value: number;
+  slot: number;
+  /** Temporary rows in the gap, pin-side first. Includes `value`. */
+  run?: readonly number[];
+  /** Permanent index the run is inserted after. Position is then an index in that expanded list. */
+  insertAfter?: number;
+};
+
+/**
+ * Cylinder position when the stretch overlay hands off to the reel.
+ * Every revealed temporary stays in the gap, pin-side first, so the row
+ * that was centered stays centered. Further finger travel is the remainder.
+ * An empty sequence keeps the old base and only applies that remainder.
+ */
+export function handoffPlacement(input: {
+  direction: StretchDirection;
+  anchorIndex: number;
+  origin: StretchOrigin;
+  sequence: readonly number[];
+  stops: readonly number[];
+  remainderPx: number;
+  itemHeight: number;
+}): { position: number; guest: GuestCount | null } {
+  const shift = handoffShift(input.direction, input.remainderPx, input.itemHeight);
+  const base = input.origin.slot ?? input.origin.anchorIndex ?? input.anchorIndex;
+  const sequence = input.sequence;
+  if (sequence.length === 0) {
+    return { position: base + shift, guest: null };
+  }
+  const emerged = sequence[sequence.length - 1] ?? null;
+  const permanent =
+    emerged != null &&
+    input.stops.some(
+      (stop) => Math.abs(stop - emerged) <= 1e-6 * Math.max(1, Math.abs(stop), Math.abs(emerged)),
+    );
+  if (emerged == null || permanent) {
+    const towardPin = input.direction === "down" ? -sequence.length : sequence.length;
+    return { position: base + towardPin + shift, guest: null };
+  }
+  const insertAfter = input.direction === "down" ? input.origin.lowerIndex : (input.origin.anchorIndex ?? input.anchorIndex);
+  const run = input.direction === "down" ? [...sequence].reverse() : [...sequence];
+  const centeredIndex = input.direction === "down" ? insertAfter + 1 : insertAfter + sequence.length;
+  const slot =
+    input.origin.slot ??
+    (input.direction === "down" ? input.origin.lowerIndex + 0.5 : insertAfter + 0.5);
+  return {
+    position: centeredIndex + shift,
+    guest: { value: emerged, slot, run, insertAfter },
+  };
+}
 
 /** Real stops, plus at most one temporary count inserted between them. */
 export function countRows(stops: readonly number[], guest: GuestCount | null): CountRow[] {
