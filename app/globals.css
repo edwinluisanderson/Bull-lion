@@ -163,6 +163,8 @@ button,
 }
 
 .cabinet {
+  --reel-inset-left: calc(0.75rem + 14px);
+  --reel-inset-right: calc(0.55rem + 14px);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -220,7 +222,6 @@ button,
   position: relative;
   display: flex;
   flex-direction: column;
-  margin: 0 0.35rem;
 }
 
 .between-plates-dock:empty {
@@ -229,27 +230,30 @@ button,
 
 .gauge-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: end;
-  padding: 0.2rem 0.15rem 0.35rem;
+  padding: 0.3rem var(--reel-inset-right) 1.15rem var(--reel-inset-left);
 }
 
 .gauge {
-  width: min(148px, 34vw);
+  width: min(148px, 100%);
   height: auto;
   justify-self: center;
 }
 
 .gauge-center {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
 }
 
 .gauge.weight-dial {
-  width: auto;
-  height: calc(min(148px, 34vw) * 96 / 120);
+  width: min(calc(148px * 96 / 120), 80%);
+  height: auto;
+  max-width: 100%;
+  transform: translateY(10px);
 }
 
 .gauge text {
@@ -1227,6 +1231,10 @@ button,
 }
 
 @media (max-width: 800px) {
+  .cabinet {
+    --reel-inset-right: calc(0.75rem + 14px);
+  }
+
   .playfield {
     padding-right: 0.75rem;
   }
