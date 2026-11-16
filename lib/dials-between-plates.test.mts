@@ -32,7 +32,7 @@ test("the dials and lights sit between the melt plate and the wheels", () => {
   assert.match(css, /\.bulbs span\.on \{[^}]*animation:\s*blink 2\.6s infinite;/);
 });
 
-test("the weight dial shares the side dials' vertical center", () => {
+test("the weight dial sits 10px below the side dials", () => {
   assert.equal(gauge.match(/viewBox="([^"]+)"/)?.[1], "0 0 120 96");
   assert.equal(weightDial.match(/viewBox="([^"]+)"/)?.[1], "0 0 96 96");
   assert.match(css, /\.gauge-row \{[^}]*align-items:\s*end;/);
@@ -41,7 +41,7 @@ test("the weight dial shares the side dials' vertical center", () => {
     css,
     /\.gauge\.weight-dial \{\s*width:\s*min\(calc\(148px \* 96 \/ 120\), 80%\);\s*height:\s*auto;/,
   );
-  assert.doesNotMatch(css, /\.gauge\.weight-dial \{[^}]*transform:/);
+  assert.match(css, /\.gauge\.weight-dial \{[^}]*transform:\s*translateY\(10px\);/);
   assert.doesNotMatch(css, /\.gauge \{[^}]*transform:/);
   assert.doesNotMatch(css, /\.gauge-center \{[^}]*transform:/);
 });
