@@ -23,7 +23,9 @@ test("the dials and lights sit between the melt plate and the wheels", () => {
   assert.equal(between.includes("bullion-logo"), false);
   assert.match(machine, /label="METAL"/);
   assert.match(machine, /label="STACK"/);
-  assert.match(css, /\.gauge \{\s*width:\s*min\(148px, 34vw\);/);
+  assert.match(css, /\.gauge-row \{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\);/);
+  assert.match(css, /\.gauge-row \{[^}]*var\(--reel-inset-left\)/);
+  assert.match(css, /\.gauge \{\s*width:\s*min\(148px, 100%\);/);
   assert.match(css, /\.between-plates-dock:empty \{\s*display:\s*none;/);
   assert.match(css, /\.bulbs span\.on \{[^}]*animation:\s*blink 2\.6s infinite;/);
 });
