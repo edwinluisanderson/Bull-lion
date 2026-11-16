@@ -8,6 +8,7 @@ import {
   countRows,
   faceTop,
   guestStillVisible,
+  handoffPlacement,
   handoffShift,
   nextGestureMode,
   originFor,
@@ -206,6 +207,107 @@ test("after the in-between counts pass center, further dragging is a normal reel
   assert.equal(edge.remainderPx, 0);
   assert.equal(handoffShift("down", HEIGHT, HEIGHT), -1);
   assert.equal(handoffShift("up", HEIGHT, HEIGHT), 1);
+});
+
+test("handoff parks the centered temporary on its slot, then keeps the remainder", () => {
+  const down = originFor(COUNTS, 10);
+  const sequence = sequenceFrom(down, "down");
+  const atEdge = handoffPlacement({
+    direction: "down",
+    anchorIndex: TEN,
+    origin: down,
+    sequence,
+    stops: COUNTS,
+    remainderPx: 0,
+    itemHeight: HEIGHT,
+  });
+  assert.equal(atEdge.position, down.lowerIndex + 1);
+  assert.equal(atEdge.guest?.value, sequence.at(-1));
+  assert.equal(atEdge.guest?.slot, down.lowerIndex + 0.5);
+  assert.deepEqual(atEdge.guest?.run, [...sequence].reverse());
+  const dragged = handoffPlacement({
+    direction: "down",
+    anchorIndex: TEN,
+    origin: down,
+    sequence,
+    stops: COUNTS,
+    remainderPx: HEIGHT / 2,
+    itemHeight: HEIGHT,
+  });
+  assert.equal(dragged.position, down.lowerIndex + 1 - 0.5);
+
+  const up = originFor(COUNTS, 10);
+  const upSequence = sequenceFrom(up, "up");
+  const upEdge = handoffPlacement({
+    direction: "up",
+    anchorIndex: TEN,
+    origin: up,
+    sequence: upSequence,
+    stops: COUNTS,
+    remainderPx: 0,
+    itemHeight: HEIGHT,
+  });
+  assert.equal(upEdge.position, TEN + upSequence.length);
+  assert.equal(upEdge.guest?.value, upSequence.at(-1));
+  assert.equal(upEdge.guest?.slot, TEN + 0.5);
+  assert.deepEqual(upEdge.guest?.run, upSequence);
+  const upDragged = handoffPlacement({
+    direction: "up",
+    anchorIndex: TEN,
+    origin: up,
+    sequence: upSequence,
+    stops: COUNTS,
+    remainderPx: HEIGHT / 2,
+    itemHeight: HEIGHT,
+  });
+  assert.equal(upDragged.position, TEN + upSequence.length + 0.5);
+});
+
+test("an empty stretch handoff stays on the pressed stop plus the remainder", () => {
+  const origin = originFor(COUNTS, 10);
+  const down = handoffPlacement({
+    direction: "down",
+    anchorIndex: TEN,
+    origin,
+    sequence: [],
+    stops: COUNTS,
+    remainderPx: HEIGHT,
+    itemHeight: HEIGHT,
+  });
+  assert.equal(down.guest, null);
+  assert.equal(down.position, TEN + handoffShift("down", HEIGHT, HEIGHT));
+  const up = handoffPlacement({
+    direction: "up",
+    anchorIndex: TEN,
+    origin,
+    sequence: [],
+    stops: COUNTS,
+    remainderPx: HEIGHT / 2,
+    itemHeight: HEIGHT,
+  });
+  assert.equal(up.guest, null);
+  assert.equal(up.position, TEN + handoffShift("up", HEIGHT / 2, HEIGHT));
+});
+
+test("the overlay rows sit on the cylinder rows at a one-value handoff", () => {
+  for (const direction of ["down", "up"] as const) {
+    const layout = stretchLayout({
+      direction,
+      anchor: 10,
+      pin: direction === "down" ? 5 : 20,
+      pushed: direction === "down" ? 20 : 5,
+      sequence: [direction === "down" ? 6 : 19],
+      travel: HEIGHT,
+      itemHeight: HEIGHT,
+    });
+    const pin = layout.rows.find((row) => row.role === "pin");
+    const between = layout.rows.find((row) => row.role === "between");
+    const anchor = layout.rows.find((row) => row.role === "anchor");
+    const near = (left: number | undefined, right: number) => Math.abs((left ?? NaN) - right) < 1e-6;
+    assert.ok(near(between?.screenTop, faceTop(0, HEIGHT)));
+    assert.ok(near(pin?.screenTop, faceTop(direction === "down" ? -1 : 1, HEIGHT)));
+    assert.ok(near(anchor?.screenTop, faceTop(direction === "down" ? 1 : -1, HEIGHT)));
+  }
 });
 
 test("a gray centered count falls back to the nearest real stop", () => {

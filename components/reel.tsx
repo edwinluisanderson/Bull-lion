@@ -23,7 +23,7 @@ import {
   STRETCH_HOLD_MS,
   countRows,
   guestStillVisible,
-  handoffShift,
+  handoffPlacement,
   nextGestureMode,
   originFor,
   pressHitsCenter,
@@ -80,20 +80,30 @@ function countFace(value: number): StretchFace {
 const MAX_VELOCITY = 28;
 const WINDOW = [-2, -1, 0, 1, 2, 3];
 
+function guestSymbol(
+  items: ReelSymbol[],
+  value: number,
+  near: number,
+  label?: (value: number) => StretchFace,
+): ReelSymbol {
+  const face = label?.(value) ?? countFace(value);
+  return {
+    key: `guest-${value}`,
+    mark: face.mark,
+    detail: face.detail,
+    tint: items[near]?.tint ?? items[0]?.tint,
+  };
+}
+
 function insertGuest(
   items: ReelSymbol[],
   guest: GuestCount,
   label?: (value: number) => StretchFace,
 ): ReelSymbol[] {
-  const lower = Math.floor(guest.slot);
-  const face = label?.(guest.value) ?? countFace(guest.value);
-  const symbol: ReelSymbol = {
-    key: `guest-${guest.value}`,
-    mark: face.mark,
-    detail: face.detail,
-    tint: items[lower]?.tint ?? items[0]?.tint,
-  };
-  return [...items.slice(0, lower + 1), symbol, ...items.slice(lower + 1)];
+  const lower = guest.insertAfter ?? Math.floor(guest.slot);
+  const values = guest.run?.length ? guest.run : [guest.value];
+  const symbols = values.map((value) => guestSymbol(items, value, lower, label));
+  return [...items.slice(0, lower + 1), ...symbols, ...items.slice(lower + 1)];
 }
 
 type Engine = {
@@ -186,6 +196,29 @@ function createEngine(options: {
     position = next;
     options.setKinetics(next, velocity);
     const stops = options.getStretch()?.stops;
+    if (guest?.run?.length && guest.insertAfter != null) {
+      const first = guest.insertAfter + 1;
+      const last = guest.insertAfter + guest.run.length;
+      let near = false;
+      for (let index = first; index <= last; index += 1) {
+        if (Math.abs(index - next) < 2.6) near = true;
+      }
+      if (!near) {
+        let folded = next;
+        if (folded > guest.insertAfter) folded -= guest.run.length;
+        guest = null;
+        options.onGuest(null);
+        position = mod(Math.round(folded), options.getCount());
+        options.setKinetics(position, velocity);
+      } else {
+        const centered = Math.round(next);
+        if (centered >= first && centered <= last) {
+          const value = guest.run[centered - first];
+          if (value !== undefined) options.onPieces(value);
+        }
+        return;
+      }
+    }
     if (guest && stops) {
       if (!guestStillVisible(position, stops, guest)) {
         guest = null;
@@ -361,8 +394,13 @@ function createEngine(options: {
     if (!drag || !config) return;
     gesture = "stretch";
     const stops = config.stops;
+    const fromRun =
+      guest?.run?.length && guest.insertAfter != null
+        ? guest.run[Math.round(position) - (guest.insertAfter + 1)]
+        : undefined;
     const centeredGuest =
-      guest && visibleTriple(position, countRows(stops, guest))[1] === guest.value ? guest.value : null;
+      fromRun ??
+      (guest && visibleTriple(position, countRows(stops, guest))[1] === guest.value ? guest.value : null);
     if (centeredGuest == null) {
       anchorIndex = mod(Math.round(position), stops.length);
       stretchOrigin = originNow(stops, stops[anchorIndex] ?? anchorIndex);
@@ -398,12 +436,25 @@ function createEngine(options: {
     const layout = layoutNow(slideDirection, along);
     if (!layout) return;
     syncStretchPops(slideDirection, along);
-    if (!layout.handoff) {
+    if (!layout.handoff || !stretchOrigin) {
       showLayout(layout, slideDirection, along);
       return;
     }
-    const base = stretchOrigin?.slot ?? stretchOrigin?.anchorIndex ?? anchorIndex;
-    const nextPos = base + handoffShift(slideDirection, layout.remainderPx, REEL_ITEM_HEIGHT);
+    const sequence = sequenceNow(stretchOrigin, slideDirection);
+    const placed = handoffPlacement({
+      direction: slideDirection,
+      anchorIndex,
+      origin: stretchOrigin,
+      sequence,
+      stops: options.getStretch()?.stops ?? [],
+      remainderPx: layout.remainderPx,
+      itemHeight: REEL_ITEM_HEIGHT,
+    });
+    if (placed.guest) {
+      guest = placed.guest;
+      options.onGuest(placed.guest);
+    }
+    const nextPos = placed.position;
     gesture = "drag";
     slideDirection = null;
     stretchTravel = 0;
@@ -702,7 +753,12 @@ export function Reel({
 
   const drawingGuest = Boolean(guestDraw) && !stretchFrame && stretch;
   const viewItems = drawingGuest && guestDraw ? insertGuest(items, guestDraw, stretch?.label) : items;
-  const viewPosition = drawingGuest && guestDraw ? projectGuest(position, guestDraw) : position;
+  const viewPosition =
+    drawingGuest && guestDraw
+      ? guestDraw.run?.length
+        ? position
+        : projectGuest(position, guestDraw)
+      : position;
   const count = viewItems.length;
   const shown = viewPosition - bendDegrees / STOP_DEGREES;
   const base = Math.floor(shown);
@@ -712,8 +768,16 @@ export function Reel({
   const activeSymbol = viewItems[active];
   const rolling = Math.abs(velocity) > 1.2;
   const smear = rolling ? Math.min(8, Math.abs(velocity) * 0.16) : 0;
-  const guestCenter =
-    guestDraw && stretch ? visibleTriple(position, countRows(stretch.stops, guestDraw))[1] : null;
+  const runIndex =
+    guestDraw?.run?.length && guestDraw.insertAfter != null
+      ? Math.round(position) - (guestDraw.insertAfter + 1)
+      : -1;
+  const runValue = runIndex >= 0 ? guestDraw?.run?.[runIndex] : undefined;
+  const guestCenter = guestDraw?.run?.length
+    ? (runValue ?? null)
+    : guestDraw && stretch
+      ? visibleTriple(position, countRows(stretch.stops, guestDraw))[1]
+      : null;
   const spoken = stretchFrame ? stretchFrame.centered : guestCenter != null ? guestCenter : centerPieces;
   const spokenFace = spoken != null ? (stretch?.label?.(spoken) ?? countFace(spoken)) : null;
   const valueText = spokenFace
