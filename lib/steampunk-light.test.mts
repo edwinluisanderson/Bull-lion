@@ -14,10 +14,13 @@ import {
   RIVET_PX,
   STEAMPUNK_LIGHT_COUNT,
   STEAMPUNK_LIGHT_PX,
+  WHEEL_LAMP_COUNT,
+  WHEEL_LAMP_PX,
 } from "@/lib/steampunk-light";
 
 const light = readFileSync(new URL("../components/steampunk-light.tsx", import.meta.url), "utf8");
 const machine = readFileSync(new URL("../components/slot-machine.tsx", import.meta.url), "utf8");
+const lamps = readFileSync(new URL("../components/wheel-lamps.tsx", import.meta.url), "utf8");
 const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 
 test("a light is a caged bulb larger than a rivet", () => {
@@ -39,8 +42,8 @@ test("a light is a caged bulb larger than a rivet", () => {
   assert.equal(light.includes("feGaussianBlur"), false);
 });
 
-test("five lights are spaced across the temporary bottom plate", () => {
-  assert.equal(STEAMPUNK_LIGHT_COUNT, 5);
+test("two lights stay spaced across the temporary bottom plate", () => {
+  assert.equal(STEAMPUNK_LIGHT_COUNT, 2);
   const panel = machine.slice(machine.indexOf('className="gear-panel"'));
   const row = panel.indexOf('className="gear-panel-lights"');
   const gears = panel.indexOf("gear-panel-bg-left");
@@ -49,6 +52,22 @@ test("five lights are spaced across the temporary bottom plate", () => {
   assert.match(panel, /<SteampunkLight /);
   assert.match(css, /\.gear-panel-lights \{[^}]*justify-content:\s*space-between/);
   assert.match(css, /\.rivet \{[^}]*width:\s*12px/);
+});
+
+test("three full caged lamps replace the dots under the wheels", () => {
+  assert.equal(WHEEL_LAMP_COUNT, 3);
+  assert.equal(WHEEL_LAMP_PX, 36);
+  const underWheels = machine.slice(machine.indexOf('className="playfield"'), machine.indexOf('className="gear-panel"'));
+  assert.match(underWheels, /<WheelLamps \/>/);
+  assert.equal(underWheels.includes('className="bulbs"'), false);
+  assert.match(underWheels, /<WheelLamps \/>/);
+  assert.match(machine, /pulseWheelLamp\(0\)/);
+  assert.match(machine, /pulseWheelLamp\(1\)/);
+  assert.match(machine, /pulseWheelLamp\(2\)/);
+  assert.match(css, /\.wheel-lamps \{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.wheel-lamps \.steampunk-light \{[^}]*width:\s*36px/);
+  assert.match(lamps, /prefers-reduced-motion: reduce/);
+  assert.match(lamps, /REDUCED_LEVEL = 1/);
 });
 
 test("brightness runs from an unlit bulb to a full warm halo", () => {
@@ -98,9 +117,11 @@ test("one lighthouse sweeps a beam across the bottom plate", () => {
 });
 
 test("the bottom plate is taller and a lower lamp casts its cage", () => {
-  assert.match(css, /\.gear-panel \{[^}]*min-height:\s*248px/);
+  assert.match(css, /\.gear-panel \{[^}]*min-height:\s*480px/);
+  assert.match(css, /\.gear-panel-stage \{[^}]*min-height:\s*320px/);
   assert.match(css, /\.gear-panel-row \{[^}]*min-height:\s*168px/);
-  assert.match(css, /\.gear-panel \{\s*min-height:\s*210px/);
+  assert.match(css, /\.gear-panel \{\s*min-height:\s*360px/);
+  assert.match(css, /\.gear-panel-stage \{\s*min-height:\s*250px/);
   assert.match(css, /\.gear-panel-row \{\s*min-height:\s*132px/);
   const panel = machine.slice(machine.indexOf('className="gear-panel"'));
   assert.match(panel, /<SteampunkLightCast \/>/);

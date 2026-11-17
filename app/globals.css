@@ -856,18 +856,62 @@ button,
 
 .cabinet-gears {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
   box-sizing: border-box;
   min-height: calc(52px + 2.05rem);
-  margin-top: -0.2rem;
-  padding: 0 0.75rem;
+  margin-top: 0;
+  padding: 10px 0 13px;
+}
+
+.wheel-lamps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+  padding-left: calc(0.75rem + 14px);
+  padding-right: calc(0.55rem + 14px);
+}
+
+.wheel-lamp {
+  position: relative;
+  justify-self: center;
+  width: 36px;
+  height: 36px;
+  overflow: visible;
+}
+
+.wheel-lamp::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  top: 50%;
+  width: 76px;
+  height: 76px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 214, 140, 0.5) 0%,
+    rgba(255, 170, 64, 0.28) 38%,
+    rgba(230, 140, 40, 0) 70%
+  );
+  opacity: var(--lamp-cast, 0);
+  pointer-events: none;
+}
+
+.wheel-lamps .steampunk-light {
+  position: relative;
+  z-index: 1;
+  width: 36px;
+  height: 36px;
 }
 
 .gear-panel {
   position: relative;
   width: min(92%, 920px);
-  min-height: 248px;
+  min-height: 480px;
   margin: 0.9rem auto 0;
   overflow: hidden;
   border-radius: 22px;
@@ -967,6 +1011,172 @@ button,
 .cast-lamp {
   position: relative;
   z-index: 1;
+}
+
+.gear-panel-stage {
+  position: relative;
+  min-height: 320px;
+}
+
+.gear-panel-nixie {
+  position: absolute;
+  z-index: 3;
+  bottom: 58px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 36px);
+  pointer-events: none;
+}
+
+.gear-panel-nixie.is-centered {
+  position: relative;
+  bottom: auto;
+  left: auto;
+  width: calc(min(1040px, 100vw - 1.7rem) - 3rem);
+  max-width: 100%;
+  transform: none;
+}
+
+.gear-panel-nixie.is-centered .nixie-window {
+  right: 0;
+  left: 0;
+}
+
+.gear-panel-nixie-live {
+  position: absolute;
+  z-index: 3;
+  right: 0;
+  bottom: 22px;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.nixie-tubes {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.nixie-tube {
+  --nixie-delay: 0ms;
+  --nixie-h: clamp(64px, 8vw, 104px);
+  display: block;
+  width: calc(var(--nixie-h) * 0.375);
+  height: var(--nixie-h);
+  overflow: visible;
+}
+
+.nixie-tube[data-kind="dollar"] {
+  width: calc(var(--nixie-h) * 0.34);
+}
+
+.nixie-tube[data-kind="comma"],
+.nixie-tube[data-kind="dot"] {
+  width: calc(var(--nixie-h) * 0.22);
+}
+
+.nixie-window {
+  position: absolute;
+  z-index: 1;
+  top: 16%;
+  right: -8px;
+  bottom: 16%;
+  left: -8px;
+  border: 2px solid #c4963e;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow:
+    inset 0 0 0 1px #1a0e08,
+    inset 0 4px 5px rgba(0, 0, 0, 0.5),
+    0 0 0 1px #5c3a22,
+    0 1px 0 rgba(243, 226, 173, 0.28);
+}
+
+.nixie-glow,
+.nixie-mesh,
+.nixie-cathode {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nixie-glow {
+  stroke: #ff7a1a;
+  stroke-width: 3.4;
+  opacity: 0;
+  transition: opacity 0.62s cubic-bezier(0.16, 0.84, 0.24, 1);
+  transition-delay: var(--nixie-delay);
+}
+
+.is-on .nixie-glow {
+  opacity: 0.55;
+}
+
+.nixie-mesh {
+  stroke: #6b4a30;
+  stroke-width: 0.55;
+  stroke-dasharray: 0.4 0.75;
+  opacity: 0.55;
+}
+
+.nixie-cathode {
+  stroke: #9a7048;
+  stroke-width: 0.95;
+  stroke-dasharray: 0.65 0.85;
+  opacity: 0.16;
+  transition: opacity 0.62s cubic-bezier(0.16, 0.84, 0.24, 1), stroke 0.62s cubic-bezier(0.16, 0.84, 0.24, 1), stroke-width 0.62s cubic-bezier(0.16, 0.84, 0.24, 1);
+  transition-delay: var(--nixie-delay);
+}
+
+.is-on .nixie-cathode {
+  stroke: #ff7a1a;
+  stroke-width: 1.7;
+  stroke-dasharray: none;
+  opacity: 1;
+}
+
+.nixie-halo {
+  opacity: 0;
+  transition: opacity 0.62s cubic-bezier(0.16, 0.84, 0.24, 1);
+  transition-delay: var(--nixie-delay);
+}
+
+.nixie-halo.is-on {
+  opacity: 1;
+}
+
+.nixie-dot {
+  fill: #9a7048;
+  opacity: 0.45;
+  transition: fill 0.62s cubic-bezier(0.16, 0.84, 0.24, 1), opacity 0.62s cubic-bezier(0.16, 0.84, 0.24, 1);
+}
+
+.nixie-dot.is-on {
+  fill: #ff7a1a;
+  opacity: 1;
+}
+
+.nixie-tubes.is-centered {
+  gap: 0;
+  width: 100%;
+}
+
+.nixie-tubes.is-centered .nixie-tube {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  margin-right: 0;
+}
+
+.nixie-tubes.is-cycling .nixie-glow,
+.nixie-tubes.is-cycling .nixie-cathode,
+.nixie-tubes.is-cycling .nixie-halo,
+.nixie-tubes.is-cycling .nixie-dot {
+  transition: none;
 }
 
 @keyframes lighthouse-sweep {
@@ -1422,8 +1632,16 @@ button,
     min-height: calc(36px + 2.05rem);
   }
 
+  .wheel-lamps {
+    padding-right: calc(0.75rem + 14px);
+  }
+
   .gear-panel {
-    min-height: 210px;
+    min-height: 360px;
+  }
+
+  .gear-panel-stage {
+    min-height: 250px;
   }
 
   .gear-panel-row {
@@ -1483,7 +1701,12 @@ button,
   .pull-ball,
   .reel-viewport.is-rolling .reel-cylinder,
   .digit-reel-strip,
-  .gauge-needle {
+  .gauge-needle,
+  .nixie-glow,
+  .nixie-cathode,
+  .nixie-halo,
+  .nixie-dot,
+  .nixie-tubes.is-centered .nixie-tube {
     animation: none;
     transition: none;
   }

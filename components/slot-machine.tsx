@@ -6,6 +6,9 @@ import { Gauge } from "@/components/gauge";
 import { WeightDial } from "@/components/weight-dial";
 import { Gear } from "@/components/gear";
 import { SteampunkLight, SteampunkLightCast } from "@/components/steampunk-light";
+import { WheelLamps } from "@/components/wheel-lamps";
+import { pulseWheelLamp } from "@/lib/wheel-lamp";
+import { NixieReadout } from "@/components/nixie-readout";
 import { PullBall } from "@/components/lever";
 import { Readout } from "@/components/readout";
 import { Reel, type ReelSymbol } from "@/components/reel";
@@ -17,7 +20,7 @@ import {
   IDLE_COUNT_GUARD,
   notePullStarted,
 } from "@/lib/count-guard";
-import { formatTroyOunces, formatUsd } from "@/lib/format";
+import { formatTroyOunces, formatUsd, formatWholeDollars } from "@/lib/format";
 import {
   COUNTS,
   DEFAULT_COUNT_INDEX,
@@ -267,7 +270,10 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   spinToken={spinToken}
                   spinOrder={0}
                   bendDegrees={bendDegrees}
-                  onIndex={setMetalIndex}
+                  onIndex={(index) => {
+                    pulseWheelLamp(0);
+                    setMetalIndex(index);
+                  }}
                   onMotion={onMetalMotion}
                 />
                 <Reel
@@ -295,6 +301,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                     setCustomGrams(grams);
                   }}
                   onIndex={(index) => {
+                    pulseWheelLamp(1);
                     setWeightIndex(index);
                     setCustomGrams(null);
                   }}
@@ -332,6 +339,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                     setCustomPieces(value);
                   }}
                   onIndex={(index) => {
+                    pulseWheelLamp(2);
                     setCountIndex(index);
                     setCustomPieces(null);
                   }}
@@ -346,11 +354,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           </div>
 
           <div className="cabinet-gears" aria-hidden="true">
-            <div className="bulbs">
-              {Array.from({ length: 7 }, (_, index) => (
-                <span key={index} className={index % 2 === 0 ? "on" : undefined} />
-              ))}
-            </div>
+            <WheelLamps />
           </div>
 
           {book.note === LIVE_SPOT_NOTE ? null : (
@@ -364,6 +368,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           <span className="rivet" data-corner="tr" />
           <span className="rivet" data-corner="bl" />
           <span className="rivet" data-corner="br" />
+          <div className="gear-panel-stage">
           <div className="gear-panel-lights">
             {Array.from({ length: STEAMPUNK_LIGHT_COUNT }, (_, index) => (
               <SteampunkLight key={index} brightness={lampBrightness} />
@@ -380,6 +385,9 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             <SteampunkLight className="lighthouse-lamp" />
           </div>
           <SteampunkLightCast />
+          <NixieReadout spinning={spinning} value={metal ? formatWholeDollars(meltValue(metal.usdPerTroyOz, weight.grams, pieces)) : "—"} />
+          </div>
+          <NixieReadout centered spinning={spinning} value={metal ? formatWholeDollars(meltValue(metal.usdPerTroyOz, weight.grams, pieces)) : "—"} />
         </div>
         {lampCompare ? (
           <div className="lamp-compare">
