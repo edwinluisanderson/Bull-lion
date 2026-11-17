@@ -874,12 +874,36 @@ button,
 }
 
 .wheel-lamp {
+  position: relative;
   justify-self: center;
   width: 36px;
   height: 36px;
+  overflow: visible;
+}
+
+.wheel-lamp::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  top: 50%;
+  width: 76px;
+  height: 76px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 214, 140, 0.5) 0%,
+    rgba(255, 170, 64, 0.28) 38%,
+    rgba(230, 140, 40, 0) 70%
+  );
+  opacity: var(--lamp-cast, 0);
+  pointer-events: none;
 }
 
 .wheel-lamps .steampunk-light {
+  position: relative;
+  z-index: 1;
   width: 36px;
   height: 36px;
 }
