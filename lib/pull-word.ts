@@ -5,8 +5,8 @@ export const PULL_SPHERE_RADIUS = 46;
 export const PULL_VIEW_CENTER = 50;
 export const PULL_WORD_MAX_LON = 1.12;
 export const PULL_WORD_MAX_LAT = 0.34;
-/** Opacity of the ink at the left and right limbs. The facing center stays solid. */
-export const PULL_WORD_EDGE_OPACITY = 0.62;
+/** Opacity of the ink at the left and right limbs. Kept high so the final L stays visible. */
+export const PULL_WORD_EDGE_OPACITY = 0.92;
 export const PULL_WORD_SHADE = { x1: 9.85, x2: 91.04 } as const;
 
 /**
@@ -18,14 +18,18 @@ export const PULL_EMBOSS = {
   shadowX: -1.8,
   shadowY: -1.8,
   shadowOpacity: 0.7,
-  lightX: 1.7,
-  lightY: 1.7,
-  lightOpacity: 0.62,
+  lightX: 1.05,
+  lightY: 2.6,
+  lightOpacity: 0.95,
+  /** Straight down, so the lower lip of every letter, including the final L, catches light. */
+  lipY: 2.8,
+  lipOpacity: 0.98,
   /** How much of each offset the fill paints back, leaving a thin rim. */
   rim: 0.34,
   outline: 2.2,
   shadow: "#120c07",
-  light: "#f0d7a8",
+  light: "#fff3dc",
+  lip: "#ffffff",
   outlineInk: "#24160c",
 } as const;
 

@@ -56,7 +56,7 @@ test("the pull label uses the plate title ink", () => {
 
 test("the pull word is bold, centered, and projected on the sphere", () => {
   assert.equal(PULL_WORD_WEIGHT, 700);
-  assert.ok(PULL_WORD_EDGE_OPACITY < 1 && PULL_WORD_EDGE_OPACITY > 0.4);
+  assert.ok(PULL_WORD_EDGE_OPACITY <= 1 && PULL_WORD_EDGE_OPACITY >= 0.85);
   const front = projectPullPoint(0, 0);
   assert.equal(front.x, PULL_VIEW_CENTER);
   assert.equal(front.y, PULL_VIEW_CENTER);
@@ -102,14 +102,19 @@ test("the pull word is bold, centered, and projected on the sphere", () => {
 
 test("the pull letters are debossed toward the upper-left light", () => {
   assert.ok(PULL_EMBOSS.shadowX < 0 && PULL_EMBOSS.shadowY < 0);
-  assert.ok(PULL_EMBOSS.lightX > 0 && PULL_EMBOSS.lightY > 0);
+  assert.ok(PULL_EMBOSS.lightX > 0 && PULL_EMBOSS.lightY > PULL_EMBOSS.lightX);
+  assert.ok(PULL_EMBOSS.lipY > PULL_EMBOSS.lightY);
+  assert.equal(PULL_EMBOSS.light, "#fff3dc");
+  assert.equal(PULL_EMBOSS.lip, "#ffffff");
+  assert.ok(PULL_EMBOSS.lightOpacity >= 0.9 && PULL_EMBOSS.lipOpacity >= 0.9);
   assert.ok(PULL_EMBOSS.rim > 0 && PULL_EMBOSS.rim < 0.6);
   assert.ok(Math.abs(PULL_EMBOSS.shadowX) * (1 - PULL_EMBOSS.rim) > 0.8);
-  assert.ok(PULL_EMBOSS.lightOpacity < 0.8);
+  assert.ok(PULL_EMBOSS.lipY * (1 - PULL_EMBOSS.rim) > 1.4);
   assert.match(lever, /clipPath="url\(#pull-letter-clip\)"/);
   assert.match(lever, /stroke=\{PULL_EMBOSS\.outlineInk\}/);
   assert.match(lever, /fill=\{PULL_EMBOSS\.shadow\}/);
   assert.match(lever, /fill=\{PULL_EMBOSS\.light\}/);
+  assert.match(lever, /fill=\{PULL_EMBOSS\.lip\}/);
   assert.equal(lever.includes("feGaussianBlur"), false);
   assert.equal(lever.includes("feSpecularLighting"), false);
 });

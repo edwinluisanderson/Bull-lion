@@ -257,6 +257,18 @@ export function PullBall({
             fill="url(#pull-sphere-ink)"
             fillRule="nonzero"
           />
+          <path
+            d={PULL_WORD_PATH}
+            transform={`translate(0 ${PULL_EMBOSS.lipY})`}
+            fill={PULL_EMBOSS.lip}
+            fillOpacity={PULL_EMBOSS.lipOpacity}
+          />
+          <path
+            d={PULL_WORD_PATH}
+            transform={`translate(0 ${PULL_EMBOSS.lipY * PULL_EMBOSS.rim})`}
+            fill="url(#pull-sphere-ink)"
+            fillRule="nonzero"
+          />
         </g>
       </svg>
       </button>
