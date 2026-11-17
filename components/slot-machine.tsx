@@ -8,7 +8,7 @@ import { Gear } from "@/components/gear";
 import { SteampunkLight, SteampunkLightCast } from "@/components/steampunk-light";
 import { WheelLamps } from "@/components/wheel-lamps";
 import { pulseWheelLamp } from "@/lib/wheel-lamp";
-import { RollingPrice } from "@/components/rolling-price";
+import { NixieReadout } from "@/components/nixie-readout";
 import { PullBall } from "@/components/lever";
 import { Readout } from "@/components/readout";
 import { Reel, type ReelSymbol } from "@/components/reel";
@@ -386,11 +386,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           </div>
           <SteampunkLightCast />
           </div>
-          <div className="scrap-readout">
-            <section className={spinning ? "readout is-spinning" : "readout"}>
-              <RollingPrice value={metal ? formatWholeDollars(meltValue(metal.usdPerTroyOz, weight.grams, pieces)) : "—"} />
-            </section>
-          </div>
+          <NixieReadout spinning={spinning} value={metal ? formatWholeDollars(meltValue(metal.usdPerTroyOz, weight.grams, pieces)) : "—"} />
         </div>
         {lampCompare ? (
           <div className="lamp-compare">
