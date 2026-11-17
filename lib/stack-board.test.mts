@@ -128,6 +128,8 @@ test("the scrap plate grows a split-flap stack and the flaps stay quiet when sou
   assert.match(table, /resolveAdd\(lines, pending, choice\)/);
   assert.match(table, /Remove \$\{line\.description\}/);
   assert.match(flap, /prefers-reduced-motion: reduce/);
+  assert.match(css, /\.gear-panel \{[^}]*margin-top:\s*20px/);
+  assert.match(css, /\.flap-top span,\s*\.flap-bottom span,\s*\.flap-leaf span \{[^}]*transform:\s*translateY\(2px\)/);
   assert.match(css, /\.split-stack \{/);
   assert.match(css, /\.flap-leaf \{[^}]*animation:\s*flap-turn 70ms linear/);
   const reduced = css

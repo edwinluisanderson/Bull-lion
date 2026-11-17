@@ -914,7 +914,7 @@ button,
 .gear-panel {
   position: relative;
   min-height: 360px;
-  margin-top: 0.9rem;
+  margin-top: 20px;
   margin-bottom: 0;
   overflow: hidden;
   border-radius: var(--cabinet-radius);
@@ -1197,6 +1197,8 @@ button,
   height: 0.92rem;
   align-items: center;
   justify-content: center;
+  /* Cinzel caps sit high in the em box. Drop them onto the seam. */
+  transform: translateY(2px);
 }
 
 .flap-top span,
