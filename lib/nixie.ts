@@ -1,4 +1,8 @@
+import { formatWholeDollars } from "@/lib/format";
+import { COUNTS } from "@/lib/metals";
 import { priceParts } from "@/lib/price-reels";
+import { meltValue } from "@/lib/value";
+import { WEIGHT_KG_MAX } from "@/lib/weight-stretch";
 
 /** Warm neon core. The halo around it is the same hue at low opacity. */
 export const NIXIE_ORANGE = "#ff7a1a";
@@ -116,13 +120,71 @@ export function nixieCentered(formatted: string): NixieColumn[] {
   return nixieBank(formatted).filter(nixieShows);
 }
 
-/** Tube width over height. The centered row keeps this shape while filling its window. */
-export const NIXIE_TUBE_ASPECT = 0.375;
+/**
+ * Tube height divided by the melt readout's font size.
+ * At 1.8rem (28.8px) the tube is 71.9px, which makes an 8 about 20.9px tall.
+ */
+export const NIXIE_HEIGHT_OVER_FONT = 2.497;
+/**
+ * Tube width over height. The viewBox is cropped to 13.6×64, just outside the
+ * digit stroke, then stretched on x so an 8 stays about 14.6px wide.
+ */
+export const NIXIE_TUBE_ASPECT = 0.238;
+/** One spare past the 12-character maximum, at every viewport. */
+export const NIXIE_SLOT_COUNT = 13;
+/** USD per troy ounce, about 2.5× the sample gold quote, so the row has headroom. */
+export const NIXIE_SPOT_HEADROOM = 10_000;
 
-/** How many equal tubes fill a window of this width at the current tube height. */
-export function nixieTubeCount(windowWidth: number, tubeHeight: number): number {
-  if (!(windowWidth > 0) || !(tubeHeight > 0)) return NIXIE_DIGIT_PLACES + 6;
-  return Math.max(1, Math.round(windowWidth / (tubeHeight * NIXIE_TUBE_ASPECT)));
+/** Heaviest stretch weight, highest piece count, and the headroom spot. */
+export function maxMeltAmount(): number {
+  const pieces = Math.max(...COUNTS);
+  return meltValue(NIXIE_SPOT_HEADROOM, WEIGHT_KG_MAX * 1000, pieces);
+}
+
+export function maxMeltLabel(): string {
+  return formatWholeDollars(maxMeltAmount());
+}
+
+/** The scrap plate: 92% of the workshop column, and never more than 920px. */
+export function nixiePlateWidth(viewport: number): number {
+  const rem = 16;
+  const column = Math.min(1040, viewport - 1.7 * rem);
+  return Math.min(920, column * 0.92);
+}
+
+/** The melt-plate number band the window used to copy. */
+export function nixieMeltBandWidth(viewport: number): number {
+  const rem = 16;
+  return Math.min(1040, viewport - 1.7 * rem) - 3 * rem;
+}
+
+/**
+ * The Nixie window fills the scrap plate. That is wider than the melt band
+ * on a phone, and on a desktop the plate itself is the limit.
+ */
+export function nixieWindowWidth(viewport: number): number {
+  return nixiePlateWidth(viewport);
+}
+
+/** 3px from phone widths through 5px on a desktop. */
+export function nixieGap(viewport: number): number {
+  return Math.min(5, Math.max(3, viewport * 0.0035));
+}
+
+/** Equal share of the window after the gaps. This is the glass width. */
+export function nixieTubeWidth(viewport: number): number {
+  const gaps = (NIXIE_SLOT_COUNT - 1) * nixieGap(viewport);
+  return (nixieWindowWidth(viewport) - gaps) / NIXIE_SLOT_COUNT;
+}
+
+export function nixieTubeHeight(viewport: number): number {
+  const font = Math.min(48, Math.max(28.8, viewport * 0.06));
+  return font * NIXIE_HEIGHT_OVER_FONT;
+}
+
+/** The centered row always holds the maximum value plus one spare tube. */
+export function nixieTubeCount(): number {
+  return NIXIE_SLOT_COUNT;
 }
 
 /**

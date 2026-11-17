@@ -855,15 +855,22 @@ button,
 }
 
 .cabinet-gears {
-  display: flex;
-  align-items: stretch;
+  position: relative;
+  display: block;
   box-sizing: border-box;
   min-height: calc(52px + 2.05rem);
   margin-top: 0;
-  padding: 10px 0 13px;
 }
 
 .wheel-lamps {
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* Center of the band, then up by half the playfield's 0.2rem bottom pad
+     and half the cabinet's 8px copper inset, so the lamp center sits
+     midway between the brass wheel frame and the copper's inner edge. */
+  top: calc(50% - 0.1rem - 4px);
+  transform: translateY(-50%);
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: center;
@@ -1019,25 +1026,15 @@ button,
 }
 
 .gear-panel-nixie {
-  position: absolute;
+  position: relative;
   z-index: 3;
-  bottom: 58px;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: calc(100% - 36px);
+  width: 100%;
+  max-width: 100%;
   pointer-events: none;
 }
 
-.gear-panel-nixie.is-centered {
-  position: relative;
-  bottom: auto;
-  left: auto;
-  width: calc(min(1040px, 100vw - 1.7rem) - 3rem);
-  max-width: 100%;
-  transform: none;
-}
-
-.gear-panel-nixie.is-centered .nixie-window {
+.gear-panel-nixie .nixie-window,
+.gear-panel-nixie .nixie-plate {
   right: 0;
   left: 0;
 }
@@ -1053,6 +1050,18 @@ button,
   pointer-events: none;
 }
 
+.nixie-plate {
+  position: absolute;
+  z-index: -1;
+  top: -4px;
+  right: -8px;
+  bottom: -4px;
+  left: -8px;
+  border-radius: 8px;
+  background: #000;
+  pointer-events: none;
+}
+
 .nixie-tubes {
   position: relative;
   display: flex;
@@ -1063,20 +1072,47 @@ button,
 
 .nixie-tube {
   --nixie-delay: 0ms;
-  --nixie-h: clamp(64px, 8vw, 104px);
+  --nixie-h: calc(clamp(1.8rem, 6vw, 3rem) * 2.497);
+  position: relative;
   display: block;
-  width: calc(var(--nixie-h) * 0.375);
   height: var(--nixie-h);
-  overflow: visible;
+  overflow: hidden;
 }
 
-.nixie-tube[data-kind="dollar"] {
-  width: calc(var(--nixie-h) * 0.34);
+.nixie-shell,
+.nixie-face {
+  position: absolute;
+  top: 0;
+  display: block;
+  height: 100%;
 }
 
-.nixie-tube[data-kind="comma"],
-.nixie-tube[data-kind="dot"] {
-  width: calc(var(--nixie-h) * 0.22);
+.nixie-shell {
+  left: 0;
+  width: 100%;
+}
+
+.nixie-face {
+  left: 50%;
+  width: calc(var(--nixie-h) * 0.238);
+  transform: translateX(-50%);
+  overflow: hidden;
+}
+
+@media (max-width: 340px) {
+  .nixie-face {
+    width: calc(var(--nixie-h) * 0.205);
+  }
+}
+
+@media (min-width: 900px) {
+  .nixie-tube {
+    --nixie-h: calc(clamp(1.8rem, 6vw, 3rem) * 3.62);
+  }
+
+  .gear-panel {
+    min-height: 540px;
+  }
 }
 
 .nixie-window {
@@ -1106,7 +1142,7 @@ button,
 
 .nixie-glow {
   stroke: #ff7a1a;
-  stroke-width: 3.4;
+  stroke-width: 1.6px;
   opacity: 0;
   transition: opacity 0.62s cubic-bezier(0.16, 0.84, 0.24, 1);
   transition-delay: var(--nixie-delay);
@@ -1161,13 +1197,13 @@ button,
 }
 
 .nixie-tubes.is-centered {
-  gap: 0;
+  gap: clamp(3px, 0.35vw, 5px);
   width: 100%;
 }
 
 .nixie-tubes.is-centered .nixie-tube {
   flex: 1 1 0;
-  width: auto;
+  width: 0;
   min-width: 0;
   margin-right: 0;
 }
