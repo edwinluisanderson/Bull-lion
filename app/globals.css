@@ -147,6 +147,7 @@ button,
   --plate-radius: 22px;
   --plate-ring-width: 10px;
   --plate-face-inset: 12px;
+  --plate-gutter: 0.9rem;
   --plate-ring:
     inset 0 0 0 3px #120a06,
     inset 0 0 0 7px #6d4a2e,
@@ -832,7 +833,8 @@ button,
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
-  margin: 0.35rem 0.9rem 0;
+  margin-top: 0.35rem;
+  margin-bottom: 0;
 }
 
 .marquee {
@@ -914,9 +916,9 @@ button,
 
 .gear-panel {
   position: relative;
-  width: calc(100% - 1.8rem);
   min-height: 360px;
-  margin: 0.9rem auto 0;
+  margin-top: 0.9rem;
+  margin-bottom: 0;
   overflow: hidden;
   border-radius: var(--plate-radius);
   background:
@@ -929,6 +931,13 @@ button,
   box-shadow:
     var(--plate-ring),
     0 16px 28px rgba(0, 0, 0, 0.4);
+}
+
+.melt-stack,
+.gear-panel {
+  width: auto;
+  margin-right: var(--plate-gutter);
+  margin-left: var(--plate-gutter);
 }
 
 .gear-panel-lights {
