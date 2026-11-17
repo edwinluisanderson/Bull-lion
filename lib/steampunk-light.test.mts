@@ -14,10 +14,10 @@ const light = readFileSync(new URL("../components/steampunk-light.tsx", import.m
 const machine = readFileSync(new URL("../components/slot-machine.tsx", import.meta.url), "utf8");
 const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 
-test("a light is a caged bulb slightly larger than a rivet", () => {
+test("a light is a caged bulb larger than a rivet", () => {
   assert.equal(RIVET_PX, 12);
+  assert.equal(STEAMPUNK_LIGHT_PX, 30);
   assert.ok(STEAMPUNK_LIGHT_PX > RIVET_PX);
-  assert.ok(STEAMPUNK_LIGHT_PX <= RIVET_PX * 1.6);
   assert.equal(CAGE_EACH_WAY, 3);
   const bars = cagePaths();
   assert.equal(bars.length, CAGE_EACH_WAY * 2);

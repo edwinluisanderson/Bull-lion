@@ -1,7 +1,7 @@
 /** Corner rivets on the plates. The light is drawn a little larger than this. */
 export const RIVET_PX = 12;
-/** Decorative lamp, viewed from above. Slightly larger than a rivet. */
-export const STEAMPUNK_LIGHT_PX = 18;
+/** Decorative lamp, viewed from above. Larger than a rivet so the cage reads. */
+export const STEAMPUNK_LIGHT_PX = 30;
 /** How many lamps sit across the temporary bottom plate. */
 export const STEAMPUNK_LIGHT_COUNT = 5;
 /** Cage bars in each direction, seen from above. */

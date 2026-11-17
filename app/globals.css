@@ -888,9 +888,9 @@ button,
 .gear-panel-lights {
   position: absolute;
   z-index: 2;
-  top: 16px;
-  right: 16%;
-  left: 16%;
+  top: 14px;
+  right: 12%;
+  left: 12%;
   display: flex;
   align-items: center;
   justify-content: space-between;

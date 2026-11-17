@@ -43,20 +43,20 @@ export function SteampunkLight({ className = "" }: { className?: string }) {
         </clipPath>
       </defs>
 
-      <circle cx="16" cy="16" r="13.15" fill="none" stroke={`url(#${id}-brass)`} strokeWidth="2.55" />
+      <circle cx="16" cy="16" r="13.15" fill="none" stroke={`url(#${id}-brass)`} strokeWidth="2.7" />
       <circle cx="16" cy="16" r="11.55" fill="#2a160c" fillOpacity="0.35" />
       <circle cx="16" cy="16" r="7.4" fill="#ffcf70" fillOpacity="0.28" />
       <circle cx="16" cy="16" r="4.7" fill={`url(#${id}-bulb)`} />
-      <circle cx="16" cy="16" r="11.2" fill={`url(#${id}-glass)`} stroke={`url(#${id}-rim)`} strokeWidth="0.7" />
+      <circle cx="16" cy="16" r="11.2" fill={`url(#${id}-glass)`} stroke={`url(#${id}-rim)`} strokeWidth="0.9" />
       <ellipse cx="11.2" cy="10.4" rx="3.1" ry="1.7" fill="#ffffff" fillOpacity="0.72" transform="rotate(-32 11.2 10.4)" />
 
       <g clipPath={`url(#${id}-dome)`}>
-        <g transform="translate(0.45 0.55)" stroke="#2a160c" strokeOpacity="0.4" strokeWidth="1.35" fill="none" strokeLinecap="round">
+        <g transform="translate(0.45 0.55)" stroke="#2a160c" strokeOpacity="0.4" strokeWidth="1.7" fill="none" strokeLinecap="round">
           {bars.map((bar) => (
             <path key={`shadow-${bar.axis}-${bar.d}`} d={bar.d} />
           ))}
         </g>
-        <g stroke={`url(#${id}-brass)`} strokeWidth="1.25" fill="none" strokeLinecap="round">
+        <g stroke={`url(#${id}-brass)`} strokeWidth="1.55" fill="none" strokeLinecap="round">
           {bars.map((bar) => (
             <path key={`${bar.axis}-${bar.d}`} d={bar.d} />
           ))}
