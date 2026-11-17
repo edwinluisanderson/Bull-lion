@@ -9,6 +9,26 @@ export const PULL_WORD_MAX_LAT = 0.34;
 export const PULL_WORD_EDGE_OPACITY = 0.62;
 export const PULL_WORD_SHADE = { x1: 9.85, x2: 91.04 } as const;
 
+/**
+ * Deboss pressed into the ball. Light comes from the upper left, so the
+ * inner upper-left edge is shadow and the inner lower-right edge is a rim.
+ * Offsets are in viewBox units. No blur, so the pull stays sharp.
+ */
+export const PULL_EMBOSS = {
+  shadowX: -1.8,
+  shadowY: -1.8,
+  shadowOpacity: 0.7,
+  lightX: 1.7,
+  lightY: 1.7,
+  lightOpacity: 0.62,
+  /** How much of each offset the fill paints back, leaving a thin rim. */
+  rim: 0.34,
+  outline: 2.2,
+  shadow: "#120c07",
+  light: "#f0d7a8",
+  outlineInk: "#24160c",
+} as const;
+
 /** Screen point for a direction on the sphere. SVG y grows downward. */
 export function projectPullPoint(lon: number, lat: number, radius = PULL_SPHERE_RADIUS): { x: number; y: number } {
   return {

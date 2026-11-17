@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { PULL_BALL_INK, PULL_BAR_WIDTH_RATIO, pullBarSpan } from "@/lib/pull-bar";
 import {
+  PULL_EMBOSS,
   PULL_SPHERE_RADIUS,
   PULL_VIEW_CENTER,
   PULL_WORD_EDGE_OPACITY,
@@ -89,4 +90,26 @@ test("the pull word is bold, centered, and projected on the sphere", () => {
   assert.equal(lever.includes("rotate("), false);
   assert.match(lever, /PULL_WORD_PATH/);
   assert.match(lever, /fillRule="nonzero"/);
+  const reach = Math.max(
+    ...[...Array(nums.length / 2)].map((_, index) => {
+      const x = nums[index * 2] ?? 0;
+      const y = nums[index * 2 + 1] ?? 0;
+      return Math.hypot(x - PULL_VIEW_CENTER, y - PULL_VIEW_CENTER);
+    }),
+  );
+  assert.ok(reach + PULL_EMBOSS.outline / 2 < PULL_VIEW_CENTER - 4);
+});
+
+test("the pull letters are debossed toward the upper-left light", () => {
+  assert.ok(PULL_EMBOSS.shadowX < 0 && PULL_EMBOSS.shadowY < 0);
+  assert.ok(PULL_EMBOSS.lightX > 0 && PULL_EMBOSS.lightY > 0);
+  assert.ok(PULL_EMBOSS.rim > 0 && PULL_EMBOSS.rim < 0.6);
+  assert.ok(Math.abs(PULL_EMBOSS.shadowX) * (1 - PULL_EMBOSS.rim) > 0.8);
+  assert.ok(PULL_EMBOSS.lightOpacity < 0.8);
+  assert.match(lever, /clipPath="url\(#pull-letter-clip\)"/);
+  assert.match(lever, /stroke=\{PULL_EMBOSS\.outlineInk\}/);
+  assert.match(lever, /fill=\{PULL_EMBOSS\.shadow\}/);
+  assert.match(lever, /fill=\{PULL_EMBOSS\.light\}/);
+  assert.equal(lever.includes("feGaussianBlur"), false);
+  assert.equal(lever.includes("feSpecularLighting"), false);
 });

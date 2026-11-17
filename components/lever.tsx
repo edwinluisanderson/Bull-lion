@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { pullStage, stageBendDegrees, type PullStage } from "@/lib/drum";
 import { PULL_BALL_INK, pullBarSpan } from "@/lib/pull-bar";
-import { PULL_WORD_EDGE_OPACITY, PULL_WORD_PATH, PULL_WORD_SHADE } from "@/lib/pull-word";
+import { PULL_EMBOSS, PULL_WORD_EDGE_OPACITY, PULL_WORD_PATH, PULL_WORD_SHADE } from "@/lib/pull-word";
 import { unlockReelClick, reelSnap } from "@/lib/reel-click";
 import { armSpinOverlay } from "@/lib/spin-overlay";
 
@@ -220,8 +220,44 @@ export function PullBall({
             <stop offset="0.5" stopColor={PULL_BALL_INK} stopOpacity="1" />
             <stop offset="1" stopColor={PULL_BALL_INK} stopOpacity={PULL_WORD_EDGE_OPACITY} />
           </linearGradient>
+          <clipPath id="pull-letter-clip">
+            <path d={PULL_WORD_PATH} fillRule="nonzero" />
+          </clipPath>
         </defs>
+        <path
+          d={PULL_WORD_PATH}
+          fill="none"
+          stroke={PULL_EMBOSS.outlineInk}
+          strokeWidth={PULL_EMBOSS.outline}
+          strokeLinejoin="round"
+        />
         <path d={PULL_WORD_PATH} fill="url(#pull-sphere-ink)" fillRule="nonzero" />
+        <g clipPath="url(#pull-letter-clip)">
+          <path
+            d={PULL_WORD_PATH}
+            transform={`translate(${PULL_EMBOSS.shadowX} ${PULL_EMBOSS.shadowY})`}
+            fill={PULL_EMBOSS.shadow}
+            fillOpacity={PULL_EMBOSS.shadowOpacity}
+          />
+          <path
+            d={PULL_WORD_PATH}
+            transform={`translate(${PULL_EMBOSS.shadowX * PULL_EMBOSS.rim} ${PULL_EMBOSS.shadowY * PULL_EMBOSS.rim})`}
+            fill="url(#pull-sphere-ink)"
+            fillRule="nonzero"
+          />
+          <path
+            d={PULL_WORD_PATH}
+            transform={`translate(${PULL_EMBOSS.lightX} ${PULL_EMBOSS.lightY})`}
+            fill={PULL_EMBOSS.light}
+            fillOpacity={PULL_EMBOSS.lightOpacity}
+          />
+          <path
+            d={PULL_WORD_PATH}
+            transform={`translate(${PULL_EMBOSS.lightX * PULL_EMBOSS.rim} ${PULL_EMBOSS.lightY * PULL_EMBOSS.rim})`}
+            fill="url(#pull-sphere-ink)"
+            fillRule="nonzero"
+          />
+        </g>
       </svg>
       </button>
     </div>
