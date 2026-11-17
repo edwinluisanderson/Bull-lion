@@ -917,7 +917,7 @@ button,
 
 .gear-panel {
   position: relative;
-  width: min(92%, 920px);
+  width: calc(100% - 1.8rem);
   min-height: 480px;
   margin: 0.9rem auto 0;
   overflow: hidden;

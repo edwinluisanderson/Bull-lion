@@ -145,11 +145,14 @@ export function maxMeltLabel(): string {
   return formatWholeDollars(maxMeltAmount());
 }
 
-/** The scrap plate: 92% of the workshop column, and never more than 920px. */
+/**
+ * The scrap plate matches the melt plate: the workshop column minus the
+ * melt stack's 0.9rem side margins (1.8rem).
+ */
 export function nixiePlateWidth(viewport: number): number {
   const rem = 16;
   const column = Math.min(1040, viewport - 1.7 * rem);
-  return Math.min(920, column * 0.92);
+  return column - 1.8 * rem;
 }
 
 /** The melt-plate number band the window used to copy. */
@@ -158,10 +161,7 @@ export function nixieMeltBandWidth(viewport: number): number {
   return Math.min(1040, viewport - 1.7 * rem) - 3 * rem;
 }
 
-/**
- * The Nixie window fills the scrap plate. That is wider than the melt band
- * on a phone, and on a desktop the plate itself is the limit.
- */
+/** The Nixie window fills the scrap plate, which matches the melt plate. */
 export function nixieWindowWidth(viewport: number): number {
   return nixiePlateWidth(viewport);
 }

@@ -15,6 +15,7 @@ import {
   NIXIE_SLOT_COUNT,
   NIXIE_TUBE_ASPECT,
   nixieGap,
+  nixiePlateWidth,
   nixieTubeWidth,
   cyclingDigit,
   litDigit,
@@ -83,6 +84,22 @@ test("the test nixie mirrors the melt value and lights only the needed cathodes"
   assert.equal(textOf(nixieSlots("$2", 13)), "·····$2······");
   assert.equal(nixieSlots("$9,999,999", 13).length, 13);
   assert.equal(textOf(nixieSlots("$9,999,999", 13)), "·$9,999,999··");
+});
+
+test("the scrap plate is the same width as the melt plate", () => {
+  assert.match(css, /\.gear-panel \{[^}]*width:\s*calc\(100% - 1\.8rem\)/);
+  assert.match(css, /\.melt-stack \{[^}]*margin:\s*0\.35rem 0\.9rem 0/);
+  assert.match(css, /\.melt-plate \{[^}]*width:\s*100%/);
+  for (const [viewport, width] of [
+    [320, 264],
+    [390, 334],
+    [1440, 1011.2],
+  ] as const) {
+    assert.ok(
+      Math.abs(nixiePlateWidth(viewport) - width) < 0.05,
+      `${viewport}px scrap plate ${nixiePlateWidth(viewport)} is not the melt plate ${width}`,
+    );
+  }
 });
 
 test("the centered nixie fits the largest melt value", () => {
