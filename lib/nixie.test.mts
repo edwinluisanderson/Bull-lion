@@ -15,6 +15,8 @@ import {
   nixieBank,
   nixieCentered,
   nixieColumns,
+  nixieSlots,
+  nixieTubeCount,
 } from "@/lib/nixie";
 
 const machine = readFileSync(new URL("../components/slot-machine.tsx", import.meta.url), "utf8");
@@ -64,6 +66,15 @@ test("the test nixie mirrors the melt value and lights only the needed cathodes"
   assert.equal(textOf(nixieCentered("$3,927")), "$3,927");
   assert.equal(textOf(nixieCentered("$189")), "$189");
   assert.equal(textOf(nixieCentered("$9,999,999")), "$9,999,999");
+
+  assert.equal(nixieTubeCount(314.8, 64), 13);
+  assert.equal(nixieTubeCount(920, 104), 24);
+  const slots = nixieSlots("$3,927", 13);
+  assert.equal(slots.length, 13);
+  assert.equal(textOf(slots), "···$3,927····");
+  assert.equal(textOf(nixieSlots("$2", 13)), "·····$2······");
+  assert.equal(nixieSlots("$9,999,999", 13).length, 13);
+  assert.equal(textOf(nixieSlots("$9,999,999", 13)), "·$9,999,999··");
 });
 
 test("the bottom-plate nixie follows the same melt state as the plate", () => {
@@ -75,9 +86,10 @@ test("the bottom-plate nixie follows the same melt state as the plate", () => {
     machine,
     /<NixieReadout centered spinning=\{spinning\} value=\{metal \? formatWholeDollars\(meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)\) : "—"\} \/>/,
   );
-  assert.match(nixie, /spare=\{centered && !nixieShows\(column\)\}/);
+  assert.match(nixie, /nixieSlots\(value, tubeCount\)/);
+  assert.match(css, /\.gear-panel-nixie\.is-centered \{[^}]*width:\s*calc\(min\(1040px, 100vw - 1\.7rem\) - 3rem\)/);
   assert.match(css, /\.gear-panel-nixie-live \{[^}]*justify-content:\s*center/);
-  assert.match(css, /\.nixie-tubes\.is-centered \.nixie-tube\.is-spare \{[^}]*width:\s*0/);
+  assert.match(css, /\.nixie-tubes\.is-centered \.nixie-tube \{[^}]*flex:\s*1 1 0/);
   assert.match(readout, /const total = meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)/);
   assert.match(readout, /<RollingPrice value=\{formatWholeDollars\(total\)\} \/>/);
   assert.equal(readout.includes("NixieReadout"), false);

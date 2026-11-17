@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, type CSSProperties } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 
 import {
   NIXIE_COMMA,
@@ -12,7 +12,8 @@ import {
   NIXIE_STAGGER_MS,
   cyclingDigit,
   nixieBank,
-  nixieShows,
+  nixieSlots,
+  nixieTubeCount,
   type NixieColumn,
 } from "@/lib/nixie";
 
@@ -100,7 +101,7 @@ function SymbolTube({
 
 function Tube({ column, tick, spare }: { column: NixieColumn; tick: number | null; spare: boolean }) {
   if (column.kind === "digit") {
-    const shown = tick === null ? column.digit : cyclingDigit(placeOf(column.key), tick);
+    const shown = tick === null ? column.digit : cyclingDigit(column.place ?? placeOf(column.key), tick);
     return <DigitTube column={column} shown={shown} spare={spare} />;
   }
   if (column.kind === "dollar") return <SymbolTube kind="dollar" glyph={NIXIE_DOLLAR} lit={column.lit} spare={spare} />;
@@ -120,7 +121,9 @@ export function NixieReadout({
   /** Show only the tubes the value needs, centered as a group. */
   centered?: boolean;
 }) {
-  const columns = nixieBank(value);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [tubeCount, setTubeCount] = useState(13);
+  const columns = centered ? nixieSlots(value, tubeCount) : nixieBank(value);
   const [tick, setTick] = useState(0);
   const [reduce, setReduce] = useState(false);
   useEffect(() => {
@@ -132,6 +135,20 @@ export function NixieReadout({
   }, []);
   const cycling = spinning && !reduce;
   useEffect(() => {
+    if (!centered) return;
+    const node = frameRef.current;
+    if (!node) return;
+    const measure = () => {
+      const width = node.clientWidth;
+      const height = Math.min(104, Math.max(64, window.innerWidth * 0.08));
+      setTubeCount(nixieTubeCount(width, height));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [centered]);
+  useEffect(() => {
     if (!cycling) return;
     const id = window.setInterval(() => setTick((n) => n + 1), NIXIE_CYCLE_MS);
     return () => window.clearInterval(id);
@@ -141,13 +158,20 @@ export function NixieReadout({
   const row = (
     <div
       className={centered ? "gear-panel-nixie is-centered" : "gear-panel-nixie"}
+      ref={centered ? frameRef : undefined}
       data-testid={centered ? "nixie-centered" : "nixie-value"}
       data-value={value}
+      data-slots={centered ? columns.length : undefined}
       data-cycling={cycling ? "true" : "false"}
     >
       <div className={tubesClass}>
         {columns.map((column) => (
-          <Tube key={column.key} column={column} tick={cycling ? tick : null} spare={centered && !nixieShows(column)} />
+          <Tube
+            key={column.key}
+            column={column}
+            tick={cycling && (!centered || column.kind !== "digit" || column.digit !== null) ? tick : null}
+            spare={false}
+          />
         ))}
       </div>
       <div className="nixie-window" />

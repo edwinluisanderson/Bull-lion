@@ -36,7 +36,7 @@ export const NIXIE_DIGIT_PLACES = 7;
 export const NIXIE_CYCLE_MS = 60;
 
 export type NixieColumn =
-  | { kind: "digit"; key: string; digit: number | null; order: number }
+  | { kind: "digit"; key: string; digit: number | null; order: number; place?: number }
   | { kind: "dollar"; key: string; lit: boolean }
   | { kind: "comma"; key: string; lit: boolean }
   | { kind: "dot"; key: string; lit: boolean }
@@ -114,6 +114,40 @@ export function nixieShows(column: NixieColumn): boolean {
 
 export function nixieCentered(formatted: string): NixieColumn[] {
   return nixieBank(formatted).filter(nixieShows);
+}
+
+/** Tube width over height. The centered row keeps this shape while filling its window. */
+export const NIXIE_TUBE_ASPECT = 0.375;
+
+/** How many equal tubes fill a window of this width at the current tube height. */
+export function nixieTubeCount(windowWidth: number, tubeHeight: number): number {
+  if (!(windowWidth > 0) || !(tubeHeight > 0)) return NIXIE_DIGIT_PLACES + 6;
+  return Math.max(1, Math.round(windowWidth / (tubeHeight * NIXIE_TUBE_ASPECT)));
+}
+
+/**
+ * Park the value's characters in the middle of a fixed tube grid.
+ * When the character count and the tube count have different parity, the
+ * group sits half a tube left of center (one more dark tube on the right).
+ * A value longer than the grid keeps every character.
+ */
+export function nixieSlots(formatted: string, tubeCount: number): NixieColumn[] {
+  const needed = nixieCentered(formatted);
+  const count = Math.max(1, Math.trunc(tubeCount) || 1, needed.length);
+  const start = Math.floor((count - needed.length) / 2);
+  return Array.from({ length: count }, (_, index) => {
+    const source = index >= start && index < start + needed.length ? needed[index - start] : null;
+    if (!source || source.kind !== "digit") {
+      if (source) return { ...source, key: `slot-${index}` };
+      return { kind: "digit" as const, key: `slot-${index}`, digit: null, order: 0 };
+    }
+    const place = Number(source.key.slice(2));
+    return {
+      ...source,
+      key: `slot-${index}`,
+      place: Number.isFinite(place) ? place : index,
+    };
+  });
 }
 
 /** The cathode a tube shows while the reels are spinning. Each place is offset. */
