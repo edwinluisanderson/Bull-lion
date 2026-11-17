@@ -1,85 +1,145 @@
+import { reelAudioContext } from "@/lib/reel-click";
+
 /**
- * One-shot overlay when a handle pull starts.
- * The coin sample is not in the build yet. spinOverlayUrl() stays null,
- * so playSpinOverlay() is silent and does not fetch. It does not use the
- * wheel-spin lowpass; the sample plays full-range once a URL is returned.
+ * Coins poured over a handle pull.
+ * Cut from large-coins-falling.wav, 18.83s to 21.43s: the attack at 18.84s
+ * through a steady pour, with a 6 ms fade in and a 420 ms fade out.
+ * Mono, because the two channels of that section correlate at 0.90.
+ * Played on the reel-click context, not through the spin lowpass.
+ * The lowpass is there to dull the click wash; the coins are the bright layer
+ * under it. A highpass only takes the rumble out of the clicks' low body.
  */
-export const SPIN_OVERLAY_GAIN = 1;
+export const COINS_FALL_URL = "/sounds/coins-fall.mp3";
+/** Loudest 50 ms of the clip sits about 7 dB under the lock click. */
+export const COINS_FALL_GAIN = 0.15;
+export const COINS_FALL_HIGHPASS_HZ = 180;
+export const COINS_FALL_HIGHPASS_Q = 0.7;
+/** Old pour eases out instead of stacking on a fast second pull. */
+export const COINS_RESTART_FADE_S = 0.06;
 
-export function spinOverlayUrl(): string | null {
-  return null;
-}
+export type SpinGesture = "pull" | "flick" | "drag" | "step" | "stretch";
 
-let context: AudioContext | null = null;
+let soundEnabled = true;
 let buffer: AudioBuffer | null = null;
 let loading: Promise<void> | null = null;
-let loadedUrl: string | null = null;
+let bytes: Promise<ArrayBuffer | null> | null = null;
+let voice: { source: AudioBufferSourceNode; gain: GainNode } | null = null;
 
-function audioCtor(): (new () => AudioContext) | null {
-  if (typeof window === "undefined") return null;
-  const host = window as Window & { webkitAudioContext?: new () => AudioContext };
-  return window.AudioContext ?? host.webkitAudioContext ?? null;
+/** There is no sound toggle in the cabinet. Clicks always play, and so do coins, unless a test turns this off. */
+export function spinSoundEnabled(): boolean {
+  return soundEnabled;
 }
 
-function getContext(): AudioContext | null {
-  const Ctor = audioCtor();
-  if (!Ctor) return null;
-  if (!context || context.state === "closed") {
-    try {
-      context = new Ctor();
-    } catch {
-      return null;
-    }
+export function setSpinSoundEnabledForTests(next: boolean): void {
+  soundEnabled = next;
+}
+
+/** Coins only on a handle pull, and only while sound is on. */
+export function spinOverlayFor(gesture: SpinGesture): boolean {
+  return gesture === "pull" && soundEnabled;
+}
+
+function loadBytes(): Promise<ArrayBuffer | null> {
+  if (!bytes) {
+    bytes = fetch(COINS_FALL_URL)
+      .then((response) => (response.ok ? response.arrayBuffer() : null))
+      .catch(() => null);
   }
-  return context;
+  return bytes;
 }
 
-function load(ctx: AudioContext, url: string): Promise<void> {
-  if (buffer && loadedUrl === url) return Promise.resolve();
-  if (loading && loadedUrl === url) return loading;
-  loadedUrl = url;
-  buffer = null;
+function load(ctx: AudioContext): Promise<void> {
+  if (buffer) return Promise.resolve();
+  if (loading) return loading;
   loading = (async () => {
     try {
-      const response = await fetch(url);
-      if (!response.ok) return;
-      buffer = await ctx.decodeAudioData(await response.arrayBuffer());
+      const data = await loadBytes();
+      if (!data) return;
+      buffer = await ctx.decodeAudioData(data.slice(0));
     } catch {
       buffer = null;
       loading = null;
+      bytes = null;
     }
   })();
   return loading;
 }
 
-function start(ctx: AudioContext): void {
-  if (!buffer) return;
-  const source = ctx.createBufferSource();
-  source.buffer = buffer;
-  const gain = ctx.createGain();
-  gain.gain.value = SPIN_OVERLAY_GAIN;
-  source.connect(gain);
-  gain.connect(ctx.destination);
-  source.start();
-}
+if (typeof window !== "undefined") void loadBytes();
 
-/** Play the overlay once. No sample, no network, until spinOverlayUrl() is set. */
-export function playSpinOverlay(): void {
-  const url = spinOverlayUrl();
-  if (!url) return;
+/** Decode ahead of the pull, on the same gesture that unlocks the reel click. */
+export function armSpinOverlay(): void {
   try {
-    const ctx = getContext();
+    const ctx = reelAudioContext();
     if (!ctx) return;
     if (ctx.state === "suspended") void ctx.resume().catch(() => {});
-    void load(ctx, url).then(() => {
-      if (loadedUrl !== url) return;
-      try {
-        start(ctx);
-      } catch {
-        /* Audio is optional. */
-      }
-    });
+    void load(ctx);
   } catch {
     /* Audio is optional. */
   }
+}
+
+function start(ctx: AudioContext): void {
+  if (!buffer) return;
+  const now = ctx.currentTime;
+  if (voice) {
+    try {
+      const old = voice;
+      old.gain.gain.cancelScheduledValues(now);
+      old.gain.gain.setValueAtTime(old.gain.gain.value, now);
+      old.gain.gain.linearRampToValueAtTime(0, now + COINS_RESTART_FADE_S);
+      old.source.stop(now + COINS_RESTART_FADE_S);
+    } catch {
+      /* The previous pour already ended. */
+    }
+    voice = null;
+  }
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  const highpass = ctx.createBiquadFilter();
+  highpass.type = "highpass";
+  highpass.frequency.value = COINS_FALL_HIGHPASS_HZ;
+  highpass.Q.value = COINS_FALL_HIGHPASS_Q;
+  const gain = ctx.createGain();
+  gain.gain.value = COINS_FALL_GAIN;
+  source.connect(highpass);
+  highpass.connect(gain);
+  gain.connect(ctx.destination);
+  source.start(now);
+  voice = { source, gain };
+  source.onended = () => {
+    if (voice?.source === source) voice = null;
+  };
+}
+
+/** One pour. A second pull fades the first out and starts again. */
+export function playSpinOverlay(): void {
+  if (!soundEnabled) return;
+  try {
+    const ctx = reelAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") void ctx.resume().catch(() => {});
+    if (!buffer) {
+      void load(ctx).then(() => {
+        if (!soundEnabled || !buffer) return;
+        try {
+          start(reelAudioContext() ?? ctx);
+        } catch {
+          /* Audio is optional. */
+        }
+      });
+      return;
+    }
+    start(ctx);
+  } catch {
+    /* Audio is optional. */
+  }
+}
+
+export function resetSpinOverlayForTests(): void {
+  soundEnabled = true;
+  buffer = null;
+  loading = null;
+  bytes = null;
+  voice = null;
 }

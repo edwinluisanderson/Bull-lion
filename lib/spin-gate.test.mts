@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { PULL_ICE_MS, detentForStop, type Detent } from "@/lib/spin-gate";
-import { playSpinOverlay, spinOverlayUrl } from "@/lib/spin-overlay";
 
 function stops(
   frames: { elapsedMs: number; landing?: boolean }[],
@@ -122,9 +121,4 @@ test("flicks, drags, steps, and stretches are not iced or alternated", () => {
   });
   assert.equal(count.sound, true);
   assert.equal(count.haptic, true);
-});
-
-test("the pull overlay stays silent until a coin sample exists", () => {
-  assert.equal(spinOverlayUrl(), null);
-  assert.doesNotThrow(() => playSpinOverlay());
 });

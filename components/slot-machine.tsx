@@ -19,7 +19,7 @@ import {
 } from "@/lib/metals";
 import { LIVE_SPOT_NOTE, parsePriceBook, type PriceBook } from "@/lib/price-book";
 import { settleReels } from "@/lib/haptics";
-import { playSpinOverlay } from "@/lib/spin-overlay";
+import { playSpinOverlay, spinOverlayFor } from "@/lib/spin-overlay";
 import { valueAfterRelease } from "@/lib/stretch";
 import { meltValue } from "@/lib/value";
 import {
@@ -149,7 +149,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
     lastPull.current = now;
     setBendDegrees(0);
     setSpinToken((token) => token + 1);
-    playSpinOverlay();
+    if (spinOverlayFor("pull")) playSpinOverlay();
   }
 
   useEffect(() => {

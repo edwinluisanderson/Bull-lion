@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { pullStage, stageBendDegrees, type PullStage } from "@/lib/drum";
 import { unlockReelClick, reelSnap } from "@/lib/reel-click";
+import { armSpinOverlay } from "@/lib/spin-overlay";
 
 export function PullBall({
   onCommit,
@@ -105,6 +106,7 @@ export function PullBall({
 
   function fullPull() {
     unlockReelClick();
+    armSpinOverlay();
     if (committed.current) return;
     measureThrow();
     if (reduced()) {
@@ -143,6 +145,7 @@ export function PullBall({
         if (event.button !== 0) return;
         if (event.cancelable) event.preventDefault();
         unlockReelClick();
+        armSpinOverlay();
         stopFrame();
         measureThrow();
         originY.current = event.clientY;
