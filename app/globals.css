@@ -497,9 +497,8 @@ button,
   pointer-events: none;
 }
 
-.pull-word text {
-  font-family: var(--font-display), Palatino, serif;
-  text-rendering: geometricPrecision;
+.pull-word path {
+  shape-rendering: geometricPrecision;
 }
 
 .pull-ball:active {

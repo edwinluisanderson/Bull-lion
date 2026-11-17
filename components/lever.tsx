@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import { pullStage, stageBendDegrees, type PullStage } from "@/lib/drum";
-import { PULL_BALL_INK, PULL_LETTERS, pullBarSpan } from "@/lib/pull-bar";
+import { PULL_BALL_INK, pullBarSpan } from "@/lib/pull-bar";
+import { PULL_WORD_EDGE_OPACITY, PULL_WORD_PATH, PULL_WORD_SHADE } from "@/lib/pull-word";
 import { unlockReelClick, reelSnap } from "@/lib/reel-click";
 import { armSpinOverlay } from "@/lib/spin-overlay";
 
@@ -206,16 +207,21 @@ export function PullBall({
       }}
     >
       <svg className="pull-word" viewBox="0 0 100 100" aria-hidden="true">
-        {PULL_LETTERS.map((letter, index) => (
-          <g
-            key={`${letter.char}-${index}`}
-            transform={`translate(${letter.x * 100} ${letter.y * 100}) rotate(${letter.rotate}) scale(${letter.scaleX} ${letter.scaleY})`}
+        <defs>
+          <linearGradient
+            id="pull-sphere-ink"
+            gradientUnits="userSpaceOnUse"
+            x1={PULL_WORD_SHADE.x1}
+            x2={PULL_WORD_SHADE.x2}
+            y1="50"
+            y2="50"
           >
-            <text textAnchor="middle" dominantBaseline="central" fill={PULL_BALL_INK} fontSize="20" fontWeight="700">
-              {letter.char}
-            </text>
-          </g>
-        ))}
+            <stop offset="0" stopColor={PULL_BALL_INK} stopOpacity={PULL_WORD_EDGE_OPACITY} />
+            <stop offset="0.5" stopColor={PULL_BALL_INK} stopOpacity="1" />
+            <stop offset="1" stopColor={PULL_BALL_INK} stopOpacity={PULL_WORD_EDGE_OPACITY} />
+          </linearGradient>
+        </defs>
+        <path d={PULL_WORD_PATH} fill="url(#pull-sphere-ink)" fillRule="nonzero" />
       </svg>
       </button>
     </div>

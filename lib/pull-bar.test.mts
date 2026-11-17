@@ -2,7 +2,16 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { PULL_BALL_INK, PULL_BAR_WIDTH_RATIO, PULL_LETTERS, pullBarSpan } from "@/lib/pull-bar";
+import { PULL_BALL_INK, PULL_BAR_WIDTH_RATIO, pullBarSpan } from "@/lib/pull-bar";
+import {
+  PULL_SPHERE_RADIUS,
+  PULL_VIEW_CENTER,
+  PULL_WORD_EDGE_OPACITY,
+  PULL_WORD_PATH,
+  PULL_WORD_WEIGHT,
+  projectPullPoint,
+  pullLongitudeScale,
+} from "@/lib/pull-word";
 
 const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 const lever = readFileSync(new URL("../components/lever.tsx", import.meta.url), "utf8");
@@ -41,26 +50,43 @@ test("the pull label uses the plate title ink", () => {
   assert.equal(PULL_BALL_INK, "#3a2710");
   assert.match(css, /\.plate-title \{[^}]*color:\s*#3a2710;/);
   assert.match(css, new RegExp(`\\.pull-ball \\{[^}]*color:\\s*${PULL_BALL_INK};`));
-  assert.match(lever, /fill=\{PULL_BALL_INK\}/);
+  assert.match(lever, /stopColor=\{PULL_BALL_INK\}/);
 });
 
-test("the pull word sits above center and tightens toward the edges", () => {
-  assert.equal(PULL_LETTERS.map((letter) => letter.char).join(""), "PULL");
-  for (const letter of PULL_LETTERS) assert.ok(letter.y < 0.5);
-  const edges = [PULL_LETTERS[0], PULL_LETTERS[3]];
-  const middle = [PULL_LETTERS[1], PULL_LETTERS[2]];
-  const edgeY = (edges[0].y + edges[1].y) / 2;
-  const middleY = (middle[0].y + middle[1].y) / 2;
-  assert.ok(middleY < edgeY);
-  for (const letter of edges) {
-    assert.ok(letter.scaleX < 1);
-    assert.ok(letter.scaleY < 1);
-    assert.ok(Math.abs(letter.rotate) > 10);
+test("the pull word is bold, centered, and projected on the sphere", () => {
+  assert.equal(PULL_WORD_WEIGHT, 700);
+  assert.ok(PULL_WORD_EDGE_OPACITY < 1 && PULL_WORD_EDGE_OPACITY > 0.4);
+  const front = projectPullPoint(0, 0);
+  assert.equal(front.x, PULL_VIEW_CENTER);
+  assert.equal(front.y, PULL_VIEW_CENTER);
+  const equator = projectPullPoint(0.4, 0);
+  assert.ok(Math.abs(equator.x - (PULL_VIEW_CENTER + PULL_SPHERE_RADIUS * Math.sin(0.4))) < 1e-9);
+  assert.equal(equator.y, PULL_VIEW_CENTER);
+  const raised = projectPullPoint(0.4, 0.25);
+  assert.ok(Math.abs(raised.x - (PULL_VIEW_CENTER + PULL_SPHERE_RADIUS * Math.sin(0.4) * Math.cos(0.25))) < 1e-9);
+  assert.ok(Math.abs(raised.y - (PULL_VIEW_CENTER - PULL_SPHERE_RADIUS * Math.sin(0.25))) < 1e-9);
+  const step = 0.04;
+  const centerStep = projectPullPoint(step, 0).x - projectPullPoint(0, 0).x;
+  const limbStep = projectPullPoint(0.8, 0).x - projectPullPoint(0.8 - step, 0).x;
+  assert.ok(limbStep < centerStep * 0.85);
+  assert.ok(pullLongitudeScale(0.8) < pullLongitudeScale(0));
+  const nums = [...PULL_WORD_PATH.matchAll(/-?\d+\.\d+/g)].map((match) => Number(match[0]));
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (let i = 0; i < nums.length; i += 2) {
+    const x = nums[i] ?? 0;
+    const y = nums[i + 1] ?? 0;
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y);
+    maxY = Math.max(maxY, y);
   }
-  for (const letter of middle) {
-    assert.equal(letter.scaleX, 1);
-    assert.ok(Math.abs(letter.rotate) < 10);
-  }
-  assert.match(lever, /PULL_LETTERS/);
-  assert.match(lever, /className="pull-word"/);
+  assert.ok(Math.abs((minX + maxX) / 2 - PULL_VIEW_CENTER) < 1.5);
+  assert.ok(Math.abs((minY + maxY) / 2 - PULL_VIEW_CENTER) < 1.5);
+  assert.ok((PULL_WORD_PATH.match(/L/g) ?? []).length > 800);
+  assert.equal(lever.includes("rotate("), false);
+  assert.match(lever, /PULL_WORD_PATH/);
+  assert.match(lever, /fillRule="nonzero"/);
 });
