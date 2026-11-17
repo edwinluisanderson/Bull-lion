@@ -23,9 +23,9 @@ function HaloDefs({ id }: { id: string }) {
   return (
     <defs>
       <radialGradient id={`${id}-halo`} cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stopColor="#ff7a1a" stopOpacity="0.55" />
-        <stop offset="55%" stopColor="#ff7a1a" stopOpacity="0.12" />
-        <stop offset="100%" stopColor="#ff7a1a" stopOpacity="0" />
+        <stop offset="0%" stopColor="#ff9324" stopOpacity="0.55" />
+        <stop offset="55%" stopColor="#ff9324" stopOpacity="0.12" />
+        <stop offset="100%" stopColor="#ff9324" stopOpacity="0" />
       </radialGradient>
     </defs>
   );
@@ -55,7 +55,6 @@ function DigitTube({
           {shown === null ? null : <circle className="nixie-halo is-on" cx="12" cy="32" r="6.2" fill={`url(#${id}-halo)`} />}
           {NIXIE_DIGITS.map((digit) => (
             <g key={digit} className={digit === shown ? "is-on" : undefined}>
-              <path className="nixie-aura" d={NIXIE_GLYPH[digit]} />
               <path className="nixie-glow" d={NIXIE_GLYPH[digit]} />
               {digit === shown ? null : <path className="nixie-mesh" d={NIXIE_GLYPH[digit]} />}
               <path className="nixie-cathode" d={NIXIE_GLYPH[digit]} />
@@ -89,7 +88,6 @@ function SymbolTube({
             <circle className={lit ? "nixie-dot is-on" : "nixie-dot"} cx="12" cy="40" r="1.7" />
           ) : (
             <g className={lit ? "is-on" : undefined}>
-              <path className="nixie-aura" d={glyph} />
               <path className="nixie-glow" d={glyph} />
               {lit ? null : <path className="nixie-mesh" d={glyph} />}
               <path className="nixie-cathode" d={glyph} />
