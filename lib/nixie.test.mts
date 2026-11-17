@@ -124,18 +124,18 @@ test("the centered nixie fits the largest melt value", () => {
   assert.equal(nixieCentered(label).length, label.length);
 });
 
-test("the melt-plate nixie follows the same melt state as the plate", () => {
-  assert.equal(machine.includes("NixieReadout"), false);
+test("the scrap-plate nixie follows the same melt state as the rolling plate", () => {
   assert.match(
     machine,
-    /<RollingPrice value=\{metal \? formatWholeDollars\(meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)\) : "—"\} \/>/,
+    /<NixieReadout spinning=\{spinning\} value=\{metal \? formatWholeDollars\(meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)\) : "—"\} \/>/,
   );
-  assert.match(css, /\.scrap-readout \{[^}]*bottom:\s*22px/);
-  assert.match(css, /\.scrap-readout \.readout \{[^}]*width:\s*calc\(100% - 3rem\)/);
-  assert.match(css, /\.scrap-readout \.readout \{[^}]*height:\s*4\.8rem/);
+  assert.equal(machine.includes("RollingPrice"), false);
+  assert.match(css, /\.gear-panel-nixie-live \{[^}]*bottom:\s*22px/);
+  assert.match(nixie, /className="gear-panel-nixie-live"/);
   assert.match(nixie, /nixieSlots\(shownValue, NIXIE_SLOT_COUNT\)/);
   assert.match(css, /\.gear-panel-nixie \{[^}]*width:\s*100%/);
-  assert.match(css, /\.melt-digits \.nixie-bezel \{[^}]*width:\s*100%/);
+  assert.equal(css.includes(".scrap-readout"), false);
+  assert.equal(css.includes(".melt-digits .nixie-bezel"), false);
   assert.match(css, /\.nixie-tubes\.is-centered \.nixie-tube \{[^}]*flex:\s*1 1 0/);
   assert.equal(NIXIE_HEIGHT_OVER_FONT, 2.497);
   assert.equal(NIXIE_DIGIT_SCALE, 1.438);
@@ -168,8 +168,8 @@ test("the melt-plate nixie follows the same melt state as the plate", () => {
   assert.equal(nixiePlateWidth(1440), nixiePlateWidth(390));
   assert.equal(nixieGap(1440), nixieGap(390));
   assert.match(readout, /const total = meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)/);
-  assert.match(readout, /<NixieReadout spinning=\{spinning\} value=\{formatWholeDollars\(total\)\} \/>/);
-  assert.equal(readout.includes("RollingPrice"), false);
+  assert.match(readout, /<RollingPrice value=\{formatWholeDollars\(total\)\} \/>/);
+  assert.equal(readout.includes("NixieReadout"), false);
   assert.match(readout, /Live wire/);
   assert.equal(NIXIE_IGNITE_MS, 620);
   assert.equal(NIXIE_STAGGER_MS, 50);
