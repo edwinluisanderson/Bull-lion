@@ -95,7 +95,7 @@ test("the scrap plate is the same width as the melt plate", () => {
   for (const [viewport, width] of [
     [320, 264],
     [390, 334],
-    [1440, 1011.2],
+    [1440, 334],
   ] as const) {
     assert.ok(
       Math.abs(nixiePlateWidth(viewport) - width) < 0.05,
@@ -133,7 +133,7 @@ test("the bottom-plate nixie follows the same melt state as the plate", () => {
   assert.match(css, /\.nixie-tubes\.is-centered \.nixie-tube \{[^}]*flex:\s*1 1 0/);
   assert.equal(NIXIE_HEIGHT_OVER_FONT, 2.497);
   assert.equal(NIXIE_TUBE_ASPECT, 0.238);
-  assert.match(css, /\.nixie-tubes\.is-centered \{[^}]*gap:\s*clamp\(3px, 0\.35vw, 5px\)/);
+  assert.match(css, /\.nixie-tubes\.is-centered \{[^}]*gap:\s*3px/);
   assert.match(css, /\.nixie-face \{[^}]*width:\s*calc\(var\(--nixie-h\) \* 0\.238\)/);
   assert.equal(NIXIE_NARROW_FACE_ASPECT, 0.184);
   assert.match(css, /@media \(max-width: 370px\) \{[^}]*\.nixie-face \{[^}]*width:\s*calc\(var\(--nixie-h\) \* 0\.184\)/);
@@ -147,7 +147,11 @@ test("the bottom-plate nixie follows the same melt state as the plate", () => {
   assert.match(css, /\.readout \{[^}]*border-radius:\s*14px/);
   assert.match(css, /\.readout \{[^}]*padding:\s*0\.7rem 0\.9rem/);
   assert.match(css, /\.readout \{[^}]*inset 0 0 0 7px #3a2a14/);
-  assert.match(css, /@media \(min-width: 900px\) \{[^}]*--nixie-h:\s*calc\(clamp\(1\.8rem, 6vw, 3rem\) \* 3\.62\)/);
+  assert.equal(css.includes("min-width: 900px"), false);
+  assert.equal(css.includes("3.62"), false);
+  assert.equal(nixieTubeHeight(1440), nixieTubeHeight(390));
+  assert.equal(nixiePlateWidth(1440), nixiePlateWidth(390));
+  assert.equal(nixieGap(1440), nixieGap(390));
   assert.match(readout, /const total = meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)/);
   assert.match(readout, /<RollingPrice value=\{formatWholeDollars\(total\)\} \/>/);
   assert.equal(readout.includes("NixieReadout"), false);
@@ -164,7 +168,8 @@ test("the bottom-plate nixie follows the same melt state as the plate", () => {
   assert.match(nixie, /prefers-reduced-motion: reduce/);
   assert.match(css, /transition-delay:\s*var\(--nixie-delay\)/);
   assert.match(css, /\.nixie-cathode \{[^}]*0\.62s cubic-bezier\(0\.16, 0\.84, 0\.24, 1\)/);
-  assert.match(css, /\.nixie-tube \{[^}]*--nixie-h:\s*calc\(clamp\(1\.8rem, 6vw, 3rem\) \* 2\.497\)/);
+  assert.match(css, /\.nixie-tube \{[^}]*--nixie-h:\s*calc\(1\.8rem \* 2\.497\)/);
+  assert.match(css, /\.workshop \{[^}]*max-width:\s*390px/);
   assert.match(css, /\.nixie-plate \{[^}]*background:\s*#000/);
   assert.match(css, /\.nixie-plate \{[^}]*top:\s*-4px/);
   assert.match(css, /\.nixie-plate \{[^}]*left:\s*-8px/);

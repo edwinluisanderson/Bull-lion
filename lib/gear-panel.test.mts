@@ -16,5 +16,5 @@ test("the decorative gears sit in the holding panel under the machine", () => {
   assert.match(panel, /gear-panel-bg-right/);
   assert.match(panel, /marquee-gear gear-reverse/);
   assert.match(css, /\.gear-panel \{[^}]*border-radius:\s*22px/);
-  assert.match(css, /\.cabinet-gears \{[^}]*min-height:\s*calc\(52px \+ 2\.05rem\)/);
+  assert.match(css, /\.cabinet-gears \{[^}]*min-height:\s*calc\(36px \+ 2\.05rem\)/);
 });

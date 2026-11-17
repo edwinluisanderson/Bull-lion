@@ -145,20 +145,27 @@ export function maxMeltLabel(): string {
   return formatWholeDollars(maxMeltAmount());
 }
 
+/** Wide screens keep the 390px phone column. */
+const PHONE_LAYOUT = 390;
+
+function layoutViewport(viewport: number): number {
+  return Math.min(viewport, PHONE_LAYOUT);
+}
+
 /**
- * The scrap plate matches the melt plate: the workshop column minus the
- * melt stack's 0.9rem side margins (1.8rem).
+ * The scrap plate matches the melt plate inside the phone column:
+ * that column minus the melt stack's 0.9rem side margins.
  */
 export function nixiePlateWidth(viewport: number): number {
   const rem = 16;
-  const column = Math.min(1040, viewport - 1.7 * rem);
+  const column = Math.min(1040, layoutViewport(viewport) - 1.7 * rem);
   return column - 1.8 * rem;
 }
 
 /** The melt-plate number band the window used to copy. */
 export function nixieMeltBandWidth(viewport: number): number {
   const rem = 16;
-  return Math.min(1040, viewport - 1.7 * rem) - 3 * rem;
+  return Math.min(1040, layoutViewport(viewport) - 1.7 * rem) - 3 * rem;
 }
 
 /**
@@ -178,9 +185,9 @@ export function nixieFaceAspect(viewport: number): number {
   return viewport <= NIXIE_NARROW_MAX_WIDTH ? NIXIE_NARROW_FACE_ASPECT : NIXIE_TUBE_ASPECT;
 }
 
-/** 3px from phone widths through 5px on a desktop. */
+/** The phone gap. It does not open up on a wide screen. */
 export function nixieGap(viewport: number): number {
-  return Math.min(5, Math.max(3, viewport * 0.0035));
+  return Math.min(5, Math.max(3, layoutViewport(viewport) * 0.0035));
 }
 
 /** Equal share of the window after the gaps. This is the glass width. */
@@ -190,9 +197,8 @@ export function nixieTubeWidth(viewport: number): number {
 }
 
 export function nixieTubeHeight(viewport: number): number {
-  const font = Math.min(48, Math.max(28.8, viewport * 0.06));
-  const factor = viewport >= 900 ? 3.62 : NIXIE_HEIGHT_OVER_FONT;
-  return font * factor;
+  const font = Math.min(48, Math.max(28.8, layoutViewport(viewport) * 0.06));
+  return font * NIXIE_HEIGHT_OVER_FONT;
 }
 
 /** The centered row always holds the maximum value plus one spare tube. */

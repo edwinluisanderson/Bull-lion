@@ -145,7 +145,10 @@ button,
 .workshop {
   --side: 0.85rem;
   position: relative;
+  width: 100%;
+  max-width: 390px;
   min-height: 100dvh;
+  margin-inline: auto;
   overflow-x: clip;
   padding: 1.25rem var(--side) calc(1.5rem + env(safe-area-inset-bottom));
   background:
@@ -164,7 +167,7 @@ button,
 
 .cabinet {
   --reel-inset-left: calc(0.75rem + 14px);
-  --reel-inset-right: calc(0.55rem + 14px);
+  --reel-inset-right: calc(0.75rem + 14px);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -205,7 +208,7 @@ button,
   margin: 0.1rem 0 0;
   color: #3a2710;
   font-family: var(--font-display), Palatino, serif;
-  font-size: clamp(1.45rem, 4.4vw, 2.35rem);
+  font-size: 1.45rem;
   font-weight: 900;
   line-height: 1.05;
   letter-spacing: 0.03em;
@@ -304,7 +307,7 @@ button,
 .playfield {
   position: relative;
   overflow: visible;
-  padding: 0.15rem 0.55rem 0.2rem 0.75rem;
+  padding: 0.15rem 0.75rem 0.2rem 0.75rem;
 }
 
 .window-frame {
@@ -470,24 +473,11 @@ button,
     0 8px 10px rgba(0, 0, 0, 0.35);
   color: #3a2710;
   font-family: var(--font-display), Palatino, serif;
-  font-size: 0.62rem;
+  font-size: 0.55rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   cursor: grab;
   touch-action: none;
-}
-
-@media (min-width: 801px) {
-  .pull-handle {
-    top: calc(0.15rem + 14px + var(--reel-name) - 56px);
-    right: -12px;
-    width: 56px;
-    height: 56px;
-  }
-
-  .pull-ball {
-    font-size: 0.62rem;
-  }
 }
 
 .pull-word {
@@ -547,7 +537,7 @@ button,
   max-width: 100%;
   padding: 0 4px;
   font-family: var(--font-reel), "Arial Narrow", sans-serif;
-  font-size: clamp(1.35rem, 4.8vw, 2.45rem);
+  font-size: 1.35rem;
   font-weight: 700;
   line-height: 0.9;
   letter-spacing: 0.01em;
@@ -858,7 +848,7 @@ button,
   position: relative;
   display: block;
   box-sizing: border-box;
-  min-height: calc(52px + 2.05rem);
+  min-height: calc(36px + 2.05rem);
   margin-top: 0;
 }
 
@@ -877,7 +867,7 @@ button,
   width: 100%;
   box-sizing: border-box;
   padding-left: calc(0.75rem + 14px);
-  padding-right: calc(0.55rem + 14px);
+  padding-right: calc(0.75rem + 14px);
 }
 
 .wheel-lamp {
@@ -918,7 +908,7 @@ button,
 .gear-panel {
   position: relative;
   width: calc(100% - 1.8rem);
-  min-height: 480px;
+  min-height: 360px;
   margin: 0.9rem auto 0;
   overflow: hidden;
   border-radius: 22px;
@@ -1022,7 +1012,7 @@ button,
 
 .gear-panel-stage {
   position: relative;
-  min-height: 320px;
+  min-height: 250px;
 }
 
 .gear-panel-nixie {
@@ -1087,7 +1077,7 @@ button,
 
 .nixie-tube {
   --nixie-delay: 0ms;
-  --nixie-h: calc(clamp(1.8rem, 6vw, 3rem) * 2.497);
+  --nixie-h: calc(1.8rem * 2.497);
   position: relative;
   display: block;
   height: var(--nixie-h);
@@ -1117,16 +1107,6 @@ button,
 @media (max-width: 370px) {
   .nixie-face {
     width: calc(var(--nixie-h) * 0.184);
-  }
-}
-
-@media (min-width: 900px) {
-  .nixie-tube {
-    --nixie-h: calc(clamp(1.8rem, 6vw, 3rem) * 3.62);
-  }
-
-  .gear-panel {
-    min-height: 540px;
   }
 }
 
@@ -1212,7 +1192,7 @@ button,
 }
 
 .nixie-tubes.is-centered {
-  gap: clamp(3px, 0.35vw, 5px);
+  gap: 3px;
   width: 100%;
 }
 
@@ -1294,7 +1274,7 @@ button,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 168px;
+  min-height: 132px;
   padding: 1.4rem 18%;
 }
 
@@ -1389,7 +1369,7 @@ button,
   margin: 0.15rem 0 0.1rem;
   color: #ffd27a;
   font-family: var(--font-readout), ui-monospace, monospace;
-  font-size: clamp(1.8rem, 6vw, 3rem);
+  font-size: 1.8rem;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em;
@@ -1608,8 +1588,8 @@ button,
 }
 
 .marquee-gear {
-  width: 52px;
-  height: 52px;
+  width: 36px;
+  height: 36px;
   animation-duration: 22s;
   filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.35));
 }
@@ -1621,7 +1601,7 @@ button,
 .bg-gear {
   position: absolute;
   z-index: 0;
-  width: min(320px, 48vw);
+  width: min(187.2px, 48vw);
   height: auto;
   opacity: 0.14;
   animation-duration: 56s;
@@ -1661,88 +1641,49 @@ button,
   50% { opacity: 0.45; }
 }
 
-@media (max-width: 800px) {
-  .cabinet {
-    --reel-inset-right: calc(0.75rem + 14px);
-  }
+.lever-bay {
+  border-left: 0;
+  background: transparent;
+  padding: 0.15rem 0.15rem 0.35rem;
+}
 
-  .playfield {
-    padding-right: 0.75rem;
-  }
+.lever {
+  height: 92px;
+}
 
-  .pull-ball {
-    font-size: 0.55rem;
-  }
+.lever-arm {
+  top: 50%;
+  left: 8px;
+  width: calc(100% - 16px);
+  height: 22px;
+  margin-left: 0;
+  transform: translateY(-50%);
+  transform-origin: left center;
+}
 
-  .marquee-gear {
-    width: 36px;
-    height: 36px;
-  }
+.lever-arm.yank {
+  animation-name: yank-horizontal;
+}
 
-  .cabinet-gears {
-    min-height: calc(36px + 2.05rem);
-  }
+.lever-shaft {
+  inset: 3px 32px 3px 0;
+  background: linear-gradient(180deg, #5c4314, #f3e2ad 46%, #8a6424);
+}
 
-  .wheel-lamps {
-    padding-right: calc(0.75rem + 14px);
-  }
+.lever-collar {
+  top: 50%;
+  left: 0;
+  width: 14px;
+  height: 28px;
+  transform: translateY(-50%);
+}
 
-  .gear-panel {
-    min-height: 360px;
-  }
-
-  .gear-panel-stage {
-    min-height: 250px;
-  }
-
-  .gear-panel-row {
-    min-height: 132px;
-  }
-
-  .lever-bay {
-    border-left: 0;
-    background: transparent;
-    padding: 0.15rem 0.15rem 0.35rem;
-  }
-
-  .lever {
-    height: 92px;
-  }
-
-  .lever-arm {
-    top: 50%;
-    left: 8px;
-    width: calc(100% - 16px);
-    height: 22px;
-    margin-left: 0;
-    transform: translateY(-50%);
-    transform-origin: left center;
-  }
-
-  .lever-arm.yank {
-    animation-name: yank-horizontal;
-  }
-
-  .lever-shaft {
-    inset: 3px 32px 3px 0;
-    background: linear-gradient(180deg, #5c4314, #f3e2ad 46%, #8a6424);
-  }
-
-  .lever-collar {
-    top: 50%;
-    left: 0;
-    width: 14px;
-    height: 28px;
-    transform: translateY(-50%);
-  }
-
-  .lever-grip {
-    top: 50%;
-    right: 0;
-    bottom: auto;
-    left: auto;
-    transform: translateY(-50%);
-  }
+.lever-grip {
+  top: 50%;
+  right: 0;
+  bottom: auto;
+  left: auto;
+  transform: translateY(-50%);
 }
 
 @media (prefers-reduced-motion: reduce) {
