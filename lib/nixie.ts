@@ -130,8 +130,8 @@ export const NIXIE_HEIGHT_OVER_FONT = 2.497;
  * digit stroke, then stretched on x so an 8 stays about 14.6px wide.
  */
 export const NIXIE_TUBE_ASPECT = 0.238;
-/** Gap between capsules, as a fraction of tube height. About 3px at phone size. */
-export const NIXIE_GAP_OVER_HEIGHT = 0.0417;
+/** One spare past the 12-character maximum, at every viewport. */
+export const NIXIE_SLOT_COUNT = 13;
 /** USD per troy ounce, about 2.5× the sample gold quote, so the row has headroom. */
 export const NIXIE_SPOT_HEADROOM = 10_000;
 
@@ -159,11 +159,22 @@ export function nixieMeltBandWidth(viewport: number): number {
 }
 
 /**
- * The Nixie window. It may run wider than the melt band, inset 4px from each
- * side of the scrap plate so the tubes are not crammed into the old band.
+ * The Nixie window fills the scrap plate. That is wider than the melt band
+ * on a phone, and on a desktop the plate itself is the limit.
  */
 export function nixieWindowWidth(viewport: number): number {
-  return nixiePlateWidth(viewport) - 8;
+  return nixiePlateWidth(viewport);
+}
+
+/** 3px from phone widths through 5px on a desktop. */
+export function nixieGap(viewport: number): number {
+  return Math.min(5, Math.max(3, viewport * 0.0035));
+}
+
+/** Equal share of the window after the gaps. This is the glass width. */
+export function nixieTubeWidth(viewport: number): number {
+  const gaps = (NIXIE_SLOT_COUNT - 1) * nixieGap(viewport);
+  return (nixieWindowWidth(viewport) - gaps) / NIXIE_SLOT_COUNT;
 }
 
 export function nixieTubeHeight(viewport: number): number {
@@ -171,12 +182,9 @@ export function nixieTubeHeight(viewport: number): number {
   return font * NIXIE_HEIGHT_OVER_FONT;
 }
 
-/** How many separated tubes fit a window. Tubes are not stretched, so this floors. */
-export function nixieTubeCount(windowWidth: number, tubeHeight: number): number {
-  if (!(windowWidth > 0) || !(tubeHeight > 0)) return 1;
-  const tubeWidth = tubeHeight * NIXIE_TUBE_ASPECT;
-  const gap = tubeHeight * NIXIE_GAP_OVER_HEIGHT;
-  return Math.max(1, Math.floor((windowWidth + gap) / (tubeWidth + gap)));
+/** The centered row always holds the maximum value plus one spare tube. */
+export function nixieTubeCount(): number {
+  return NIXIE_SLOT_COUNT;
 }
 
 /**

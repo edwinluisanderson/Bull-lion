@@ -12,8 +12,10 @@ import {
   NIXIE_IGNITE_MS,
   NIXIE_SPOT_HEADROOM,
   NIXIE_STAGGER_MS,
-  NIXIE_GAP_OVER_HEIGHT,
+  NIXIE_SLOT_COUNT,
   NIXIE_TUBE_ASPECT,
+  nixieGap,
+  nixieTubeWidth,
   cyclingDigit,
   litDigit,
   maxMeltLabel,
@@ -74,7 +76,7 @@ test("the test nixie mirrors the melt value and lights only the needed cathodes"
   assert.equal(textOf(nixieCentered("$189")), "$189");
   assert.equal(textOf(nixieCentered("$9,999,999")), "$9,999,999");
 
-  assert.equal(nixieTubeCount(nixieWindowWidth(320), nixieTubeHeight(320)) >= 13, true);
+  assert.equal(nixieTubeCount(), NIXIE_SLOT_COUNT);
   const slots = nixieSlots("$3,927", 13);
   assert.equal(slots.length, 13);
   assert.equal(textOf(slots), "···$3,927····");
@@ -88,12 +90,13 @@ test("the centered nixie fits the largest melt value", () => {
   assert.equal(NIXIE_SPOT_HEADROOM, 10_000);
   assert.equal(label.startsWith("$"), true);
   assert.ok(label.length >= 12);
+  assert.equal(NIXIE_SLOT_COUNT, label.length + 1);
   for (const viewport of [320, 390, 1440]) {
-    const tubes = nixieTubeCount(nixieWindowWidth(viewport), nixieTubeHeight(viewport));
-    assert.ok(
-      tubes >= label.length + 1,
-      `${viewport}px has ${tubes} tubes for ${label} plus a spare`,
-    );
+    const glass = nixieTubeWidth(viewport);
+    const face = nixieTubeHeight(viewport) * NIXIE_TUBE_ASPECT;
+    assert.equal(nixieTubeCount(), 13);
+    assert.ok(glass > face, `${viewport}px glass ${glass} is not wider than the digit face ${face}`);
+    assert.ok(nixieGap(viewport) >= 3 && nixieGap(viewport) <= 5);
   }
   assert.equal(nixieCentered(label).length, label.length);
 });
@@ -105,14 +108,14 @@ test("the bottom-plate nixie follows the same melt state as the plate", () => {
     /<NixieReadout spinning=\{spinning\} value=\{metal \? formatWholeDollars\(meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)\) : "—"\} \/>/,
   );
   assert.equal((machine.match(/<NixieReadout /g) ?? []).length, 1);
-  assert.match(nixie, /nixieSlots\(shownValue, tubeCount\)/);
-  assert.match(css, /\.gear-panel-nixie \{[^}]*width:\s*calc\(100% - 8px\)/);
+  assert.match(nixie, /nixieSlots\(shownValue, NIXIE_SLOT_COUNT\)/);
+  assert.match(css, /\.gear-panel-nixie \{[^}]*width:\s*100%/);
   assert.match(css, /\.gear-panel-nixie-live \{[^}]*justify-content:\s*center/);
-  assert.match(css, /\.nixie-tubes\.is-centered \.nixie-tube \{[^}]*flex:\s*0 0 auto/);
+  assert.match(css, /\.nixie-tubes\.is-centered \.nixie-tube \{[^}]*flex:\s*1 1 0/);
   assert.equal(NIXIE_HEIGHT_OVER_FONT, 2.497);
   assert.equal(NIXIE_TUBE_ASPECT, 0.238);
-  assert.equal(NIXIE_GAP_OVER_HEIGHT, 0.0417);
-  assert.match(css, /\.nixie-tubes\.is-centered \{[^}]*gap:\s*calc\(var\(--nixie-h\) \* 0\.0417\)/);
+  assert.match(css, /\.nixie-tubes\.is-centered \{[^}]*gap:\s*clamp\(3px, 0\.35vw, 5px\)/);
+  assert.match(css, /\.nixie-face \{[^}]*width:\s*calc\(var\(--nixie-h\) \* 0\.238\)/);
   assert.match(readout, /const total = meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)/);
   assert.match(readout, /<RollingPrice value=\{formatWholeDollars\(total\)\} \/>/);
   assert.equal(readout.includes("NixieReadout"), false);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useId, useState, type CSSProperties } from "react";
 
 import {
   NIXIE_COMMA,
@@ -11,17 +11,16 @@ import {
   NIXIE_GLYPH,
   NIXIE_STAGGER_MS,
   cyclingDigit,
-  NIXIE_HEIGHT_OVER_FONT,
+  NIXIE_SLOT_COUNT,
   nixieSlots,
-  nixieTubeCount,
   type NixieColumn,
 } from "@/lib/nixie";
 
 const TUBE_VIEWBOX = "5.2 0 13.6 64";
 
-function Glass({ id }: { id: string }) {
+function Shell({ id }: { id: string }) {
   return (
-    <>
+    <svg className="nixie-shell" viewBox="0 0 10 64" preserveAspectRatio="none" aria-hidden="true">
       <defs>
         <linearGradient id={`${id}-glass`} x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stopColor="#ffffff" stopOpacity="0.28" />
@@ -29,15 +28,22 @@ function Glass({ id }: { id: string }) {
           <stop offset="58%" stopColor="#ffffff" stopOpacity="0.03" />
           <stop offset="100%" stopColor="#ffffff" stopOpacity="0.16" />
         </linearGradient>
-        <radialGradient id={`${id}-halo`} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#ff7a1a" stopOpacity="0.55" />
-          <stop offset="45%" stopColor="#ff7a1a" stopOpacity="0.16" />
-          <stop offset="100%" stopColor="#ff7a1a" stopOpacity="0" />
-        </radialGradient>
       </defs>
-      <rect x="5.35" y="1.2" width="13.3" height="61.6" rx="6.65" fill={`url(#${id}-glass)`} stroke="#f4fbff" strokeOpacity="0.42" strokeWidth="0.55" />
-      <rect x="6.3" y="6" width="1.5" height="52" rx="0.75" fill="#ffffff" fillOpacity="0.16" />
-    </>
+      <rect x="0.35" y="1.1" width="9.3" height="61.8" rx="4.65" fill={`url(#${id}-glass)`} stroke="#f4fbff" strokeOpacity="0.42" strokeWidth="0.35" />
+      <rect x="1.15" y="6" width="1.15" height="52" rx="0.55" fill="#ffffff" fillOpacity="0.16" />
+    </svg>
+  );
+}
+
+function HaloDefs({ id }: { id: string }) {
+  return (
+    <defs>
+      <radialGradient id={`${id}-halo`} cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor="#ff7a1a" stopOpacity="0.55" />
+        <stop offset="55%" stopColor="#ff7a1a" stopOpacity="0.12" />
+        <stop offset="100%" stopColor="#ff7a1a" stopOpacity="0" />
+      </radialGradient>
+    </defs>
   );
 }
 
@@ -58,17 +64,20 @@ function DigitTube({
   const id = useId().replace(/:/g, "");
   const delay = `${column.order * NIXIE_STAGGER_MS}ms`;
   return (
-    <svg className={spare ? "nixie-tube is-spare" : "nixie-tube"} data-kind="digit" data-digit={shown ?? ""} viewBox={TUBE_VIEWBOX} preserveAspectRatio="none" aria-hidden="true" style={{ "--nixie-delay": delay } as CSSProperties}>
-      <Glass id={id} />
-      {shown === null ? null : <circle className="nixie-halo is-on" cx="12" cy="32" r="10" fill={`url(#${id}-halo)`} />}
-      {NIXIE_DIGITS.map((digit) => (
-        <g key={digit} className={digit === shown ? "is-on" : undefined}>
-          <path className="nixie-glow" d={NIXIE_GLYPH[digit]} />
-          {digit === shown ? null : <path className="nixie-mesh" d={NIXIE_GLYPH[digit]} />}
-          <path className="nixie-cathode" d={NIXIE_GLYPH[digit]} />
-        </g>
-      ))}
-    </svg>
+    <div className={spare ? "nixie-tube is-spare" : "nixie-tube"} data-kind="digit" data-digit={shown ?? ""} style={{ "--nixie-delay": delay } as CSSProperties}>
+      <Shell id={id} />
+      <svg className="nixie-face" data-digit={shown ?? ""} viewBox={TUBE_VIEWBOX} preserveAspectRatio="none" aria-hidden="true">
+        <HaloDefs id={id} />
+        {shown === null ? null : <circle className="nixie-halo is-on" cx="12" cy="32" r="6.2" fill={`url(#${id}-halo)`} />}
+        {NIXIE_DIGITS.map((digit) => (
+          <g key={digit} className={digit === shown ? "is-on" : undefined}>
+            <path className="nixie-glow" d={NIXIE_GLYPH[digit]} />
+            {digit === shown ? null : <path className="nixie-mesh" d={NIXIE_GLYPH[digit]} />}
+            <path className="nixie-cathode" d={NIXIE_GLYPH[digit]} />
+          </g>
+        ))}
+      </svg>
+    </div>
   );
 }
 
@@ -85,19 +94,22 @@ function SymbolTube({
 }) {
   const id = useId().replace(/:/g, "");
   return (
-    <svg className={spare ? "nixie-tube is-spare" : "nixie-tube"} data-kind={kind} data-lit={lit ? "true" : "false"} viewBox={TUBE_VIEWBOX} preserveAspectRatio="none" aria-hidden="true">
-      <Glass id={id} />
-      {lit ? <circle className="nixie-halo is-on" cx="12" cy={kind === "comma" || kind === "dot" ? 40 : 32} r={kind === "dot" ? 6 : 9} fill={`url(#${id}-halo)`} /> : null}
-      {kind === "dot" ? (
-        <circle className={lit ? "nixie-dot is-on" : "nixie-dot"} cx="12" cy="40" r="1.7" />
-      ) : (
-        <g className={lit ? "is-on" : undefined}>
-          <path className="nixie-glow" d={glyph} />
-          {lit ? null : <path className="nixie-mesh" d={glyph} />}
-          <path className="nixie-cathode" d={glyph} />
-        </g>
-      )}
-    </svg>
+    <div className={spare ? "nixie-tube is-spare" : "nixie-tube"} data-kind={kind} data-lit={lit ? "true" : "false"}>
+      <Shell id={id} />
+      <svg className="nixie-face" viewBox={TUBE_VIEWBOX} preserveAspectRatio="none" aria-hidden="true">
+        <HaloDefs id={id} />
+        {lit ? <circle className="nixie-halo is-on" cx="12" cy={kind === "comma" || kind === "dot" ? 40 : 32} r={kind === "dot" ? 2.4 : 5.4} fill={`url(#${id}-halo)`} /> : null}
+        {kind === "dot" ? (
+          <circle className={lit ? "nixie-dot is-on" : "nixie-dot"} cx="12" cy="40" r="1.7" />
+        ) : (
+          <g className={lit ? "is-on" : undefined}>
+            <path className="nixie-glow" d={glyph} />
+            {lit ? null : <path className="nixie-mesh" d={glyph} />}
+            <path className="nixie-cathode" d={glyph} />
+          </g>
+        )}
+      </svg>
+    </div>
   );
 }
 
@@ -120,11 +132,9 @@ export function NixieReadout({
   value: string;
   spinning?: boolean;
 }) {
-  const frameRef = useRef<HTMLDivElement>(null);
-  const [tubeCount, setTubeCount] = useState(12);
   const [forced, setForced] = useState<string | null>(null);
   const shownValue = forced ?? value;
-  const columns = nixieSlots(shownValue, tubeCount);
+  const columns = nixieSlots(shownValue, NIXIE_SLOT_COUNT);
   const [tick, setTick] = useState(0);
   const [reduce, setReduce] = useState(false);
   useEffect(() => {
@@ -140,19 +150,6 @@ export function NixieReadout({
   }, []);
   const cycling = spinning && !reduce;
   useEffect(() => {
-    const node = frameRef.current;
-    if (!node) return;
-    const measure = () => {
-      const width = node.clientWidth;
-      const font = Math.min(48, Math.max(28.8, window.innerWidth * 0.06));
-      setTubeCount(nixieTubeCount(width, font * NIXIE_HEIGHT_OVER_FONT));
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-  useEffect(() => {
     if (!cycling) return;
     const id = window.setInterval(() => setTick((n) => n + 1), NIXIE_CYCLE_MS);
     return () => window.clearInterval(id);
@@ -162,7 +159,6 @@ export function NixieReadout({
   const row = (
     <div
       className="gear-panel-nixie is-centered"
-      ref={frameRef}
       data-testid="nixie-centered"
       data-value={shownValue}
       data-slots={columns.length}
