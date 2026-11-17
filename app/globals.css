@@ -867,7 +867,7 @@ button,
 .gear-panel {
   position: relative;
   width: min(92%, 920px);
-  min-height: 168px;
+  min-height: 248px;
   margin: 0.9rem auto 0;
   overflow: hidden;
   border-radius: 22px;
@@ -883,6 +883,128 @@ button,
     inset 0 0 0 7px #6d4a2e,
     inset 0 0 0 10px #2a1810,
     0 16px 28px rgba(0, 0, 0, 0.4);
+}
+
+.gear-panel-lights {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  right: 12%;
+  left: 12%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.steampunk-light {
+  display: block;
+  flex: none;
+  overflow: visible;
+}
+
+.gear-panel-lighthouse {
+  position: absolute;
+  z-index: 2;
+  bottom: 14px;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.lighthouse-beam {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  left: 50%;
+  width: 880px;
+  height: 880px;
+  margin-top: -440px;
+  margin-left: -440px;
+  background: conic-gradient(
+    from -16deg,
+    transparent 0deg 318deg,
+    rgba(255, 196, 96, 0) 326deg,
+    rgba(255, 210, 120, 0.55) 344deg,
+    rgba(255, 236, 190, 0.18) 356deg,
+    transparent 360deg
+  );
+  mask-image: radial-gradient(circle, transparent 0 2.3%, #000 3.8%, rgba(0, 0, 0, 0.72) 34%, transparent 68%);
+  transform-origin: center;
+  animation: lighthouse-sweep 5s linear infinite;
+  pointer-events: none;
+}
+
+.lighthouse-lamp {
+  position: relative;
+  z-index: 1;
+}
+
+.gear-panel-cast {
+  position: absolute;
+  z-index: 2;
+  bottom: 20px;
+  left: 22%;
+  width: 30px;
+  height: 30px;
+  pointer-events: none;
+}
+
+.cast-pool {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  left: 50%;
+  width: 130px;
+  height: 130px;
+  margin-top: -65px;
+  margin-left: -65px;
+  pointer-events: none;
+}
+
+.cast-lamp {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes lighthouse-sweep {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lighthouse-beam {
+    animation: none;
+  }
+}
+
+.lamp-compare {
+  position: fixed;
+  z-index: 30;
+  top: 0;
+  left: 0;
+  display: flex;
+  gap: 28px;
+  padding: 36px 40px 28px;
+  background: #24150e;
+}
+
+.lamp-compare figure {
+  margin: 0;
+}
+
+.lamp-compare .steampunk-light {
+  width: 300px;
+  height: 300px;
+}
+
+.lamp-compare figcaption {
+  margin-top: 12px;
+  color: #f6ecd4;
+  font-family: var(--font-display), Palatino, serif;
+  font-size: 22px;
+  text-align: center;
 }
 
 .gear-panel > .rivet[data-corner="tl"] { top: 8px; left: 8px; }
@@ -1300,7 +1422,10 @@ button,
     min-height: calc(36px + 2.05rem);
   }
 
-  .gear-panel,
+  .gear-panel {
+    min-height: 210px;
+  }
+
   .gear-panel-row {
     min-height: 132px;
   }
