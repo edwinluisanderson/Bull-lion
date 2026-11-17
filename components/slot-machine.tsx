@@ -8,7 +8,14 @@ import { Gear } from "@/components/gear";
 import { PullBall } from "@/components/lever";
 import { Readout } from "@/components/readout";
 import { Reel, type ReelSymbol } from "@/components/reel";
-import { nearestAffordableCountIndex, weightShowsDollars } from "@/lib/affordable-weight";
+import { weightShowsDollars } from "@/lib/affordable-weight";
+import {
+  copperCountAdjustment,
+  holdAfterMotion,
+  holdForPull,
+  IDLE_COUNT_GUARD,
+  notePullStarted,
+} from "@/lib/count-guard";
 import { formatTroyOunces, formatUsd } from "@/lib/format";
 import {
   COUNTS,
@@ -20,7 +27,6 @@ import {
 import { LIVE_SPOT_NOTE, parsePriceBook, type PriceBook } from "@/lib/price-book";
 import { settleReels } from "@/lib/haptics";
 import { playSpinOverlay, spinOverlayFor } from "@/lib/spin-overlay";
-import { valueAfterRelease } from "@/lib/stretch";
 import { meltValue } from "@/lib/value";
 import {
   weightStretchBetween,
@@ -40,6 +46,8 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const [motion, setMotion] = useState([false, false, false]);
   const motionRef = useRef(motion);
   const [countGuard, setCountGuard] = useState(0);
+  const [countGuardHold, setCountGuardHold] = useState(false);
+  const pullHold = useRef(IDLE_COUNT_GUARD);
   const lastPull = useRef(0);
 
   const metal = book.metals[metalIndex] ?? book.metals[0];
@@ -76,7 +84,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   );
 
   const countItems = useMemo<ReelSymbol[]>(() => {
-    const copper = metal?.symbol === "HG" ? metal.usdPerTroyOz : null;
+    const copper = countGuardHold || metal?.symbol !== "HG" ? null : metal.usdPerTroyOz;
     const unaffordable =
       copper === null
         ? COUNTS.map(() => false)
@@ -89,7 +97,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
       tint: "#f0d78c",
       disabled: anyAffordable ? unaffordable[index] : index !== COUNTS.length - 1,
     }));
-  }, [metal, weight.grams]);
+  }, [countGuardHold, metal, weight.grams]);
 
   const setReelMotion = useCallback((reel: number, moving: boolean) => {
     const current = motionRef.current;
@@ -98,6 +106,9 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
     next[reel] = moving;
     motionRef.current = next;
     settleReels(current, next);
+    const step = holdAfterMotion(pullHold.current, next);
+    pullHold.current = step.hold;
+    setCountGuardHold(step.hold.holding);
     setMotion(next);
   }, []);
 
@@ -147,39 +158,34 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
     const now = performance.now();
     if (now - lastPull.current < 450) return;
     lastPull.current = now;
+    pullHold.current = holdForPull(pullHold.current);
+    setCountGuardHold(true);
     setBendDegrees(0);
     setSpinToken((token) => token + 1);
     if (spinOverlayFor("pull")) playSpinOverlay();
   }
 
   useEffect(() => {
-    if (metal?.symbol !== "HG") return;
-    const copper = metal.usdPerTroyOz;
-    const enabled = (value: number) => {
-      const marks = COUNTS.map((count) => weightShowsDollars(copper, weight.grams, count));
-      if (!marks.some(Boolean)) return value === COUNTS[COUNTS.length - 1];
-      return weightShowsDollars(copper, weight.grams, value);
-    };
-    if (customPieces === null) {
-      const next = nearestAffordableCountIndex(COUNTS, countIndex, weight.grams, copper);
-      if (next === countIndex) return;
-      setCountIndex(next);
-      setCountGuard((token) => token + 1);
-      return;
-    }
-    if (enabled(customPieces)) return;
-    const next = valueAfterRelease(customPieces, null, COUNTS, enabled);
-    const index = COUNTS.indexOf(next);
-    if (index >= 0) {
-      setCustomPieces(null);
-      if (index !== countIndex) {
-        setCountIndex(index);
-        setCountGuard((token) => token + 1);
-      }
-      return;
-    }
-    setCustomPieces(next);
-  }, [metal?.symbol, metal?.usdPerTroyOz, weight.grams, countIndex, customPieces]);
+    if (spinToken === 0) return;
+    const hold = notePullStarted(pullHold.current, motionRef.current);
+    pullHold.current = hold;
+    setCountGuardHold(hold.holding);
+  }, [spinToken]);
+
+  useEffect(() => {
+    const next = copperCountAdjustment({
+      holding: countGuardHold,
+      metalSymbol: metal?.symbol,
+      usdPerTroyOz: metal?.usdPerTroyOz ?? 0,
+      grams: weight.grams,
+      countIndex,
+      customPieces,
+      counts: COUNTS,
+    });
+    if (next.customPieces !== customPieces) setCustomPieces(next.customPieces);
+    if (next.countIndex !== countIndex) setCountIndex(next.countIndex);
+    if (next.guard) setCountGuard((token) => token + 1);
+  }, [countGuardHold, metal?.symbol, metal?.usdPerTroyOz, weight.grams, countIndex, customPieces]);
 
   return (
     <div className="workshop">
