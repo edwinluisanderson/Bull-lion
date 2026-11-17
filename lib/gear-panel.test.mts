@@ -15,17 +15,19 @@ test("the decorative gears sit in the holding panel under the machine", () => {
   assert.match(panel, /gear-panel-bg-left/);
   assert.match(panel, /gear-panel-bg-right/);
   assert.match(panel, /marquee-gear gear-reverse/);
-  assert.match(css, /--plate-radius:\s*22px/);
   assert.match(css, /\.gear-panel \{[^}]*border-radius:\s*var\(--cabinet-radius\)/);
-  assert.match(css, /\.nameplate \{[^}]*border-radius:\s*var\(--plate-radius\)/);
-  assert.match(css, /--plate-ring:[^;]*inset 0 0 0 10px #2a1810/);
+  assert.match(css, /\.nameplate \{[^}]*border-radius:\s*14px/);
+  assert.match(css, /\.nameplate \{[^}]*inset 0 1px 0 rgba\(255, 255, 255, 0\.7\)/);
+  assert.equal(css.includes(".melt-plate::after"), false);
   assert.match(css, /--cabinet-ring:[^;]*inset 0 0 0 11px #3a2416/);
-  assert.match(css, /\.melt-plate::after \{[^}]*box-shadow:\s*var\(--plate-ring\)/);
   assert.match(
     css,
     /\.cabinet::after,\s*\.gear-panel::after \{[^}]*box-shadow:\s*var\(--cabinet-ring\)/,
   );
   assert.match(css, /\.cabinet::after,\s*\.gear-panel::after \{[^}]*border-radius:\s*var\(--cabinet-radius\)/);
-  assert.match(css, /\.melt-plate > \.rivet,\s*\.gear-panel > \.rivet \{[^}]*z-index:\s*6/);
+  assert.match(css, /\.pull-handle \{[^}]*z-index:\s*8/);
+  assert.match(css, /\.cabinet::after \{[^}]*z-index:\s*7/);
+  assert.match(css, /\.gear-panel::after \{[^}]*z-index:\s*9/);
+  assert.match(css, /\.gear-panel > \.rivet \{[^}]*z-index:\s*6/);
   assert.match(css, /\.cabinet-gears \{[^}]*min-height:\s*calc\(36px \+ 2\.05rem\)/);
 });
