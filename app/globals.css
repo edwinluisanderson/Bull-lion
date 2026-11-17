@@ -1086,7 +1086,6 @@ button,
   margin-bottom: 6px;
 }
 
-.split-stack-title,
 .split-total-label,
 .split-head,
 .split-empty,
@@ -1099,7 +1098,13 @@ button,
 }
 
 .split-stack-title {
-  font-size: 0.78rem;
+  margin: 0;
+  color: #f0d78c;
+  font-family: var(--font-body), Palatino, serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
 }
 
 .split-total {
@@ -1127,22 +1132,25 @@ button,
 
 .stack-card {
   container-type: inline-size;
-  /* Cap keeps cap-height ink near 20px. Each card uses its widest row. */
-  --flap-font: min(
-    27.6px,
-    calc((100cqw - var(--facts-gaps, 40px)) / var(--facts-em, 9)),
-    calc((100cqw - var(--desc-gaps, 24px)) / var(--desc-em, 6))
+  /* About 14px of cap ink at 390, and a little less at 320, never under ~13px. */
+  --flap-font: clamp(
+    18px,
+    min(
+      calc((100cqw - var(--facts-gaps, 60px)) / var(--facts-em, 9) * 0.7),
+      calc((100cqw - var(--desc-gaps, 36px)) / var(--desc-em, 6) * 0.7)
+    ),
+    19.3px
   );
 }
 
 .split-total {
   container-type: inline-size;
-  --flap-font: min(27.6px, calc((100cqw - 8.5rem) / var(--total-em, 4)));
+  --flap-font: clamp(18px, 19.3px, 19.3px);
 }
 
 .stack-card {
   min-width: 0;
-  padding: 6px 6px 7px;
+  padding: 12px 14px 13px;
   border-radius: 8px;
   background:
     linear-gradient(165deg, rgba(90, 58, 32, 0.55), rgba(18, 10, 6, 0.72));
@@ -1156,12 +1164,21 @@ button,
 .stack-card-row {
   display: flex;
   align-items: flex-end;
-  gap: 4px;
+  gap: 14px;
   min-width: 0;
 }
 
 .stack-card-row + .stack-card-row {
-  margin-top: 6px;
+  margin-top: 8px;
+}
+
+.stack-card-label {
+  align-items: center;
+  margin-bottom: -4px;
+}
+
+.stack-card-label + .stack-card-row {
+  margin-top: 4px;
 }
 
 .stack-field {

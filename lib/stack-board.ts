@@ -60,11 +60,11 @@ export function matchingLine(lines: readonly StackLine[], draft: Pick<StackDraft
   return lines.find((line) => line.symbol === draft.symbol && sameWeight(line.grams, draft.grams));
 }
 
-/** A new line joins the board, or waits if that metal and weight are already there. */
+/** A new line joins the top of the board, or waits if that metal and weight are already there. */
 export function proposeAdd(lines: readonly StackLine[], draft: StackDraft, newId = createLineId()): AddProposal {
   const match = matchingLine(lines, draft);
   if (match) return { status: "needs-choice", lines: [...lines], matchId: match.id };
-  return { status: "added", lines: [...lines, lineFrom(draft, newId)] };
+  return { status: "added", lines: [lineFrom(draft, newId), ...lines] };
 }
 
 export function resolveAdd(
@@ -73,11 +73,39 @@ export function resolveAdd(
   choice: "combine" | "separate",
   newId = createLineId(),
 ): StackLine[] {
-  if (choice === "separate") return [...lines, lineFrom(draft, newId)];
+  if (choice === "separate") return [lineFrom(draft, newId), ...lines];
   const match = matchingLine(lines, draft);
-  if (!match) return [...lines, lineFrom(draft, newId)];
+  if (!match) return [lineFrom(draft, newId), ...lines];
   const added = Math.max(1, Math.round(draft.qty));
   return lines.map((line) => (line.id === match.id ? { ...line, qty: line.qty + added } : line));
+}
+
+/** One face in the downward cascade. Null is the blank brass card. */
+export type StackFace = StackLine | null;
+
+/** How long each slot waits before the next card up starts flipping. */
+export const STACK_CASCADE_MS = 340;
+
+/**
+ * Newest line lands on top. Frame 0 adds a blank card at the bottom.
+ * Each later frame copies the card above into the lowest slot that has not
+ * yet moved, so the bottom entry flips down first. The last frame puts the
+ * new line in the top card.
+ */
+export function insertCascade(existing: readonly StackLine[], incoming: StackLine): StackFace[][] {
+  const frames: StackFace[][] = [];
+  let current: StackFace[] = [...existing, null];
+  frames.push(current);
+  for (let dest = existing.length; dest >= 1; dest -= 1) {
+    const next = current.slice();
+    next[dest] = current[dest - 1] ?? null;
+    current = next;
+    frames.push(current);
+  }
+  const landed = current.slice();
+  landed[0] = incoming;
+  frames.push(landed);
+  return frames;
 }
 
 export function removeLine(lines: readonly StackLine[], id: string): StackLine[] {
