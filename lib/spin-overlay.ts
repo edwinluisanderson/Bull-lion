@@ -2,8 +2,10 @@ import { reelAudioContext } from "@/lib/reel-click";
 
 /**
  * Coins poured over a handle pull.
- * Cut from large-coins-falling.wav, 18.83s to 21.43s: the attack at 18.84s
- * through a steady pour, with a 6 ms fade in and a 420 ms fade out.
+ * Cut from large-coins-falling.wav. The body is 18.83s through the spin,
+ * then a 220 ms equal-power crossfade at 1.85s joins the thinning pour at
+ * 36.00s–38.70s. The whole clip is 4.55s, with a 6 ms fade in and a 400 ms
+ * fade out so the last coins die away.
  * Mono, because the two channels of that section correlate at 0.90.
  * Played on the reel-click context, not through the spin lowpass.
  * The lowpass is there to dull the click wash; the coins are the bright layer
