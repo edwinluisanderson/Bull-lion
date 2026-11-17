@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 
 import { playFlapSound } from "@/lib/flap-sound";
-import { FLAP_STEP_MS, flapFrames, padFlap } from "@/lib/split-flap";
+import { FLAP_STEP_MS, flapEm, flapFrames, padFlap } from "@/lib/split-flap";
 
 function Tile({ char }: { char: string }) {
   const shown = char === " " ? "" : char;
   return (
-    <span className="flap-tile" aria-hidden="true">
+    <span className="flap-tile" style={{ "--flap-em": flapEm(char) } as React.CSSProperties} aria-hidden="true">
       <span className="flap-top">
         <span>{shown}</span>
       </span>

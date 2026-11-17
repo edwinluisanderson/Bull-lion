@@ -1061,8 +1061,8 @@ button,
 .split-stack {
   position: relative;
   z-index: 4;
-  margin: 0 12px 8px;
-  padding: 8px 8px 10px;
+  margin: 0 0 8px;
+  padding: 6px 14px 8px;
   border-radius: 10px;
   background:
     linear-gradient(180deg, rgba(36, 24, 16, 0.2), rgba(12, 8, 6, 0.45)),
@@ -1121,6 +1121,20 @@ button,
 
 .stack-card {
   container-type: inline-size;
+  /* Cap keeps cap-height ink near 20px. Each card uses its widest row. */
+  --flap-font: min(
+    27.6px,
+    calc((100cqw - var(--facts-gaps, 40px)) / var(--facts-em, 9)),
+    calc((100cqw - var(--desc-gaps, 24px)) / var(--desc-em, 6))
+  );
+}
+
+.split-total {
+  container-type: inline-size;
+  --flap-font: min(27.6px, calc((100cqw - 8.5rem) / var(--total-em, 4)));
+}
+
+.stack-card {
   min-width: 0;
   padding: 6px 6px 7px;
   border-radius: 8px;
@@ -1136,7 +1150,7 @@ button,
 .stack-card-row {
   display: flex;
   align-items: flex-end;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -1172,13 +1186,12 @@ button,
 }
 
 .flap-tile {
-  --flap-w: 0.86rem;
-  --flap-h: calc(var(--flap-w) * 1.55);
+  --flap-em: 0.7;
   position: relative;
   display: block;
   flex: none;
-  width: var(--flap-w);
-  height: var(--flap-h);
+  width: calc(var(--flap-font) * var(--flap-em));
+  height: calc(var(--flap-font) * 1.12);
   overflow: hidden;
   border-radius: 1px;
   background: #120e0b;
@@ -1187,15 +1200,11 @@ button,
     0 1px 0 rgba(255, 220, 160, 0.12);
   color: #f6e7c1;
   font-family: var(--font-display), Palatino, serif;
-  font-size: calc(var(--flap-w) * 0.92);
+  font-size: var(--flap-font);
   font-weight: 700;
   line-height: 1;
 }
 
-.stack-card .flap-tile {
-  /* Sixteen flaps — a short description beside the melt — fill the card. */
-  --flap-w: calc((100cqw - 20px) / 16);
-}
 
 .flap-top,
 .flap-bottom,
@@ -1227,7 +1236,7 @@ button,
   left: 0;
   display: flex;
   width: 100%;
-  height: var(--flap-h);
+  height: calc(var(--flap-font) * 1.12);
   align-items: center;
   justify-content: center;
   /* Cinzel caps sit high in the em box. Drop them onto the seam. */
@@ -1310,6 +1319,7 @@ button,
 }
 
 .stack-remove {
+  margin-left: auto;
   width: 1.05rem;
   height: 1.05rem;
   padding: 0;
