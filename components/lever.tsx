@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { pullStage, stageBendDegrees, type PullStage } from "@/lib/drum";
-import { pullBarSpan } from "@/lib/pull-bar";
+import { PULL_BALL_INK, PULL_LETTERS, pullBarSpan } from "@/lib/pull-bar";
 import { unlockReelClick, reelSnap } from "@/lib/reel-click";
 import { armSpinOverlay } from "@/lib/spin-overlay";
 
@@ -205,7 +205,18 @@ export function PullBall({
         fullPull();
       }}
     >
-      <span>Pull</span>
+      <svg className="pull-word" viewBox="0 0 100 100" aria-hidden="true">
+        {PULL_LETTERS.map((letter, index) => (
+          <g
+            key={`${letter.char}-${index}`}
+            transform={`translate(${letter.x * 100} ${letter.y * 100}) rotate(${letter.rotate}) scale(${letter.scaleX} ${letter.scaleY})`}
+          >
+            <text textAnchor="middle" dominantBaseline="central" fill={PULL_BALL_INK} fontSize="20" fontWeight="700">
+              {letter.char}
+            </text>
+          </g>
+        ))}
+      </svg>
       </button>
     </div>
   );

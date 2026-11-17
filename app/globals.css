@@ -430,7 +430,7 @@ button,
   position: absolute;
   z-index: 1;
   left: 50%;
-  width: 28%;
+  width: 33%;
   transform: translateX(-50%);
   pointer-events: none;
   background: linear-gradient(90deg, #5a6268 0%, #b4bdc4 34%, #f4f7f8 46%, #d7dee3 55%, #8b949b 78%, #4a5156 100%);
@@ -488,6 +488,18 @@ button,
   .pull-ball {
     font-size: 0.62rem;
   }
+}
+
+.pull-word {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.pull-word text {
+  font-family: var(--font-display), Palatino, serif;
+  text-rendering: geometricPrecision;
 }
 
 .pull-ball:active {
