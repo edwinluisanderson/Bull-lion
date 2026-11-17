@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { pullStage, stageBendDegrees, type PullStage } from "@/lib/drum";
+import { pullBarSpan } from "@/lib/pull-bar";
 import { unlockReelClick, reelSnap } from "@/lib/reel-click";
 import { armSpinOverlay } from "@/lib/spin-overlay";
 
@@ -15,6 +16,7 @@ export function PullBall({
 }) {
   const [travel, setTravel] = useState(0);
   const [throwPx, setThrowPx] = useState(1);
+  const [midlineGap, setMidlineGap] = useState(0);
   const [motion, setMotion] = useState<"rest" | "drag" | "spring" | "rocket">("rest");
   const ballRef = useRef<HTMLButtonElement>(null);
   const throwRef = useRef(1);
@@ -32,15 +34,20 @@ export function PullBall({
 
   function measureThrow() {
     const ball = ballRef.current;
-    const frame = ball?.closest(".playfield")?.querySelector(".window-frame");
-    if (!ball || !frame) return throwRef.current;
+    const playfield = ball?.closest(".playfield");
+    const frame = playfield?.querySelector(".window-frame");
+    const wheel = playfield?.querySelector(".reel-viewport");
+    if (!ball || !frame || !wheel) return throwRef.current;
     const ballBox = ball.getBoundingClientRect();
     const frameBox = frame.getBoundingClientRect();
-    const restTop = ballBox.top - travelRef.current * throwRef.current;
+    const wheelBox = wheel.getBoundingClientRect();
+    const shift = travelRef.current * throwRef.current;
+    const restTop = ballBox.top - shift;
     const distance = frameBox.bottom - (restTop + ballBox.height);
     const next = Math.max(1, distance);
     throwRef.current = next;
     setThrowPx(next);
+    setMidlineGap(wheelBox.top + wheelBox.height / 2 - (restTop + ballBox.height / 2));
     return next;
   }
 
@@ -132,15 +139,24 @@ export function PullBall({
     frame.current = requestAnimationFrame(step);
   }
 
+  const drop = travel * throwPx;
+  const bar = pullBarSpan(midlineGap, drop);
+
   return (
-    <button
+    <div className="pull-handle" style={{ transform: `translate3d(0, ${drop}px, 0)` }}>
+      <span
+        className="pull-bar"
+        data-end={bar.end}
+        aria-hidden="true"
+        style={{ height: bar.length }}
+      />
+      <button
       ref={ballRef}
       type="button"
       className={`pull-ball is-${motion}`}
       aria-label="Pull the ball to spin all three reels"
       data-stage={stageRef.current}
       data-throw={Math.round(throwPx)}
-      style={{ transform: `translate3d(0, ${travel * throwPx}px, 0)` }}
       onPointerDown={(event) => {
         if (event.button !== 0) return;
         if (event.cancelable) event.preventDefault();
@@ -190,6 +206,7 @@ export function PullBall({
       }}
     >
       <span>Pull</span>
-    </button>
+      </button>
+    </div>
   );
 }
