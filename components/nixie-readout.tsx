@@ -8,6 +8,7 @@ import {
   NIXIE_DASH,
   NIXIE_DIGITS,
   NIXIE_DOLLAR,
+  NIXIE_DIGIT_FRAME,
   NIXIE_GLYPH,
   NIXIE_STAGGER_MS,
   cyclingDigit,
@@ -68,14 +69,16 @@ function DigitTube({
       <Shell id={id} />
       <svg className="nixie-face" data-digit={shown ?? ""} viewBox={TUBE_VIEWBOX} preserveAspectRatio="none" aria-hidden="true">
         <HaloDefs id={id} />
-        {shown === null ? null : <circle className="nixie-halo is-on" cx="12" cy="32" r="6.2" fill={`url(#${id}-halo)`} />}
-        {NIXIE_DIGITS.map((digit) => (
-          <g key={digit} className={digit === shown ? "is-on" : undefined}>
-            <path className="nixie-glow" d={NIXIE_GLYPH[digit]} />
-            {digit === shown ? null : <path className="nixie-mesh" d={NIXIE_GLYPH[digit]} />}
-            <path className="nixie-cathode" d={NIXIE_GLYPH[digit]} />
-          </g>
-        ))}
+        <g transform={NIXIE_DIGIT_FRAME}>
+          {shown === null ? null : <circle className="nixie-halo is-on" cx="12" cy="32" r="6.2" fill={`url(#${id}-halo)`} />}
+          {NIXIE_DIGITS.map((digit) => (
+            <g key={digit} className={digit === shown ? "is-on" : undefined}>
+              <path className="nixie-glow" d={NIXIE_GLYPH[digit]} />
+              {digit === shown ? null : <path className="nixie-mesh" d={NIXIE_GLYPH[digit]} />}
+              <path className="nixie-cathode" d={NIXIE_GLYPH[digit]} />
+            </g>
+          ))}
+        </g>
       </svg>
     </div>
   );
@@ -98,16 +101,18 @@ function SymbolTube({
       <Shell id={id} />
       <svg className="nixie-face" viewBox={TUBE_VIEWBOX} preserveAspectRatio="none" aria-hidden="true">
         <HaloDefs id={id} />
-        {lit ? <circle className="nixie-halo is-on" cx="12" cy={kind === "comma" || kind === "dot" ? 40 : 32} r={kind === "dot" ? 2.4 : 5.4} fill={`url(#${id}-halo)`} /> : null}
-        {kind === "dot" ? (
-          <circle className={lit ? "nixie-dot is-on" : "nixie-dot"} cx="12" cy="40" r="1.7" />
-        ) : (
-          <g className={lit ? "is-on" : undefined}>
-            <path className="nixie-glow" d={glyph} />
-            {lit ? null : <path className="nixie-mesh" d={glyph} />}
-            <path className="nixie-cathode" d={glyph} />
-          </g>
-        )}
+        <g transform={NIXIE_DIGIT_FRAME}>
+          {lit ? <circle className="nixie-halo is-on" cx="12" cy={kind === "comma" || kind === "dot" ? 40 : 32} r={kind === "dot" ? 2.4 : 5.4} fill={`url(#${id}-halo)`} /> : null}
+          {kind === "dot" ? (
+            <circle className={lit ? "nixie-dot is-on" : "nixie-dot"} cx="12" cy="40" r="1.7" />
+          ) : (
+            <g className={lit ? "is-on" : undefined}>
+              <path className="nixie-glow" d={glyph} />
+              {lit ? null : <path className="nixie-mesh" d={glyph} />}
+              <path className="nixie-cathode" d={glyph} />
+            </g>
+          )}
+        </g>
       </svg>
     </div>
   );

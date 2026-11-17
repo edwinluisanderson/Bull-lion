@@ -13,9 +13,12 @@ export const NIXIE_STAGGER_MS = 50;
 export const NIXIE_DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 
 /**
- * Wire cathodes in a 24×64 tube. The plate window shows roughly y 15–49,
- * so the numerals stay inside the hole and the capsule ends stay empty glass.
+ * Wire cathodes in a 24×64 tube, drawn for the middle of the glass.
+ * `NIXIE_DIGIT_SCALE` stretches them vertically around y 32 so the lit
+ * numeral fills the visible window and stays clear of the glass and the ring.
  */
+export const NIXIE_DIGIT_SCALE = 2.08;
+export const NIXIE_DIGIT_FRAME = `translate(12 32) scale(1 ${NIXIE_DIGIT_SCALE}) translate(-12 -32)`;
 export const NIXIE_GLYPH: Record<(typeof NIXIE_DIGITS)[number], string> = {
   0: "M12 23.2c-3.3 0-5.5 3.5-5.5 9s2.2 9 5.5 9 5.5-3.5 5.5-9-2.2-9-5.5-9z",
   1: "M8.2 27.4 10.4 23.2v18.2h2.6v-18.2",

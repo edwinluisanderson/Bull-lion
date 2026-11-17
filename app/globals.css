@@ -1152,7 +1152,7 @@ button,
 
 .nixie-glow {
   stroke: #ff7a1a;
-  stroke-width: 1.6px;
+  stroke-width: 1.75px;
   opacity: 0;
   transition: opacity 0.62s cubic-bezier(0.16, 0.84, 0.24, 1);
   transition-delay: var(--nixie-delay);
@@ -1180,7 +1180,7 @@ button,
 
 .is-on .nixie-cathode {
   stroke: #ff7a1a;
-  stroke-width: 1.7;
+  stroke-width: 1.85;
   stroke-dasharray: none;
   opacity: 1;
 }
