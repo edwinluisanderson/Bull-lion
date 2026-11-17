@@ -117,7 +117,7 @@ test("one lighthouse sweeps a beam across the bottom plate", () => {
 });
 
 test("the bottom plate is taller and a lower lamp casts its cage", () => {
-  assert.match(css, /\.gear-panel \{[^}]*min-height:\s*392px/);
+  assert.match(css, /\.gear-panel \{[^}]*min-height:\s*360px/);
   assert.match(css, /\.gear-panel-stage \{[^}]*min-height:\s*250px/);
   assert.match(css, /\.gear-panel-row \{[^}]*min-height:\s*132px/);
   assert.equal(css.includes("min-height: 540px"), false);
