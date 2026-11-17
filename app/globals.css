@@ -928,9 +928,18 @@ button,
       transparent 2px 9px
     ),
     linear-gradient(180deg, #5c3a22 0%, #3a2416 42%, #24150e 100%);
-  box-shadow:
-    var(--plate-ring),
-    0 16px 28px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.4);
+}
+
+.melt-plate::after,
+.gear-panel::after {
+  content: "";
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  border-radius: var(--plate-radius);
+  box-shadow: var(--plate-ring);
+  pointer-events: none;
 }
 
 .melt-stack,
@@ -1250,6 +1259,11 @@ button,
   text-align: center;
 }
 
+.melt-plate > .rivet,
+.gear-panel > .rivet {
+  z-index: 6;
+}
+
 .gear-panel > .rivet[data-corner="tl"],
 .nameplate > .rivet[data-corner="tl"] { top: 8px; left: 8px; }
 .gear-panel > .rivet[data-corner="tr"],
@@ -1328,9 +1342,7 @@ button,
   border-radius: var(--plate-radius);
   text-align: center;
   background: var(--brass-plate);
-  box-shadow:
-    var(--plate-ring),
-    0 8px 14px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 8px 14px rgba(0, 0, 0, 0.28);
 }
 
 .eyebrow,
