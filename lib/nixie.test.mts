@@ -14,6 +14,8 @@ import {
   NIXIE_STAGGER_MS,
   NIXIE_SLOT_COUNT,
   NIXIE_TUBE_ASPECT,
+  NIXIE_NARROW_FACE_ASPECT,
+  nixieFaceAspect,
   nixieGap,
   nixiePlateWidth,
   nixieTubeWidth,
@@ -110,7 +112,7 @@ test("the centered nixie fits the largest melt value", () => {
   assert.equal(NIXIE_SLOT_COUNT, label.length + 1);
   for (const viewport of [320, 390, 1440]) {
     const glass = nixieTubeWidth(viewport);
-    const face = nixieTubeHeight(viewport) * NIXIE_TUBE_ASPECT;
+    const face = nixieTubeHeight(viewport) * nixieFaceAspect(viewport);
     assert.equal(nixieTubeCount(), 13);
     assert.ok(glass > face, `${viewport}px glass ${glass} is not wider than the digit face ${face}`);
     assert.ok(nixieGap(viewport) >= 3 && nixieGap(viewport) <= 5);
@@ -133,7 +135,18 @@ test("the bottom-plate nixie follows the same melt state as the plate", () => {
   assert.equal(NIXIE_TUBE_ASPECT, 0.238);
   assert.match(css, /\.nixie-tubes\.is-centered \{[^}]*gap:\s*clamp\(3px, 0\.35vw, 5px\)/);
   assert.match(css, /\.nixie-face \{[^}]*width:\s*calc\(var\(--nixie-h\) \* 0\.238\)/);
-  assert.match(css, /@media \(max-width: 340px\) \{[^}]*\.nixie-face \{[^}]*width:\s*calc\(var\(--nixie-h\) \* 0\.205\)/);
+  assert.equal(NIXIE_NARROW_FACE_ASPECT, 0.184);
+  assert.match(css, /@media \(max-width: 370px\) \{[^}]*\.nixie-face \{[^}]*width:\s*calc\(var\(--nixie-h\) \* 0\.184\)/);
+  assert.match(nixie, /className="nixie-bezel"/);
+  assert.match(css, /\.nixie-bezel \{[^}]*border-radius:\s*14px/);
+  assert.match(css, /\.nixie-bezel \{[^}]*padding:\s*0\.7rem 0\.9rem/);
+  assert.match(css, /\.nixie-bezel \{[^}]*width:\s*calc\(100% - 1\.2rem\)/);
+  assert.match(css, /\.nixie-bezel \{[^}]*inset 0 0 0 2px #6e5318/);
+  assert.match(css, /\.nixie-bezel \{[^}]*inset 0 0 0 4px #e6cb82/);
+  assert.match(css, /\.nixie-bezel \{[^}]*inset 0 0 0 7px #3a2a14/);
+  assert.match(css, /\.readout \{[^}]*border-radius:\s*14px/);
+  assert.match(css, /\.readout \{[^}]*padding:\s*0\.7rem 0\.9rem/);
+  assert.match(css, /\.readout \{[^}]*inset 0 0 0 7px #3a2a14/);
   assert.match(css, /@media \(min-width: 900px\) \{[^}]*--nixie-h:\s*calc\(clamp\(1\.8rem, 6vw, 3rem\) \* 3\.62\)/);
   assert.match(readout, /const total = meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)/);
   assert.match(readout, /<RollingPrice value=\{formatWholeDollars\(total\)\} \/>/);

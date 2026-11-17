@@ -178,5 +178,9 @@ export function NixieReadout({
       <div className="nixie-window" />
     </div>
   );
-  return <div className="gear-panel-nixie-live">{row}</div>;
+  return (
+    <div className="gear-panel-nixie-live">
+      <div className="nixie-bezel">{row}</div>
+    </div>
+  );
 }
