@@ -5,6 +5,12 @@ import test from "node:test";
 import {
   CAGE_EACH_WAY,
   cagePaths,
+  LAMP_FULL,
+  LAMP_LOW,
+  LAMP_MEDIUM,
+  LAMP_OFF,
+  LAMP_REST,
+  lampPaint,
   RIVET_PX,
   STEAMPUNK_LIGHT_COUNT,
   STEAMPUNK_LIGHT_PX,
@@ -43,4 +49,30 @@ test("five lights are spaced across the temporary bottom plate", () => {
   assert.match(panel, /<SteampunkLight /);
   assert.match(css, /\.gear-panel-lights \{[^}]*justify-content:\s*space-between/);
   assert.match(css, /\.rivet \{[^}]*width:\s*12px/);
+});
+
+test("brightness runs from an unlit bulb to a full warm halo", () => {
+  assert.equal(LAMP_OFF, 0);
+  assert.equal(LAMP_LOW, 0.33);
+  assert.equal(LAMP_MEDIUM, 0.66);
+  assert.equal(LAMP_FULL, 1);
+  const off = lampPaint(LAMP_OFF);
+  const low = lampPaint(LAMP_LOW);
+  const medium = lampPaint(LAMP_MEDIUM);
+  const full = lampPaint(LAMP_FULL);
+  const luminance = (hex: string) => {
+    const n = Number.parseInt(hex.slice(1), 16);
+    return ((n >> 16) & 255) + ((n >> 8) & 255) + (n & 255);
+  };
+  assert.equal(off.glowOpacity, 0);
+  assert.equal(off.haloOpacity, 0);
+  assert.equal(off.barWarm, 0);
+  assert.ok(luminance(off.bulbCore) < luminance(full.bulbCore));
+  assert.ok(low.haloOpacity < medium.haloOpacity && medium.haloOpacity < full.haloOpacity);
+  assert.ok(low.glowOpacity < full.glowOpacity);
+  assert.equal(LAMP_REST.haloOpacity, 0);
+  assert.equal(LAMP_REST.glowOpacity, 0.28);
+  assert.match(light, /brightness\?: number/);
+  assert.match(light, /LAMP_REST/);
+  assert.equal(light.includes("feGaussianBlur"), false);
 });

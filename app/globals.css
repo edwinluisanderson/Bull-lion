@@ -900,6 +900,35 @@ button,
 .steampunk-light {
   display: block;
   flex: none;
+  overflow: visible;
+}
+
+.lamp-compare {
+  position: fixed;
+  z-index: 30;
+  top: 0;
+  left: 0;
+  display: flex;
+  gap: 28px;
+  padding: 36px 40px 28px;
+  background: #24150e;
+}
+
+.lamp-compare figure {
+  margin: 0;
+}
+
+.lamp-compare .steampunk-light {
+  width: 300px;
+  height: 300px;
+}
+
+.lamp-compare figcaption {
+  margin-top: 12px;
+  color: #f6ecd4;
+  font-family: var(--font-display), Palatino, serif;
+  font-size: 22px;
+  text-align: center;
 }
 
 .gear-panel > .rivet[data-corner="tl"] { top: 8px; left: 8px; }

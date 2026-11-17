@@ -29,7 +29,7 @@ import { LIVE_SPOT_NOTE, parsePriceBook, type PriceBook } from "@/lib/price-book
 import { settleReels } from "@/lib/haptics";
 import { playSpinOverlay, spinOverlayFor } from "@/lib/spin-overlay";
 import { meltValue } from "@/lib/value";
-import { STEAMPUNK_LIGHT_COUNT } from "@/lib/steampunk-light";
+import { LAMP_FULL, LAMP_LOW, LAMP_MEDIUM, LAMP_OFF, STEAMPUNK_LIGHT_COUNT } from "@/lib/steampunk-light";
 import {
   weightStretchBetween,
   weightStretchLabel,
@@ -49,6 +49,8 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const motionRef = useRef(motion);
   const [countGuard, setCountGuard] = useState(0);
   const [countGuardHold, setCountGuardHold] = useState(false);
+  const [lampBrightness, setLampBrightness] = useState<number | undefined>(undefined);
+  const [lampCompare, setLampCompare] = useState(false);
   const pullHold = useRef(IDLE_COUNT_GUARD);
   const lastPull = useRef(0);
 
@@ -128,6 +130,17 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
     : metal
       ? `${formatUsd(total)} melt value for ${pieces} ${noun} of ${weight.face} ${metal.name}`
       : "";
+
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("lamps");
+    if (raw === "compare") {
+      setLampCompare(true);
+      return;
+    }
+    if (raw === null) return;
+    const next = Number(raw);
+    if (Number.isFinite(next)) setLampBrightness(next);
+  }, []);
 
   useEffect(() => {
     let stopped = false;
@@ -353,7 +366,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           <span className="rivet" data-corner="br" />
           <div className="gear-panel-lights">
             {Array.from({ length: STEAMPUNK_LIGHT_COUNT }, (_, index) => (
-              <SteampunkLight key={index} />
+              <SteampunkLight key={index} brightness={lampBrightness} />
             ))}
           </div>
           <Gear className="gear bg-gear gear-panel-bg gear-panel-bg-left" />
@@ -363,6 +376,23 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             <Gear className="gear marquee-gear gear-reverse" />
           </div>
         </div>
+        {lampCompare ? (
+          <div className="lamp-compare">
+            {(
+              [
+                [LAMP_OFF, "Off"],
+                [LAMP_LOW, "Low"],
+                [LAMP_MEDIUM, "Medium"],
+                [LAMP_FULL, "Full"],
+              ] as const
+            ).map(([level, label]) => (
+              <figure key={label}>
+                <SteampunkLight brightness={level} />
+                <figcaption>{label}</figcaption>
+              </figure>
+            ))}
+          </div>
+        ) : null}
         <p className="sr-only" aria-live="polite">
           {announcement}
         </p>

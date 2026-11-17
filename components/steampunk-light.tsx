@@ -2,12 +2,20 @@
 
 import { useId } from "react";
 
-import { cagePaths, STEAMPUNK_LIGHT_PX } from "@/lib/steampunk-light";
+import { cagePaths, LAMP_REST, lampPaint, STEAMPUNK_LIGHT_PX } from "@/lib/steampunk-light";
 
 /** A caged bulb seen from directly above. Upper-left light, same as the cabinet. */
-export function SteampunkLight({ className = "" }: { className?: string }) {
+export function SteampunkLight({
+  className = "",
+  brightness,
+}: {
+  className?: string;
+  /** Omit to keep the resting lamp. 0 is off, 1 is full. */
+  brightness?: number;
+}) {
   const id = useId().replace(/:/g, "");
   const bars = cagePaths();
+  const paint = brightness === undefined ? LAMP_REST : lampPaint(brightness);
   return (
     <svg
       className={`steampunk-light ${className}`.trim()}
@@ -15,12 +23,18 @@ export function SteampunkLight({ className = "" }: { className?: string }) {
       height={STEAMPUNK_LIGHT_PX}
       viewBox="0 0 32 32"
       aria-hidden="true"
+      style={{ overflow: "visible" }}
     >
       <defs>
+        <radialGradient id={`${id}-halo`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#ffcf70" stopOpacity={paint.haloOpacity} />
+          <stop offset="48%" stopColor="#e6a23a" stopOpacity={paint.haloOpacity * 0.4} />
+          <stop offset="100%" stopColor="#e6a23a" stopOpacity="0" />
+        </radialGradient>
         <radialGradient id={`${id}-bulb`} cx="38%" cy="34%" r="70%">
-          <stop offset="0%" stopColor="#fff8dc" />
-          <stop offset="42%" stopColor="#ffcf70" />
-          <stop offset="100%" stopColor="#e6a23a" />
+          <stop offset="0%" stopColor={paint.bulbCore} />
+          <stop offset="42%" stopColor={paint.bulbMid} />
+          <stop offset="100%" stopColor={paint.bulbEdge} />
         </radialGradient>
         <radialGradient id={`${id}-glass`} cx="32%" cy="30%" r="75%">
           <stop offset="0%" stopColor="#ffffff" stopOpacity="0.72" />
@@ -43,11 +57,13 @@ export function SteampunkLight({ className = "" }: { className?: string }) {
         </clipPath>
       </defs>
 
+      <circle cx="16" cy="16" r="26" fill={`url(#${id}-halo)`} />
       <circle cx="16" cy="16" r="13.15" fill="none" stroke={`url(#${id}-brass)`} strokeWidth="2.7" />
       <circle cx="16" cy="16" r="11.55" fill="#2a160c" fillOpacity="0.35" />
-      <circle cx="16" cy="16" r="7.4" fill="#ffcf70" fillOpacity="0.28" />
+      <circle cx="16" cy="16" r="7.4" fill="#ffcf70" fillOpacity={paint.glowOpacity} />
       <circle cx="16" cy="16" r="4.7" fill={`url(#${id}-bulb)`} />
       <circle cx="16" cy="16" r="11.2" fill={`url(#${id}-glass)`} stroke={`url(#${id}-rim)`} strokeWidth="0.9" />
+      <circle cx="16" cy="16" r="11.2" fill="#ffcf70" fillOpacity={paint.glassWarm} />
       <ellipse cx="11.2" cy="10.4" rx="3.1" ry="1.7" fill="#ffffff" fillOpacity="0.72" transform="rotate(-32 11.2 10.4)" />
 
       <g clipPath={`url(#${id}-dome)`}>
@@ -59,6 +75,11 @@ export function SteampunkLight({ className = "" }: { className?: string }) {
         <g stroke={`url(#${id}-brass)`} strokeWidth="1.55" fill="none" strokeLinecap="round">
           {bars.map((bar) => (
             <path key={`${bar.axis}-${bar.d}`} d={bar.d} />
+          ))}
+        </g>
+        <g stroke="#ffb347" strokeWidth="0.7" fill="none" strokeLinecap="round" strokeOpacity={paint.barWarm}>
+          {bars.map((bar) => (
+            <path key={`warm-${bar.axis}-${bar.d}`} d={bar.d} />
           ))}
         </g>
       </g>
