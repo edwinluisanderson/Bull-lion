@@ -7,6 +7,7 @@ import {
   SWIPE_REVEAL_PX,
   clampSwipe,
   crossedDetent,
+  leverTapDeletes,
   lockSwipeAxis,
   settleSwipe,
   type SwipeAxis,
@@ -43,6 +44,7 @@ export function SwipeCard({
     lastT: 0,
     velocity: 0,
     offset: 0,
+    endedAt: Number.NEGATIVE_INFINITY,
   });
 
   useEffect(() => {
@@ -76,6 +78,7 @@ export function SwipeCard({
       lastT: event.timeStamp,
       velocity: 0,
       offset: open ? SWIPE_REVEAL_PX : 0,
+      endedAt: drag.current.endedAt,
     };
   }
 
@@ -108,18 +111,19 @@ export function SwipeCard({
     state.pointer = -1;
     state.axis = "undecided";
     setDragging(false);
+    if (axis === "drag") state.endedAt = performance.now();
     if (axis !== "drag") {
       if (open && axis === "undecided") onClose();
       return;
     }
-    const end = settleSwipe(state.offset, state.velocity);
-    if (end === "delete") {
-      playSwipeTone("clunk");
-      onDelete();
-      return;
-    }
-    if (end === "open") onOpen();
+    if (settleSwipe(state.offset) === "open") onOpen();
     else onClose();
+  }
+
+  function onLeverClick() {
+    if (!leverTapDeletes(performance.now() - drag.current.endedAt)) return;
+    playSwipeTone("clunk");
+    onDelete();
   }
 
   return (
@@ -133,10 +137,12 @@ export function SwipeCard({
         type="button"
         className="stack-swipe-delete"
         aria-label={`Delete ${label}`}
-        onClick={() => {
-          playSwipeTone("clunk");
-          onDelete();
+        onPointerUp={(event) => {
+          if (leverTapDeletes(performance.now() - drag.current.endedAt)) return;
+          event.preventDefault();
+          event.stopPropagation();
         }}
+        onClick={onLeverClick}
       >
         <span className="stack-swipe-lever" aria-hidden="true" />
         Delete

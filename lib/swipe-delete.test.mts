@@ -7,6 +7,7 @@ import {
   clampSwipe,
   crossedDetent,
   lockSwipeAxis,
+  leverTapDeletes,
   settleSwipe,
 } from "@/lib/swipe-delete";
 
@@ -23,15 +24,20 @@ test("a sideways drag locks to the track and a vertical move keeps scrolling", (
   assert.equal(clampSwipe(200), SWIPE_REVEAL_PX);
 });
 
-test("release past halfway stays open, a short drag shuts, and a full fling deletes", () => {
-  assert.equal(settleSwipe(20, 0), "shut");
-  assert.equal(settleSwipe(SWIPE_REVEAL_PX / 2, 0), "open");
-  assert.equal(settleSwipe(SWIPE_REVEAL_PX, 0.1), "open");
-  assert.equal(settleSwipe(SWIPE_REVEAL_PX, 0.65), "delete");
-  assert.equal(settleSwipe(30, 2), "shut");
+test("a fast fling only opens the card, and a later lever tap is what deletes", () => {
+  assert.equal(settleSwipe(20), "shut");
+  assert.equal(settleSwipe(30), "shut");
+  assert.equal(settleSwipe(SWIPE_REVEAL_PX / 2), "open");
+  assert.equal(settleSwipe(SWIPE_REVEAL_PX), "open");
+  assert.equal(settleSwipe(SWIPE_REVEAL_PX * 2), "open");
+  assert.equal(leverTapDeletes(0), false);
+  assert.equal(leverTapDeletes(50), false);
+  assert.equal(leverTapDeletes(400), true);
   assert.equal(crossedDetent(20, 50), true);
   assert.equal(crossedDetent(50, 70), false);
   assert.equal(crossedDetent(60, 20), true);
+  assert.match(card, /leverTapDeletes/);
+  assert.equal(card.includes('end === "delete"'), false);
 });
 
 test("the card slides on a vertical-scroll track and the clicks share the flap limiter", () => {
