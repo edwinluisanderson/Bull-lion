@@ -1096,25 +1096,11 @@ button,
   font-size: 0.78rem;
 }
 
-.split-head,
-.split-row,
 .split-total {
-  display: grid;
-  grid-template-columns: 1.7rem 3.65rem 1.55rem minmax(0, 1fr) 3.65rem 1.15rem;
-  gap: 4px;
+  display: flex;
   align-items: center;
-}
-
-.split-head {
-  margin-bottom: 4px;
-  font-size: 0.42rem;
-  letter-spacing: 0.02em;
-}
-
-.split-head span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .split-empty {
@@ -1127,14 +1113,54 @@ button,
 .split-rows {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.split-row {
+.stack-card {
+  container-type: inline-size;
   min-width: 0;
+  padding: 6px 6px 7px;
+  border-radius: 8px;
+  background:
+    linear-gradient(165deg, rgba(90, 58, 32, 0.55), rgba(18, 10, 6, 0.72));
+  box-shadow:
+    inset 0 0 0 1px #2a160c,
+    inset 0 0 0 3px #c4963e,
+    inset 0 0 0 4px #3a2416,
+    0 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+.stack-card-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+
+.stack-card-row + .stack-card-row {
+  margin-top: 6px;
+}
+
+.stack-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stack-field-melt {
+  margin-left: auto;
+}
+
+.stack-kicker {
+  color: #e4c98a;
+  font-family: var(--font-display), Palatino, serif;
+  font-size: 0.48rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .split-flap {
@@ -1142,15 +1168,17 @@ button,
   gap: 1px;
   max-width: 100%;
   overflow: hidden;
-  perspective: 120px;
+  perspective: 160px;
 }
 
 .flap-tile {
+  --flap-w: 0.86rem;
+  --flap-h: calc(var(--flap-w) * 1.55);
   position: relative;
   display: block;
   flex: none;
-  width: 0.46rem;
-  height: 0.92rem;
+  width: var(--flap-w);
+  height: var(--flap-h);
   overflow: hidden;
   border-radius: 1px;
   background: #120e0b;
@@ -1159,9 +1187,14 @@ button,
     0 1px 0 rgba(255, 220, 160, 0.12);
   color: #f6e7c1;
   font-family: var(--font-display), Palatino, serif;
-  font-size: 0.58rem;
+  font-size: calc(var(--flap-w) * 0.92);
   font-weight: 700;
   line-height: 1;
+}
+
+.stack-card .flap-tile {
+  /* Sixteen flaps — a short description beside the melt — fill the card. */
+  --flap-w: calc((100cqw - 20px) / 16);
 }
 
 .flap-top,
@@ -1194,11 +1227,11 @@ button,
   left: 0;
   display: flex;
   width: 100%;
-  height: 0.92rem;
+  height: var(--flap-h);
   align-items: center;
   justify-content: center;
   /* Cinzel caps sit high in the em box. Drop them onto the seam. */
-  transform: translateY(2px);
+  transform: translateY(0.06em);
 }
 
 .flap-top span,
@@ -1266,14 +1299,14 @@ button,
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  height: 0.92rem;
-  padding: 0 2px;
+  height: var(--flap-h, 1.48rem);
+  padding: 0 4px;
   border: 1px solid #c4963e;
   border-radius: 2px;
   background: #1a120c;
   color: #f6e7c1;
   font-family: var(--font-display), Palatino, serif;
-  font-size: 0.58rem;
+  font-size: 0.9rem;
 }
 
 .stack-remove {
@@ -1289,15 +1322,18 @@ button,
 }
 
 .split-total {
-  justify-content: end;
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(212, 168, 92, 0.35);
+  margin-top: 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(90, 58, 32, 0.4), rgba(18, 10, 6, 0.55));
+  box-shadow:
+    inset 0 0 0 1px #2a160c,
+    inset 0 0 0 3px #c4963e,
+    inset 0 0 0 4px #3a2416;
 }
 
 .split-total-label {
-  grid-column: 1 / 5;
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   text-align: right;
 }
 

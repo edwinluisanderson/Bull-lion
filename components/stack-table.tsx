@@ -6,11 +6,13 @@ import { createPortal } from "react-dom";
 import { SplitFlap } from "@/components/split-flap";
 import { unlockReelClick } from "@/lib/reel-click";
 import {
-  FLAP_DESCRIPTION,
+  FLAP_DESCRIPTION_INLINE,
+  FLAP_DESCRIPTION_LONG,
   FLAP_MELT,
   FLAP_METAL,
   FLAP_QTY,
   FLAP_WEIGHT,
+  descriptionNeedsOwnRow,
 } from "@/lib/split-flap";
 import {
   defaultLineDescription,
@@ -76,7 +78,7 @@ export function StackTable({
       weightLabel: selection.weightLabel,
       grams: selection.grams,
       qty: selection.qty,
-      description: defaultLineDescription(selection.name, selection.weightLabel, FLAP_DESCRIPTION),
+      description: defaultLineDescription(selection.name, selection.weightLabel, FLAP_DESCRIPTION_INLINE),
     };
   }
 
@@ -135,60 +137,71 @@ export function StackTable({
           Add to stack
         </button>
       </div>
-      <div className="split-head" aria-hidden="true">
-        <span>Metal</span>
-        <span>Weight</span>
-        <span>Qty</span>
-        <span>Description</span>
-        <span>Melt</span>
-        <span />
-      </div>
       {lines.length === 0 ? <p className="split-empty">The board is clear.</p> : null}
       <ul className="split-rows">
         {lines.map((line, index) => {
           const melt = melts[index] ?? null;
+          const longDescription = descriptionNeedsOwnRow(line.description);
+          const description = editing === line.id ? (
+            <input
+              className="stack-name"
+              aria-label={`Description for ${line.description}`}
+              defaultValue={line.description}
+              autoFocus
+              onBlur={(event) => {
+                setLines(renameLine(lines, line.id, event.target.value));
+                setEditing(null);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.currentTarget.blur();
+                if (event.key === "Escape") setEditing(null);
+              }}
+            />
+          ) : (
+            <button
+              type="button"
+              className="stack-edit"
+              aria-label={`Edit description, ${line.description}`}
+              onClick={() => setEditing(line.id)}
+            >
+              <SplitFlap text={line.description} width={longDescription ? FLAP_DESCRIPTION_LONG : FLAP_DESCRIPTION_INLINE} />
+            </button>
+          );
           return (
-            <li key={line.id} className="split-row">
+            <li key={line.id} className="stack-card" data-rows={longDescription ? 3 : 2}>
               <span className="sr-only">
                 {line.mark}, {line.weightLabel}, quantity {line.qty}, {line.description}, melt {flapMoney(melt)}
               </span>
-              <SplitFlap text={line.mark} width={FLAP_METAL} />
-              <SplitFlap text={line.weightLabel} width={FLAP_WEIGHT} />
-              <SplitFlap text={String(line.qty)} width={FLAP_QTY} />
-              {editing === line.id ? (
-                <input
-                  className="stack-name"
-                  aria-label={`Description for ${line.description}`}
-                  defaultValue={line.description}
-                  autoFocus
-                  onBlur={(event) => {
-                    setLines(renameLine(lines, line.id, event.target.value));
-                    setEditing(null);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") event.currentTarget.blur();
-                    if (event.key === "Escape") setEditing(null);
-                  }}
-                />
-              ) : (
+              <div className="stack-card-row">
+                <span className="stack-field">
+                  <span className="stack-kicker">Metal</span>
+                  <SplitFlap text={line.mark} width={FLAP_METAL} />
+                </span>
+                <span className="stack-field">
+                  <span className="stack-kicker">Weight</span>
+                  <SplitFlap text={line.weightLabel} width={FLAP_WEIGHT} />
+                </span>
+                <span className="stack-field">
+                  <span className="stack-kicker">Qty</span>
+                  <SplitFlap text={String(line.qty)} width={FLAP_QTY} />
+                </span>
                 <button
                   type="button"
-                  className="stack-edit"
-                  aria-label={`Edit description, ${line.description}`}
-                  onClick={() => setEditing(line.id)}
+                  className="stack-remove"
+                  aria-label={`Remove ${line.description}`}
+                  onClick={() => setLines(removeLine(lines, line.id))}
                 >
-                  <SplitFlap text={line.description} width={FLAP_DESCRIPTION} />
+                  ×
                 </button>
-              )}
-              <SplitFlap text={flapMoney(melt)} width={FLAP_MELT} />
-              <button
-                type="button"
-                className="stack-remove"
-                aria-label={`Remove ${line.description}`}
-                onClick={() => setLines(removeLine(lines, line.id))}
-              >
-                ×
-              </button>
+              </div>
+              <div className="stack-card-row">
+                {longDescription ? null : description}
+                <span className="stack-field stack-field-melt">
+                  <span className="stack-kicker">Melt</span>
+                  <SplitFlap text={flapMoney(melt)} width={FLAP_MELT} />
+                </span>
+              </div>
+              {longDescription ? <div className="stack-card-row">{description}</div> : null}
             </li>
           );
         })}
