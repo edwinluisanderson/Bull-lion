@@ -36,6 +36,11 @@ function audioCtor(): (new () => AudioContext) | null {
   return window.AudioContext ?? host.webkitAudioContext ?? null;
 }
 
+/** The one context the reel clicks and the coin overlay share. */
+export function reelAudioContext(): AudioContext | null {
+  return getContext();
+}
+
 function getContext(): AudioContext | null {
   const Ctor = audioCtor();
   if (!Ctor) return null;

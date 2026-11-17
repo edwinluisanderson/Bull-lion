@@ -16,6 +16,8 @@ import {
 } from "@/lib/drum";
 import { hapticClick } from "@/lib/haptics";
 import { noteReelSpinning, playReelClick, reelSnap, unlockReelClick } from "@/lib/reel-click";
+import { detentForStop } from "@/lib/spin-gate";
+import { pullPlan } from "@/lib/pull-spin";
 import { playStretchPop, unlockStretchPops } from "@/lib/stretch-pop";
 import { stretchPopCount } from "@/lib/stretch-pops";
 import { REEL_ITEM_HEIGHT } from "@/lib/metals";
@@ -51,7 +53,7 @@ export type ReelSymbol = {
   disabled?: boolean;
 };
 
-type Phase = "idle" | "drag" | "coast" | "snap" | "script";
+type Phase = "idle" | "drag" | "coast" | "snap" | "script" | "ice";
 
 export type StretchFrame = {
   direction: StretchDirection;
@@ -135,6 +137,7 @@ function createEngine(options: {
   onPieces: (pieces: number) => void;
   onStretchFrame: (frame: StretchFrame | null) => void;
   onGuest: (guest: GuestCount | null) => void;
+  alternatePullStops: () => boolean;
 }): Engine {
   let position = options.initialIndex;
   let phase: Phase = "idle";
@@ -163,6 +166,15 @@ function createEngine(options: {
   let popDirection: StretchDirection | null = null;
   let popsPlayed = 0;
   let audioSpin = false;
+  let pullSpin = false;
+  let pullStarted = 0;
+  let alternated = 0;
+  let iceFrom = 0;
+  let iceVelocity = 0;
+  let iceHandoff = 0;
+  let iceSeconds = 0;
+  let brakeNotch = 0;
+  let brakeMs = 0;
 
   function setAudioSpin(next: boolean) {
     if (audioSpin === next) return;
@@ -187,7 +199,10 @@ function createEngine(options: {
     if (phase === next) return;
     const wasMoving = phase !== "idle";
     phase = next;
-    if (next === "idle") setAudioSpin(false);
+    if (next === "idle") {
+      setAudioSpin(false);
+      pullSpin = false;
+    }
     const moving = next !== "idle";
     if (wasMoving !== moving) options.onMotion(moving);
   }
@@ -251,11 +266,22 @@ function createEngine(options: {
       camNotch !== null &&
       Math.abs(position - camNotch) < 0.5 &&
       index === mod(Math.round(camNotch), count);
-    if (landing) setAudioSpin(false);
+    const detent = detentForStop({
+      pullSpin,
+      alternate: options.alternatePullStops(),
+      elapsedMs: performance.now() - pullStarted,
+      landing,
+      alternated,
+    });
+    alternated = detent.alternated;
+    if (landing) {
+      setAudioSpin(false);
+      pullSpin = false;
+    }
     committed = index;
     options.onIndex(index);
-    hapticClick();
-    playReelClick(audioSpin && !landing);
+    if (detent.haptic) hapticClick();
+    if (detent.sound) playReelClick(audioSpin && !landing);
   }
 
   function stop() {
@@ -322,6 +348,20 @@ function createEngine(options: {
     if (phase === "idle" || phase === "drag") return;
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
+
+    if (phase === "ice") {
+      const elapsed = (now - animStart) / 1000;
+      if (elapsed >= iceSeconds) {
+        velocity = iceVelocity;
+        setPos(iceHandoff);
+        camToNotch(brakeNotch, brakeMs);
+        return;
+      }
+      velocity = iceVelocity;
+      setPos(iceFrom + iceVelocity * elapsed);
+      raf = requestAnimationFrame(tick);
+      return;
+    }
 
     if (phase === "coast") {
       const count = options.getCount();
@@ -542,6 +582,7 @@ function createEngine(options: {
 
   return {
     pointerDown(y, time, localY = 0, height = 0) {
+      pullSpin = false;
       stop();
       clearHold();
       velocity = 0;
@@ -617,6 +658,7 @@ function createEngine(options: {
       schedule();
     },
     step(direction) {
+      pullSpin = false;
       hapticClick();
       if (guest) {
         const target = direction > 0 ? Math.ceil(guest.slot) : Math.floor(guest.slot);
@@ -634,6 +676,7 @@ function createEngine(options: {
       }
     },
     jump(index) {
+      pullSpin = false;
       guest = null;
       options.onGuest(null);
       hapticClick();
@@ -650,22 +693,42 @@ function createEngine(options: {
       guest = null;
       options.onGuest(null);
       hapticClick();
+      pullSpin = true;
+      pullStarted = performance.now();
+      alternated = 0;
       setAudioSpin(true);
       const count = options.getCount();
-      const current = Math.round(position);
       const enabled: number[] = [];
       for (let index = 0; index < count; index += 1) {
         if (enabledIndex(index)) enabled.push(index);
       }
       const pool = enabled.length > 0 ? enabled : Array.from({ length: count }, (_, index) => index);
       const landIndex = pool[Math.floor(Math.random() * pool.length)] ?? 0;
-      let down = (mod(current, count) - landIndex + count) % count;
-      if (down === 0) down = count;
-      const loops = options.isReduced() ? 0 : 3 + order;
-      const notch = current - loops * count - down;
-      camToNotch(notch, options.isReduced() ? 0 : 880 + order * 260);
+      const plan = pullPlan({
+        order,
+        count,
+        position,
+        landIndex,
+        reduced: options.isReduced(),
+      });
+      if (plan.reduced) {
+        camToNotch(plan.notch, 0);
+        return;
+      }
+      stop();
+      iceFrom = plan.start;
+      iceVelocity = plan.velocity;
+      iceHandoff = plan.handoff;
+      iceSeconds = plan.iceMs / 1000;
+      brakeNotch = plan.notch;
+      brakeMs = plan.brakeMs;
+      velocity = plan.velocity;
+      animStart = performance.now();
+      setPhase("ice");
+      schedule();
     },
     destroy() {
+      pullSpin = false;
       setAudioSpin(false);
       clearHold();
       stop();
@@ -689,6 +752,7 @@ export function Reel({
   onPieces,
   stretch = null,
   centerPieces = null,
+  alternatePullStops = false,
 }: {
   label: string;
   items: ReelSymbol[];
@@ -703,6 +767,8 @@ export function Reel({
   onPieces?: (pieces: number) => void;
   stretch?: StretchConfig | null;
   centerPieces?: number | null;
+  /** Weight, during a handle pull, sounds every other stop after the ice. */
+  alternatePullStops?: boolean;
 }) {
   const [kinetics, setKinetics] = useState({ position: initialIndex, velocity: 0 });
   const position = kinetics.position;
@@ -719,6 +785,8 @@ export function Reel({
     onGuest: (_guest: GuestCount | null) => {},
   });
   const stretchRef = useRef<StretchConfig | null>(stretch);
+  const alternateRef = useRef(alternatePullStops);
+  alternateRef.current = alternatePullStops;
   const [stretchFrame, setStretchFrame] = useState<StretchFrame | null>(null);
   const [guestDraw, setGuestDraw] = useState<GuestCount | null>(null);
   itemsRef.current = items;
@@ -752,6 +820,7 @@ export function Reel({
       onPieces: (pieces) => listenerRef.current.onPieces?.(pieces),
       onStretchFrame: (frame) => listenerRef.current.onStretchFrame?.(frame),
       onGuest: (next) => listenerRef.current.onGuest?.(next),
+      alternatePullStops: () => alternateRef.current,
     });
     engineRef.current = engine;
     return () => {
