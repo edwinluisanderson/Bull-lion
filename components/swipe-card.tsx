@@ -16,6 +16,7 @@ export function SwipeCard({
   id,
   label,
   open,
+  locked = false,
   onOpen,
   onClose,
   onDelete,
@@ -24,6 +25,7 @@ export function SwipeCard({
   id: string;
   label: string;
   open: boolean;
+  locked?: boolean;
   onOpen: () => void;
   onClose: () => void;
   onDelete: () => void;
@@ -63,7 +65,7 @@ export function SwipeCard({
   }
 
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.button !== 0) return;
+    if (locked || event.button !== 0) return;
     drag.current = {
       pointer: event.pointerId,
       axis: "undecided",

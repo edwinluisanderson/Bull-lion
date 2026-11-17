@@ -10,6 +10,7 @@ import {
   flapMoney,
   grandTotal,
   parseStack,
+  insertCascade,
   proposeAdd,
   readStack,
   removeLine,
@@ -77,12 +78,58 @@ test("adding a line asks before combining the same metal and weight", () => {
 
   const separate = resolveAdd(first.lines, { ...gold, qty: 2 }, "separate", "b");
   assert.equal(separate.length, 2);
-  assert.equal(separate[1]?.id, "b");
-  assert.equal(separate[1]?.qty, 2);
+  assert.equal(separate[0]?.id, "b");
+  assert.equal(separate[0]?.qty, 2);
+  assert.equal(separate[1]?.id, "a");
 
   const otherWeight = proposeAdd(first.lines, { ...gold, grams: 1, weightLabel: "1 g", description: "Gold 1 g" }, "c");
   assert.equal(otherWeight.status, "added");
   assert.equal(otherWeight.lines.length, 2);
+});
+
+test("new lines stay newest-first and the cascade walks downward", () => {
+  const older = proposeAdd([], gold, "a");
+  assert.equal(older.status, "added");
+  const newer = proposeAdd(older.lines, { ...gold, grams: 1, weightLabel: "1 g", description: "Gold 1 g" }, "b");
+  assert.equal(newer.status, "added");
+  if (newer.status !== "added") return;
+  assert.deepEqual(newer.lines.map((line) => line.id), ["b", "a"]);
+
+  const incoming = {
+    ...gold,
+    id: "c",
+    grams: 31.1034768,
+    weightLabel: "1 oz",
+    qty: 1,
+    description: "Pocket coin from the old drawer",
+  };
+  const frames = insertCascade(newer.lines, incoming);
+  assert.equal(frames[0]?.at(-1), null);
+  assert.equal(frames[1]?.at(-1)?.id, "a");
+  assert.equal(frames[1]?.[1]?.id, "a");
+  assert.equal(frames[2]?.[1]?.id, "b");
+  assert.equal(frames.at(-1)?.[0]?.id, "c");
+  assert.deepEqual(
+    frames.at(-1)?.map((face) => face?.id),
+    ["c", "b", "a"],
+  );
+  assert.equal(descriptionNeedsOwnRow(frames[1]?.at(-1)?.description ?? ""), false);
+
+  const longExisting = newer.lines.map((line, index) =>
+    index === 1 ? { ...line, description: "Pocket coin from the old drawer" } : line,
+  );
+  const shifted = insertCascade(longExisting, { ...incoming, id: "d", description: "Gold 1 oz" });
+  const landed = shifted[1]?.at(-1);
+  assert.equal(landed?.id, "a");
+  assert.equal(descriptionNeedsOwnRow(landed?.description ?? ""), true);
+
+  const combined = resolveAdd(newer.lines, { ...gold, grams: 1, qty: 4, description: "Gold 1 g" }, "combine", "z");
+  assert.deepEqual(combined.map((line) => line.id), ["b", "a"]);
+  assert.equal(combined[0]?.qty, 5);
+
+  const store = memory();
+  writeStack(store, newer.lines);
+  assert.deepEqual(readStack(store).map((line) => line.id), ["b", "a"]);
 });
 
 test("removing a line and renaming it leave the rest of the board", () => {
@@ -127,15 +174,21 @@ test("the scrap plate grows a split-flap stack and the flaps stay quiet when sou
   assert.match(table, /Grand total/);
   assert.match(table, /readStack\(window\.localStorage\)/);
   assert.match(table, /writeStack\(window\.localStorage, lines\)/);
-  assert.match(table, /resolveAdd\(lines, pending, choice\)/);
+  assert.match(table, /resolveAdd\(existing, pending, choice\)/);
   assert.match(table, /Remove \$\{line\.description\}/);
   assert.match(flap, /prefers-reduced-motion: reduce/);
   assert.match(css, /\.gear-panel \{[^}]*margin-top:\s*20px/);
   assert.match(css, /\.flap-top span,\s*\.flap-bottom span,\s*\.flap-leaf span \{[^}]*transform:\s*translateY\(0\.06em\)/);
-  assert.match(css, /\.stack-card \{[^}]*--flap-font:\s*min\(\s*27\.6px,/);
+  assert.match(table, />My Stack</);
+  assert.match(css, /\.split-stack-title \{[^}]*text-transform:\s*none/);
+  assert.match(css, /\.stack-card \{[^}]*--flap-font:\s*clamp\(\s*18px,/);
+  assert.match(css, /\.stack-card-row \{[^}]*gap:\s*14px/);
   assert.match(css, /\.stack-card \{/);
   assert.match(table, /data-rows=\{longDescription \? 3 : 2\}/);
+  assert.match(table, /className="stack-card-row"/);
   assert.match(table, /descriptionNeedsOwnRow\(line\.description\)/);
+  assert.match(table, /insertCascade\(existing, incoming\)/);
+  assert.match(table, /prefers-reduced-motion: reduce/);
   assert.match(css, /\.split-stack \{/);
   assert.match(css, /\.flap-leaf \{[^}]*animation:\s*flap-turn 70ms linear/);
   const reduced = css

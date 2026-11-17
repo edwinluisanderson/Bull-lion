@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { SplitFlap } from "@/components/split-flap";
@@ -20,14 +20,17 @@ import {
   defaultLineDescription,
   flapMoney,
   grandTotal,
+  insertCascade,
   proposeAdd,
   readStack,
   removeLine,
   renameLine,
   resolveAdd,
   rowMelt,
+  STACK_CASCADE_MS,
   writeStack,
   type StackDraft,
+  type StackFace,
   type StackLine,
 } from "@/lib/stack-board";
 
@@ -62,6 +65,11 @@ export function StackTable({
   const [pending, setPending] = useState<StackDraft | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [shift, setShift] = useState<StackFace[][] | null>(null);
+  const [shiftStep, setShiftStep] = useState(0);
+  const finalRef = useRef<StackLine[] | null>(null);
+  const linesRef = useRef(lines);
+  linesRef.current = lines;
 
   useEffect(() => {
     setLines(readStack(window.localStorage));
@@ -85,25 +93,72 @@ export function StackTable({
     };
   }
 
+  useEffect(() => {
+    if (!shift) return;
+    if (shiftStep === shift.length - 1 && finalRef.current) {
+      setLines(finalRef.current);
+      finalRef.current = null;
+    }
+    const done = shiftStep >= shift.length - 1;
+    const timer = window.setTimeout(() => {
+      if (done) {
+        setShift(null);
+        setShiftStep(0);
+        return;
+      }
+      setShiftStep((step) => step + 1);
+    }, STACK_CASCADE_MS);
+    return () => window.clearTimeout(timer);
+  }, [shift, shiftStep]);
+
+  function motionReduced(): boolean {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function landNewest(existing: readonly StackLine[], incoming: StackLine, finalLines: StackLine[]) {
+    if (motionReduced()) {
+      setShift(null);
+      setShiftStep(0);
+      finalRef.current = null;
+      setLines(finalLines);
+      return;
+    }
+    finalRef.current = finalLines;
+    setShiftStep(0);
+    setShift(insertCascade(existing, incoming));
+  }
+
   function addCurrent() {
     const draft = draftFromSelection();
-    if (!draft) return;
+    if (!draft || shift) return;
     unlockReelClick();
-    const result = proposeAdd(lines, draft);
+    const existing = linesRef.current;
+    const result = proposeAdd(existing, draft);
     if (result.status === "needs-choice") {
       setPending(draft);
       return;
     }
-    setLines(result.lines);
+    const incoming = result.lines[0];
+    if (!incoming) return;
+    landNewest(existing, incoming, result.lines);
   }
 
   function choose(choice: "combine" | "separate") {
-    if (!pending) return;
+    if (!pending || shift) return;
     unlockReelClick();
-    setLines(resolveAdd(lines, pending, choice));
+    const existing = linesRef.current;
+    const finalLines = resolveAdd(existing, pending, choice);
     setPending(null);
+    if (choice === "combine") {
+      setLines(finalLines);
+      return;
+    }
+    const incoming = finalLines[0];
+    if (!incoming) return;
+    landNewest(existing, incoming, finalLines);
   }
 
+  const shown: StackFace[] = shift ? (shift[shiftStep] ?? shift[0] ?? []) : lines;
   const melts = lines.map((line) => rowMelt(priceFor(quotes, line.symbol), line.grams, line.qty));
   const total = grandTotal(melts);
 
@@ -133,30 +188,35 @@ export function StackTable({
       : null;
 
   return (
-    <section className="split-stack" aria-label="Stack">
+    <section className="split-stack" aria-label="My Stack">
       <div className="split-stack-head">
-        <p className="split-stack-title">Stack</p>
-        <button type="button" className="stack-add" onClick={addCurrent} disabled={!selection}>
+        <p className="split-stack-title">My Stack</p>
+        <button type="button" className="stack-add" onClick={addCurrent} disabled={!selection || shift !== null}>
           Add to stack
         </button>
       </div>
-      {lines.length === 0 ? <p className="split-empty">The board is clear.</p> : null}
+      {shown.length === 0 ? <p className="split-empty">The board is clear.</p> : null}
       <ul className="split-rows">
-        {lines.map((line, index) => {
-          const melt = melts[index] ?? null;
-          const longDescription = descriptionNeedsOwnRow(line.description);
+        {shown.map((line, index) => {
+          const blank = line == null;
+          const melt = blank ? null : rowMelt(priceFor(quotes, line.symbol), line.grams, line.qty);
+          const longDescription = !blank && descriptionNeedsOwnRow(line.description);
           const descriptionWidth = longDescription ? FLAP_DESCRIPTION_LONG : FLAP_DESCRIPTION_INLINE;
+          const mark = blank ? "" : line.mark;
+          const weightLabel = blank ? "" : line.weightLabel;
+          const qtyLabel = blank ? "" : String(line.qty);
+          const descriptionText = blank ? "" : line.description;
           const factsEm =
-            flapAdvance(line.mark, FLAP_METAL) +
-            flapAdvance(line.weightLabel, FLAP_WEIGHT) +
-            flapAdvance(String(line.qty), FLAP_QTY) +
+            flapAdvance(mark, FLAP_METAL) +
+            flapAdvance(weightLabel, FLAP_WEIGHT) +
+            flapAdvance(qtyLabel, FLAP_QTY) +
             flapAdvance(flapMoney(melt), FLAP_MELT);
-          const descEm = Math.max(0.5, flapAdvance(line.description, descriptionWidth));
-          // 1px between tiles, 4px between the four fact fields, 2px of rounding slack.
-          const factsGaps = (FLAP_METAL + FLAP_WEIGHT + FLAP_QTY + FLAP_MELT - 4) + 4 * 3 + 2;
-          // The short description shares its row with the remove button.
-          const descGaps = descriptionWidth - 1 + (longDescription ? 2 : 4 + 20);
-          const description = editing === line.id ? (
+          const descEm = Math.max(0.5, flapAdvance(descriptionText, descriptionWidth));
+          const factsGaps = (FLAP_METAL + FLAP_WEIGHT + FLAP_QTY + FLAP_MELT - 4) + 14 * 3 + 2;
+          const descGaps = descriptionWidth - 1 + 14 + 20;
+          const description = blank || shift ? (
+            <SplitFlap text={descriptionText} width={descriptionWidth} />
+          ) : editing === line.id ? (
             <input
               className="stack-name"
               aria-label={`Description for ${line.description}`}
@@ -181,15 +241,33 @@ export function StackTable({
               <SplitFlap text={line.description} width={descriptionWidth} />
             </button>
           );
+          const remove = blank ? null : (
+            <button
+              type="button"
+              className="stack-remove"
+              aria-label={`Remove ${line.description}`}
+              disabled={shift !== null}
+              onClick={() => setLines(removeLine(lines, line.id))}
+            >
+              ×
+            </button>
+          );
           return (
             <SwipeCard
-              key={line.id}
-              id={line.id}
-              label={line.description}
-              open={openId === line.id}
-              onOpen={() => setOpenId(line.id)}
-              onClose={() => setOpenId((current) => (current === line.id ? null : current))}
+              key={index}
+              id={line ? `${line.id}-${index}` : `blank-${index}`}
+              label={line?.description ?? "entry"}
+              open={line != null && openId === line.id}
+              locked={shift !== null || blank}
+              onOpen={() => {
+                if (line) setOpenId(line.id);
+              }}
+              onClose={() => {
+                if (!line) return;
+                setOpenId((current) => (current === line.id ? null : current));
+              }}
               onDelete={() => {
+                if (!line || shift) return;
                 setOpenId((current) => (current === line.id ? null : current));
                 setLines(removeLine(lines, line.id));
               }}
@@ -204,51 +282,46 @@ export function StackTable({
                 ["--desc-gaps" as string]: `${descGaps}px`,
               }}
             >
-              <span className="sr-only">
-                {line.mark}, {line.weightLabel}, quantity {line.qty}, {line.description}, melt {flapMoney(melt)}
-              </span>
+              {blank ? null : (
+                <span className="sr-only">
+                  {line.mark}, {line.weightLabel}, quantity {line.qty}, {line.description}, melt {flapMoney(melt)}
+                </span>
+              )}
               <div className="stack-card-row">
                 <span className="stack-field">
                   <span className="stack-kicker">Metal</span>
-                  <SplitFlap text={line.mark} width={FLAP_METAL} />
+                  <SplitFlap text={mark} width={FLAP_METAL} />
                 </span>
                 <span className="stack-field">
                   <span className="stack-kicker">Weight</span>
-                  <SplitFlap text={line.weightLabel} width={FLAP_WEIGHT} />
+                  <SplitFlap text={weightLabel} width={FLAP_WEIGHT} />
                 </span>
                 <span className="stack-field">
                   <span className="stack-kicker">Qty</span>
-                  <SplitFlap text={String(line.qty)} width={FLAP_QTY} />
+                  <SplitFlap text={qtyLabel} width={FLAP_QTY} />
                 </span>
                 <span className="stack-field stack-field-melt">
                   <span className="stack-kicker">Melt</span>
-                  <SplitFlap text={flapMoney(melt)} width={FLAP_MELT} />
+                  <SplitFlap text={blank ? "" : flapMoney(melt)} width={FLAP_MELT} />
                 </span>
               </div>
+              {longDescription ? (
+                <div className="stack-card-row stack-card-label">
+                  <span className="stack-kicker">Description</span>
+                  {remove}
+                </div>
+              ) : null}
               <div className="stack-card-row">
-                {longDescription ? null : (
+                {longDescription ? (
+                  description
+                ) : (
                   <span className="stack-field">
                     <span className="stack-kicker">Description</span>
                     {description}
                   </span>
                 )}
-                <button
-                  type="button"
-                  className="stack-remove"
-                  aria-label={`Remove ${line.description}`}
-                  onClick={() => setLines(removeLine(lines, line.id))}
-                >
-                  ×
-                </button>
+                {longDescription ? null : remove}
               </div>
-              {longDescription ? (
-                <div className="stack-card-row">
-                  <span className="stack-field">
-                    <span className="stack-kicker">Description</span>
-                    {description}
-                  </span>
-                </div>
-              ) : null}
             </div>
             </SwipeCard>
           );
