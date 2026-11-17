@@ -17,6 +17,7 @@ import {
 import { hapticClick } from "@/lib/haptics";
 import { noteReelSpinning, playReelClick, reelSnap, unlockReelClick } from "@/lib/reel-click";
 import { detentForStop } from "@/lib/spin-gate";
+import { pullPlan } from "@/lib/pull-spin";
 import { playStretchPop, unlockStretchPops } from "@/lib/stretch-pop";
 import { stretchPopCount } from "@/lib/stretch-pops";
 import { REEL_ITEM_HEIGHT } from "@/lib/metals";
@@ -52,7 +53,7 @@ export type ReelSymbol = {
   disabled?: boolean;
 };
 
-type Phase = "idle" | "drag" | "coast" | "snap" | "script";
+type Phase = "idle" | "drag" | "coast" | "snap" | "script" | "ice";
 
 export type StretchFrame = {
   direction: StretchDirection;
@@ -168,6 +169,12 @@ function createEngine(options: {
   let pullSpin = false;
   let pullStarted = 0;
   let alternated = 0;
+  let iceFrom = 0;
+  let iceVelocity = 0;
+  let iceHandoff = 0;
+  let iceSeconds = 0;
+  let brakeNotch = 0;
+  let brakeMs = 0;
 
   function setAudioSpin(next: boolean) {
     if (audioSpin === next) return;
@@ -341,6 +348,20 @@ function createEngine(options: {
     if (phase === "idle" || phase === "drag") return;
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
+
+    if (phase === "ice") {
+      const elapsed = (now - animStart) / 1000;
+      if (elapsed >= iceSeconds) {
+        velocity = iceVelocity;
+        setPos(iceHandoff);
+        camToNotch(brakeNotch, brakeMs);
+        return;
+      }
+      velocity = iceVelocity;
+      setPos(iceFrom + iceVelocity * elapsed);
+      raf = requestAnimationFrame(tick);
+      return;
+    }
 
     if (phase === "coast") {
       const count = options.getCount();
@@ -677,18 +698,34 @@ function createEngine(options: {
       alternated = 0;
       setAudioSpin(true);
       const count = options.getCount();
-      const current = Math.round(position);
       const enabled: number[] = [];
       for (let index = 0; index < count; index += 1) {
         if (enabledIndex(index)) enabled.push(index);
       }
       const pool = enabled.length > 0 ? enabled : Array.from({ length: count }, (_, index) => index);
       const landIndex = pool[Math.floor(Math.random() * pool.length)] ?? 0;
-      let down = (mod(current, count) - landIndex + count) % count;
-      if (down === 0) down = count;
-      const loops = options.isReduced() ? 0 : 3 + order;
-      const notch = current - loops * count - down;
-      camToNotch(notch, options.isReduced() ? 0 : 880 + order * 260);
+      const plan = pullPlan({
+        order,
+        count,
+        position,
+        landIndex,
+        reduced: options.isReduced(),
+      });
+      if (plan.reduced) {
+        camToNotch(plan.notch, 0);
+        return;
+      }
+      stop();
+      iceFrom = plan.start;
+      iceVelocity = plan.velocity;
+      iceHandoff = plan.handoff;
+      iceSeconds = plan.iceMs / 1000;
+      brakeNotch = plan.notch;
+      brakeMs = plan.brakeMs;
+      velocity = plan.velocity;
+      animStart = performance.now();
+      setPhase("ice");
+      schedule();
     },
     destroy() {
       pullSpin = false;

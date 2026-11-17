@@ -21,8 +21,8 @@ function stops(
   });
 }
 
-test("a handle pull has no stop click or haptic during the first 500 ms", () => {
-  for (const elapsedMs of [0, 100, 499]) {
+test("a handle pull has no stop click or haptic during the 3 s ice", () => {
+  for (const elapsedMs of [0, 500, 2999]) {
     const detent = detentForStop({
       pullSpin: true,
       alternate: false,
@@ -44,11 +44,11 @@ test("a handle pull has no stop click or haptic during the first 500 ms", () => 
   assert.equal(resumed.haptic, true);
 });
 
-test("the landing click plays even when metal reaches it inside the ice", () => {
+test("a landing click still plays if it falls inside the ice", () => {
   const detent = detentForStop({
     pullSpin: true,
     alternate: false,
-    elapsedMs: 498,
+    elapsedMs: 2000,
     landing: true,
     alternated: 0,
   });
@@ -59,13 +59,13 @@ test("the landing click plays even when metal reaches it inside the ice", () => 
 test("weight plays every other click after the ice and always plays the landing", () => {
   const heard = stops(
     [
-      { elapsedMs: 100 },
-      { elapsedMs: 400 },
-      { elapsedMs: 500 },
-      { elapsedMs: 600 },
-      { elapsedMs: 700 },
-      { elapsedMs: 800 },
-      { elapsedMs: 900, landing: true },
+      { elapsedMs: 1000 },
+      { elapsedMs: 2500 },
+      { elapsedMs: 3000 },
+      { elapsedMs: 3100 },
+      { elapsedMs: 3200 },
+      { elapsedMs: 3300 },
+      { elapsedMs: 4000, landing: true },
     ],
     true,
   );
@@ -80,7 +80,7 @@ test("weight plays every other click after the ice and always plays the landing"
   const skippedLanding = detentForStop({
     pullSpin: true,
     alternate: true,
-    elapsedMs: 900,
+    elapsedMs: 4000,
     landing: true,
     alternated: 1,
   });
@@ -112,10 +112,18 @@ test("flicks, drags, steps, and stretches are not iced or alternated", () => {
   });
   assert.equal(flick.sound, true);
   assert.equal(flick.haptic, true);
-  const count = detentForStop({
+  const duringIce = detentForStop({
     pullSpin: true,
     alternate: false,
     elapsedMs: 700,
+    landing: false,
+    alternated: 0,
+  });
+  assert.equal(duringIce.sound, false);
+  const count = detentForStop({
+    pullSpin: true,
+    alternate: false,
+    elapsedMs: 3500,
     landing: false,
     alternated: 0,
   });

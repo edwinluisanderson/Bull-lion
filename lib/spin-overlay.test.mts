@@ -43,7 +43,7 @@ class FakeAudio {
   }
 
   decodeAudioData() {
-    return Promise.resolve({ duration: 4.55 });
+    return Promise.resolve({ duration: 7.93 });
   }
 
   createGain(): Gain {

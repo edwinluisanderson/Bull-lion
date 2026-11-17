@@ -1,5 +1,6 @@
-/** Handle-pull spins ignore stop detents for this long, then the curve is unchanged. */
-export const PULL_ICE_MS = 500;
+import { PULL_ICE_MS } from "@/lib/pull-spin";
+
+export { PULL_ICE_MS };
 
 export type DetentInput = {
   /** This reel is inside a scripted handle pull and has not landed. */
