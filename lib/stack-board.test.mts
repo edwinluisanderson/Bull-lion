@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { FLAP_GAIN, FLAP_MAX_PER_WINDOW, nextFlapSound } from "@/lib/flap-sound";
-import { flapFrames, padFlap } from "@/lib/split-flap";
+import { descriptionNeedsOwnRow, flapFrames, padFlap } from "@/lib/split-flap";
 import {
   STACK_STORAGE_KEY,
   defaultLineDescription,
@@ -53,6 +53,8 @@ test("split flaps walk forward and jump when motion is reduced", () => {
   assert.deepEqual(flapFrames("C", "A", true), ["A"]);
   assert.equal(padFlap("gold 1 oz", 6), "GOLD 1");
   assert.equal(flapFrames(" ", "A").at(-1), "A");
+  assert.equal(descriptionNeedsOwnRow("Gold 1 oz"), false);
+  assert.equal(descriptionNeedsOwnRow("Pocket coin from the old drawer"), true);
 });
 
 test("adding a line asks before combining the same metal and weight", () => {
@@ -129,7 +131,11 @@ test("the scrap plate grows a split-flap stack and the flaps stay quiet when sou
   assert.match(table, /Remove \$\{line\.description\}/);
   assert.match(flap, /prefers-reduced-motion: reduce/);
   assert.match(css, /\.gear-panel \{[^}]*margin-top:\s*20px/);
-  assert.match(css, /\.flap-top span,\s*\.flap-bottom span,\s*\.flap-leaf span \{[^}]*transform:\s*translateY\(2px\)/);
+  assert.match(css, /\.flap-top span,\s*\.flap-bottom span,\s*\.flap-leaf span \{[^}]*transform:\s*translateY\(0\.06em\)/);
+  assert.match(css, /\.stack-card \{[^}]*--flap-font:\s*min\(\s*27\.6px,/);
+  assert.match(css, /\.stack-card \{/);
+  assert.match(table, /data-rows=\{longDescription \? 3 : 2\}/);
+  assert.match(table, /descriptionNeedsOwnRow\(line\.description\)/);
   assert.match(css, /\.split-stack \{/);
   assert.match(css, /\.flap-leaf \{[^}]*animation:\s*flap-turn 70ms linear/);
   const reduced = css
@@ -138,7 +144,10 @@ test("the scrap plate grows a split-flap stack and the flaps stay quiet when sou
     .find((part) => part.includes(".flap-leaf"));
   assert.match(reduced ?? "", /\.flap-leaf \{[^}]*animation:\s*none/);
   assert.match(sound, /spinSoundEnabled\(\)/);
-  assert.equal(FLAP_GAIN < 0.15, true);
+  assert.ok(FLAP_GAIN > 0.2 && FLAP_GAIN < 0.3);
+  assert.equal(FLAP_MAX_PER_WINDOW, 2);
+  assert.match(sound, /createWaveShaper\(\)/);
+  assert.equal(sound.includes("FLAP_SUM_LIMIT"), true);
   const first = nextFlapSound({ stamp: 0, count: 0 }, 10);
   assert.equal(first.play, true);
   let gate = first.gate;
