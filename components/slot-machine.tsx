@@ -264,6 +264,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
               <div className="reel-stage">
                 <div className="reel-grid">
                 <Reel
+                  lampIndex={0}
                   label="Metal"
                   items={metalItems}
                   initialIndex={DEFAULT_METAL_INDEX}
@@ -277,6 +278,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   onMotion={onMetalMotion}
                 />
                 <Reel
+                  lampIndex={1}
                   label="Weight"
                   items={weightItems}
                   initialIndex={DEFAULT_WEIGHT_INDEX}
@@ -309,6 +311,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   alternatePullStops
                 />
                 <Reel
+                  lampIndex={2}
                   label="Count"
                   items={countItems}
                   initialIndex={DEFAULT_COUNT_INDEX}

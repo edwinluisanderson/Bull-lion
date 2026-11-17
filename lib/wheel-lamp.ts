@@ -1,4 +1,4 @@
-import { lampPaint } from "@/lib/steampunk-light";
+import { normalizeWheelSpeed, wheelLampPaint } from "@/lib/wheel-lamp-color";
 
 /** A stop is a full flash. Energy does not accumulate. */
 export const WHEEL_LAMP_MAX = 1;
@@ -18,9 +18,24 @@ export const WHEEL_LAMP_FLASH_DIP = 0.28;
 export const WHEEL_LAMP_DECAY_CAP = 26;
 
 const energies = [0, 0, 0];
+const speeds = [0, 0, 0];
 const rates = [WHEEL_LAMP_DECAY, WHEEL_LAMP_DECAY, WHEEL_LAMP_DECAY];
 const lastPulseAt = [0, 0, 0];
 const listeners = new Set<() => void>();
+
+/** Normalized 0..1 speed for one wheel. 0 is stopped, 1 is a handle pull at full spin. */
+export function wheelLampSpeed(index: number): number {
+  return speeds[index] ?? 0;
+}
+
+/** The reel reports stops per second. The stored value is already normalized. */
+export function setWheelLampSpeed(index: number, stopsPerSecond: number): void {
+  if (index < 0 || index >= speeds.length) return;
+  const next = normalizeWheelSpeed(stopsPerSecond);
+  if (speeds[index] === next) return;
+  speeds[index] = next;
+  listeners.forEach((listener) => listener());
+}
 
 export function wheelLampEnergy(index: number): number {
   return energies[index] ?? 0;
@@ -71,10 +86,10 @@ export function subscribeWheelLamps(listener: () => void): () => void {
 }
 
 /** Paint channels the driven lamp reads from inherited custom properties. */
-export function applyLampEnergy(node: HTMLElement | null, energy: number): void {
+export function applyLampEnergy(node: HTMLElement | null, energy: number, speed = 0): void {
   if (!node) return;
   const level = Number.isFinite(energy) ? Math.min(WHEEL_LAMP_MAX, Math.max(0, energy)) : 0;
-  const paint = lampPaint(level);
+  const paint = wheelLampPaint(level, speed);
   node.style.setProperty("--lamp-core", paint.bulbCore);
   node.style.setProperty("--lamp-mid", paint.bulbMid);
   node.style.setProperty("--lamp-edge", paint.bulbEdge);
@@ -83,4 +98,9 @@ export function applyLampEnergy(node: HTMLElement | null, energy: number): void 
   node.style.setProperty("--lamp-glass", String(paint.glassWarm));
   node.style.setProperty("--lamp-bar", String(paint.barWarm));
   node.style.setProperty("--lamp-cast", String(level));
+  node.style.setProperty("--lamp-color", paint.color);
+  node.style.setProperty("--lamp-bloom", paint.bloom);
+  node.style.setProperty("--lamp-cast-inner", paint.castInner);
+  node.style.setProperty("--lamp-cast-mid", paint.castMid);
+  node.style.setProperty("--lamp-cast-outer", paint.castOuter);
 }

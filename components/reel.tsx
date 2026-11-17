@@ -18,6 +18,7 @@ import { hapticClick } from "@/lib/haptics";
 import { noteReelSpinning, playReelClick, reelSnap, unlockReelClick } from "@/lib/reel-click";
 import { detentForStop } from "@/lib/spin-gate";
 import { pullPlan } from "@/lib/pull-spin";
+import { setWheelLampSpeed } from "@/lib/wheel-lamp";
 import { playStretchPop, unlockStretchPops } from "@/lib/stretch-pop";
 import { stretchPopCount } from "@/lib/stretch-pops";
 import { REEL_ITEM_HEIGHT } from "@/lib/metals";
@@ -753,6 +754,7 @@ export function Reel({
   stretch = null,
   centerPieces = null,
   alternatePullStops = false,
+  lampIndex,
 }: {
   label: string;
   items: ReelSymbol[];
@@ -769,6 +771,8 @@ export function Reel({
   centerPieces?: number | null;
   /** Weight, during a handle pull, sounds every other stop after the ice. */
   alternatePullStops?: boolean;
+  /** Which wheel lamp follows this reel's speed. */
+  lampIndex?: number;
 }) {
   const [kinetics, setKinetics] = useState({ position: initialIndex, velocity: 0 });
   const position = kinetics.position;
@@ -787,6 +791,8 @@ export function Reel({
   const stretchRef = useRef<StretchConfig | null>(stretch);
   const alternateRef = useRef(alternatePullStops);
   alternateRef.current = alternatePullStops;
+  const lampIndexRef = useRef(lampIndex);
+  lampIndexRef.current = lampIndex;
   const [stretchFrame, setStretchFrame] = useState<StretchFrame | null>(null);
   const [guestDraw, setGuestDraw] = useState<GuestCount | null>(null);
   itemsRef.current = items;
@@ -807,7 +813,11 @@ export function Reel({
   useEffect(() => {
     const engine = createEngine({
       initialIndex,
-      setKinetics: (next, speed) => setKinetics({ position: next, velocity: speed }),
+      setKinetics: (next, speed) => {
+        setKinetics({ position: next, velocity: speed });
+        const index = lampIndexRef.current;
+        if (index !== undefined) setWheelLampSpeed(index, speed);
+      },
       getCount: () => countRef.current,
       onIndex: (index) => listenerRef.current.onIndex(index),
       onMotion: (moving) => listenerRef.current.onMotion(moving),
@@ -825,6 +835,8 @@ export function Reel({
     engineRef.current = engine;
     return () => {
       engine.destroy();
+      const index = lampIndexRef.current;
+      if (index !== undefined) setWheelLampSpeed(index, 0);
       if (engineRef.current === engine) engineRef.current = null;
     };
   }, [initialIndex]);

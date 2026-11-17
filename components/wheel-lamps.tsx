@@ -9,6 +9,7 @@ import {
   decayWheelLamps,
   subscribeWheelLamps,
   wheelLampEnergy,
+  wheelLampSpeed,
 } from "@/lib/wheel-lamp";
 
 /** Reduced motion holds every wheel lamp at full, with no pulses. */
@@ -22,10 +23,13 @@ export function WheelLamps() {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     let raf = 0;
     let last = performance.now();
-    nodes().forEach((node, index) => applyLampEnergy(node, media.matches ? REDUCED_LEVEL : wheelLampEnergy(index)));
+    const paint = (node: HTMLSpanElement | null, index: number, energy: number) => {
+      applyLampEnergy(node, energy, wheelLampSpeed(index));
+    };
+    nodes().forEach((node, index) => paint(node, index, media.matches ? REDUCED_LEVEL : wheelLampEnergy(index)));
 
     const paintAll = () => {
-      nodes().forEach((node, index) => applyLampEnergy(node, wheelLampEnergy(index)));
+      nodes().forEach((node, index) => paint(node, index, wheelLampEnergy(index)));
     };
 
     const frame = (now: number) => {
@@ -35,7 +39,7 @@ export function WheelLamps() {
       let alive = false;
       nodes().forEach((node, index) => {
         const level = levels[index] ?? 0;
-        applyLampEnergy(node, level);
+        paint(node, index, level);
         if (level > 0) alive = true;
       });
       raf = alive ? requestAnimationFrame(frame) : 0;
@@ -51,7 +55,7 @@ export function WheelLamps() {
       if (!media.matches) return;
       if (raf) cancelAnimationFrame(raf);
       raf = 0;
-      nodes().forEach((node) => applyLampEnergy(node, REDUCED_LEVEL));
+      nodes().forEach((node, index) => paint(node, index, REDUCED_LEVEL));
     };
 
     syncReduced();
