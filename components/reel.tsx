@@ -16,6 +16,7 @@ import {
 } from "@/lib/drum";
 import { hapticClick } from "@/lib/haptics";
 import { noteReelSpinning, playReelClick, reelSnap, unlockReelClick } from "@/lib/reel-click";
+import { detentForStop } from "@/lib/spin-gate";
 import { playStretchPop, unlockStretchPops } from "@/lib/stretch-pop";
 import { stretchPopCount } from "@/lib/stretch-pops";
 import { REEL_ITEM_HEIGHT } from "@/lib/metals";
@@ -135,6 +136,7 @@ function createEngine(options: {
   onPieces: (pieces: number) => void;
   onStretchFrame: (frame: StretchFrame | null) => void;
   onGuest: (guest: GuestCount | null) => void;
+  alternatePullStops: () => boolean;
 }): Engine {
   let position = options.initialIndex;
   let phase: Phase = "idle";
@@ -163,6 +165,9 @@ function createEngine(options: {
   let popDirection: StretchDirection | null = null;
   let popsPlayed = 0;
   let audioSpin = false;
+  let pullSpin = false;
+  let pullStarted = 0;
+  let alternated = 0;
 
   function setAudioSpin(next: boolean) {
     if (audioSpin === next) return;
@@ -187,7 +192,10 @@ function createEngine(options: {
     if (phase === next) return;
     const wasMoving = phase !== "idle";
     phase = next;
-    if (next === "idle") setAudioSpin(false);
+    if (next === "idle") {
+      setAudioSpin(false);
+      pullSpin = false;
+    }
     const moving = next !== "idle";
     if (wasMoving !== moving) options.onMotion(moving);
   }
@@ -251,11 +259,22 @@ function createEngine(options: {
       camNotch !== null &&
       Math.abs(position - camNotch) < 0.5 &&
       index === mod(Math.round(camNotch), count);
-    if (landing) setAudioSpin(false);
+    const detent = detentForStop({
+      pullSpin,
+      alternate: options.alternatePullStops(),
+      elapsedMs: performance.now() - pullStarted,
+      landing,
+      alternated,
+    });
+    alternated = detent.alternated;
+    if (landing) {
+      setAudioSpin(false);
+      pullSpin = false;
+    }
     committed = index;
     options.onIndex(index);
-    hapticClick();
-    playReelClick(audioSpin && !landing);
+    if (detent.haptic) hapticClick();
+    if (detent.sound) playReelClick(audioSpin && !landing);
   }
 
   function stop() {
@@ -542,6 +561,7 @@ function createEngine(options: {
 
   return {
     pointerDown(y, time, localY = 0, height = 0) {
+      pullSpin = false;
       stop();
       clearHold();
       velocity = 0;
@@ -617,6 +637,7 @@ function createEngine(options: {
       schedule();
     },
     step(direction) {
+      pullSpin = false;
       hapticClick();
       if (guest) {
         const target = direction > 0 ? Math.ceil(guest.slot) : Math.floor(guest.slot);
@@ -634,6 +655,7 @@ function createEngine(options: {
       }
     },
     jump(index) {
+      pullSpin = false;
       guest = null;
       options.onGuest(null);
       hapticClick();
@@ -650,6 +672,9 @@ function createEngine(options: {
       guest = null;
       options.onGuest(null);
       hapticClick();
+      pullSpin = true;
+      pullStarted = performance.now();
+      alternated = 0;
       setAudioSpin(true);
       const count = options.getCount();
       const current = Math.round(position);
@@ -666,6 +691,7 @@ function createEngine(options: {
       camToNotch(notch, options.isReduced() ? 0 : 880 + order * 260);
     },
     destroy() {
+      pullSpin = false;
       setAudioSpin(false);
       clearHold();
       stop();
@@ -689,6 +715,7 @@ export function Reel({
   onPieces,
   stretch = null,
   centerPieces = null,
+  alternatePullStops = false,
 }: {
   label: string;
   items: ReelSymbol[];
@@ -703,6 +730,8 @@ export function Reel({
   onPieces?: (pieces: number) => void;
   stretch?: StretchConfig | null;
   centerPieces?: number | null;
+  /** Weight, during a handle pull, sounds every other stop after the ice. */
+  alternatePullStops?: boolean;
 }) {
   const [kinetics, setKinetics] = useState({ position: initialIndex, velocity: 0 });
   const position = kinetics.position;
@@ -719,6 +748,8 @@ export function Reel({
     onGuest: (_guest: GuestCount | null) => {},
   });
   const stretchRef = useRef<StretchConfig | null>(stretch);
+  const alternateRef = useRef(alternatePullStops);
+  alternateRef.current = alternatePullStops;
   const [stretchFrame, setStretchFrame] = useState<StretchFrame | null>(null);
   const [guestDraw, setGuestDraw] = useState<GuestCount | null>(null);
   itemsRef.current = items;
@@ -752,6 +783,7 @@ export function Reel({
       onPieces: (pieces) => listenerRef.current.onPieces?.(pieces),
       onStretchFrame: (frame) => listenerRef.current.onStretchFrame?.(frame),
       onGuest: (next) => listenerRef.current.onGuest?.(next),
+      alternatePullStops: () => alternateRef.current,
     });
     engineRef.current = engine;
     return () => {
