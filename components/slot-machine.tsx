@@ -9,6 +9,7 @@ import { SteampunkLight, SteampunkLightCast } from "@/components/steampunk-light
 import { WheelLamps } from "@/components/wheel-lamps";
 import { pulseWheelLamp } from "@/lib/wheel-lamp";
 import { RollingPrice } from "@/components/rolling-price";
+import { StackTable } from "@/components/stack-table";
 import { PullBall } from "@/components/lever";
 import { Readout } from "@/components/readout";
 import { Reel, type ReelSymbol } from "@/components/reel";
@@ -363,12 +364,12 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             </footer>
           )}
         </section>
-        <div className="gear-panel" aria-hidden="true">
+        <div className="gear-panel">
           <span className="rivet" data-corner="tl" />
           <span className="rivet" data-corner="tr" />
           <span className="rivet" data-corner="bl" />
           <span className="rivet" data-corner="br" />
-          <div className="gear-panel-stage">
+          <div className="gear-panel-stage" aria-hidden="true">
           <div className="gear-panel-lights">
             {Array.from({ length: STEAMPUNK_LIGHT_COUNT }, (_, index) => (
               <SteampunkLight key={index} brightness={lampBrightness} />
@@ -386,6 +387,22 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           </div>
           <SteampunkLightCast />
           </div>
+          <StackTable
+            selection={
+              metal
+                ? {
+                    symbol: metal.symbol,
+                    mark: metal.mark,
+                    name: metal.name,
+                    grams: weight.grams,
+                    weightLabel: weight.face,
+                    qty: pieces,
+                  }
+                : null
+            }
+            quotes={book.metals.map((entry) => ({ symbol: entry.symbol, usdPerTroyOz: entry.usdPerTroyOz }))}
+          />
+          <div className="scrap-readout-gap" aria-hidden="true" />
           <div className="scrap-readout">
             <section className={spinning ? "readout is-spinning" : "readout"}>
               <RollingPrice value={metal ? formatWholeDollars(meltValue(metal.usdPerTroyOz, weight.grams, pieces)) : "—"} />
