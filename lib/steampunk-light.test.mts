@@ -117,12 +117,11 @@ test("one lighthouse sweeps a beam across the bottom plate", () => {
 });
 
 test("the bottom plate is taller and a lower lamp casts its cage", () => {
-  assert.match(css, /\.gear-panel \{[^}]*min-height:\s*480px/);
-  assert.match(css, /\.gear-panel-stage \{[^}]*min-height:\s*320px/);
-  assert.match(css, /\.gear-panel-row \{[^}]*min-height:\s*168px/);
-  assert.match(css, /\.gear-panel \{\s*min-height:\s*360px/);
-  assert.match(css, /\.gear-panel-stage \{\s*min-height:\s*250px/);
-  assert.match(css, /\.gear-panel-row \{\s*min-height:\s*132px/);
+  assert.match(css, /\.gear-panel \{[^}]*min-height:\s*360px/);
+  assert.match(css, /\.gear-panel-stage \{[^}]*min-height:\s*250px/);
+  assert.match(css, /\.gear-panel-row \{[^}]*min-height:\s*132px/);
+  assert.equal(css.includes("min-height: 540px"), false);
+  assert.equal(css.includes("min-height: 480px"), false);
   const panel = machine.slice(machine.indexOf('className="gear-panel"'));
   assert.match(panel, /<SteampunkLightCast \/>/);
   assert.match(css, /\.gear-panel-cast \{[^}]*left:\s*22%/);

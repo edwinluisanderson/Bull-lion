@@ -145,17 +145,24 @@ export function maxMeltLabel(): string {
   return formatWholeDollars(maxMeltAmount());
 }
 
-/** The scrap plate: 92% of the workshop column, and never more than 920px. */
+/** Wide screens keep the 390px phone column. */
+const PHONE_LAYOUT = 390;
+
+function layoutViewport(viewport: number): number {
+  return Math.min(viewport, PHONE_LAYOUT);
+}
+
+/** The scrap plate: 92% of the phone column. */
 export function nixiePlateWidth(viewport: number): number {
   const rem = 16;
-  const column = Math.min(1040, viewport - 1.7 * rem);
+  const column = Math.min(1040, layoutViewport(viewport) - 1.7 * rem);
   return Math.min(920, column * 0.92);
 }
 
 /** The melt-plate number band the window used to copy. */
 export function nixieMeltBandWidth(viewport: number): number {
   const rem = 16;
-  return Math.min(1040, viewport - 1.7 * rem) - 3 * rem;
+  return Math.min(1040, layoutViewport(viewport) - 1.7 * rem) - 3 * rem;
 }
 
 /**
@@ -166,9 +173,9 @@ export function nixieWindowWidth(viewport: number): number {
   return nixiePlateWidth(viewport);
 }
 
-/** 3px from phone widths through 5px on a desktop. */
+/** The phone gap. It does not open up on a wide screen. */
 export function nixieGap(viewport: number): number {
-  return Math.min(5, Math.max(3, viewport * 0.0035));
+  return Math.min(5, Math.max(3, layoutViewport(viewport) * 0.0035));
 }
 
 /** Equal share of the window after the gaps. This is the glass width. */
@@ -178,7 +185,7 @@ export function nixieTubeWidth(viewport: number): number {
 }
 
 export function nixieTubeHeight(viewport: number): number {
-  const font = Math.min(48, Math.max(28.8, viewport * 0.06));
+  const font = Math.min(48, Math.max(28.8, layoutViewport(viewport) * 0.06));
   return font * NIXIE_HEIGHT_OVER_FONT;
 }
 
