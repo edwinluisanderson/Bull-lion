@@ -164,6 +164,7 @@ export function NixieReadout({
       data-slots={centered ? columns.length : undefined}
       data-cycling={cycling ? "true" : "false"}
     >
+      <div className="nixie-plate" aria-hidden="true" />
       <div className={tubesClass}>
         {columns.map((column) => (
           <Tube

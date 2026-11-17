@@ -107,6 +107,10 @@ test("the bottom-plate nixie follows the same melt state as the plate", () => {
   assert.match(css, /transition-delay:\s*var\(--nixie-delay\)/);
   assert.match(css, /\.nixie-cathode \{[^}]*0\.62s cubic-bezier\(0\.16, 0\.84, 0\.24, 1\)/);
   assert.match(css, /\.nixie-tube \{[^}]*--nixie-h:\s*clamp\(64px, 8vw, 104px\)/);
+  assert.match(css, /\.nixie-plate \{[^}]*background:\s*#000/);
+  assert.match(css, /\.nixie-plate \{[^}]*top:\s*-4px/);
+  assert.match(css, /\.nixie-plate \{[^}]*left:\s*-8px/);
+  assert.match(nixie, /className="nixie-plate"/);
   assert.match(css, /\.gear-panel-nixie \{[^}]*bottom:\s*58px/);
   assert.match(css, /\.gear-panel-nixie \{[^}]*left:\s*50%/);
   assert.match(css, /\.nixie-tubes\.is-cycling \.nixie-cathode,[\s\S]*?transition:\s*none/);

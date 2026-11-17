@@ -1037,7 +1037,8 @@ button,
   transform: none;
 }
 
-.gear-panel-nixie.is-centered .nixie-window {
+.gear-panel-nixie.is-centered .nixie-window,
+.gear-panel-nixie.is-centered .nixie-plate {
   right: 0;
   left: 0;
 }
@@ -1050,6 +1051,18 @@ button,
   left: 0;
   display: flex;
   justify-content: center;
+  pointer-events: none;
+}
+
+.nixie-plate {
+  position: absolute;
+  z-index: -1;
+  top: -4px;
+  right: -8px;
+  bottom: -4px;
+  left: -8px;
+  border-radius: 8px;
+  background: #000;
   pointer-events: none;
 }
 
