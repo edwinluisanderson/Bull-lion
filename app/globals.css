@@ -1054,15 +1054,27 @@ button,
   pointer-events: none;
 }
 
-.gear-panel-nixie-live {
+.scrap-readout {
   position: absolute;
   z-index: 3;
   right: 0;
   bottom: 22px;
   left: 0;
   display: flex;
+  height: 4.8rem;
+  align-items: stretch;
   justify-content: center;
   pointer-events: none;
+}
+
+.scrap-readout .readout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: calc(100% - 3rem);
+  height: 4.8rem;
+  margin: 0;
 }
 
 .nixie-bezel {
@@ -1104,7 +1116,7 @@ button,
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2.8px;
 }
 
 .nixie-tube {
@@ -1152,7 +1164,7 @@ button,
 
 .nixie-glow {
   stroke: #ff7a1a;
-  stroke-width: 1.6px;
+  stroke-width: 1.75px;
   opacity: 0;
   transition: opacity 0.62s cubic-bezier(0.16, 0.84, 0.24, 1);
   transition-delay: var(--nixie-delay);
@@ -1180,7 +1192,7 @@ button,
 
 .is-on .nixie-cathode {
   stroke: #ff7a1a;
-  stroke-width: 1.7;
+  stroke-width: 1.85;
   stroke-dasharray: none;
   opacity: 1;
 }
@@ -1207,7 +1219,7 @@ button,
 }
 
 .nixie-tubes.is-centered {
-  gap: 3px;
+  gap: 2.8px;
   width: 100%;
 }
 
@@ -1310,12 +1322,22 @@ button,
 }
 
 .melt-digits {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
+  min-width: 0;
   min-height: 4.8rem;
   margin: 0;
+}
+
+.melt-digits .nixie-bezel {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 100%;
+  transform: translateX(-50%);
 }
 
 .melt-plate .tagline {

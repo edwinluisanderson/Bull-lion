@@ -8,6 +8,8 @@ import {
   NIXIE_DIGIT_PLACES,
   NIXIE_DIGITS,
   NIXIE_DOLLAR,
+  NIXIE_DIGIT_NARROW,
+  NIXIE_DIGIT_SCALE,
   NIXIE_HEIGHT_OVER_FONT,
   NIXIE_IGNITE_MS,
   NIXIE_SPOT_HEADROOM,
@@ -122,20 +124,26 @@ test("the centered nixie fits the largest melt value", () => {
   assert.equal(nixieCentered(label).length, label.length);
 });
 
-test("the bottom-plate nixie follows the same melt state as the plate", () => {
-  assert.equal(machine.includes("NixieReadout centered"), false);
+test("the melt-plate nixie follows the same melt state as the plate", () => {
+  assert.equal(machine.includes("NixieReadout"), false);
   assert.match(
     machine,
-    /<NixieReadout spinning=\{spinning\} value=\{metal \? formatWholeDollars\(meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)\) : "—"\} \/>/,
+    /<RollingPrice value=\{metal \? formatWholeDollars\(meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)\) : "—"\} \/>/,
   );
-  assert.equal((machine.match(/<NixieReadout /g) ?? []).length, 1);
+  assert.match(css, /\.scrap-readout \{[^}]*bottom:\s*22px/);
+  assert.match(css, /\.scrap-readout \.readout \{[^}]*width:\s*calc\(100% - 3rem\)/);
+  assert.match(css, /\.scrap-readout \.readout \{[^}]*height:\s*4\.8rem/);
   assert.match(nixie, /nixieSlots\(shownValue, NIXIE_SLOT_COUNT\)/);
   assert.match(css, /\.gear-panel-nixie \{[^}]*width:\s*100%/);
-  assert.match(css, /\.gear-panel-nixie-live \{[^}]*justify-content:\s*center/);
+  assert.match(css, /\.melt-digits \.nixie-bezel \{[^}]*width:\s*100%/);
   assert.match(css, /\.nixie-tubes\.is-centered \.nixie-tube \{[^}]*flex:\s*1 1 0/);
   assert.equal(NIXIE_HEIGHT_OVER_FONT, 2.497);
+  assert.equal(NIXIE_DIGIT_SCALE, 2.08);
+  assert.equal(NIXIE_DIGIT_NARROW, 0.78);
+  assert.match(nixie, /transform=\{NIXIE_DIGIT_FRAME\}/);
+  assert.match(css, /\.is-on \.nixie-cathode \{[^}]*stroke-width:\s*1\.85/);
   assert.equal(NIXIE_TUBE_ASPECT, 0.238);
-  assert.match(css, /\.nixie-tubes\.is-centered \{[^}]*gap:\s*3px/);
+  assert.match(css, /\.nixie-tubes\.is-centered \{[^}]*gap:\s*2\.8px/);
   assert.match(css, /\.nixie-face \{[^}]*width:\s*calc\(var\(--nixie-h\) \* 0\.238\)/);
   assert.equal(NIXIE_NARROW_FACE_ASPECT, 0.184);
   assert.match(css, /@media \(max-width: 370px\) \{[^}]*\.nixie-face \{[^}]*width:\s*calc\(var\(--nixie-h\) \* 0\.184\)/);
@@ -160,8 +168,9 @@ test("the bottom-plate nixie follows the same melt state as the plate", () => {
   assert.equal(nixiePlateWidth(1440), nixiePlateWidth(390));
   assert.equal(nixieGap(1440), nixieGap(390));
   assert.match(readout, /const total = meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)/);
-  assert.match(readout, /<RollingPrice value=\{formatWholeDollars\(total\)\} \/>/);
-  assert.equal(readout.includes("NixieReadout"), false);
+  assert.match(readout, /<NixieReadout spinning=\{spinning\} value=\{formatWholeDollars\(total\)\} \/>/);
+  assert.equal(readout.includes("RollingPrice"), false);
+  assert.match(readout, /Live wire/);
   assert.equal(NIXIE_IGNITE_MS, 620);
   assert.equal(NIXIE_STAGGER_MS, 50);
   assert.equal(NIXIE_CYCLE_MS, 60);
