@@ -88,14 +88,16 @@ test("the test nixie mirrors the melt value and lights only the needed cathodes"
   assert.equal(textOf(nixieSlots("$9,999,999", 13)), "·$9,999,999··");
 });
 
-test("the scrap plate is the same width as the melt plate", () => {
-  assert.match(css, /\.gear-panel \{[^}]*width:\s*calc\(100% - 1\.8rem\)/);
-  assert.match(css, /\.melt-stack \{[^}]*margin:\s*0\.35rem 0\.9rem 0/);
+test("the scrap plate is the same width as the cabinet", () => {
+  assert.match(
+    css,
+    /\.cabinet,\s*\.gear-panel \{\s*width:\s*auto;\s*margin-right:\s*0;\s*margin-left:\s*0;/,
+  );
   assert.match(css, /\.melt-plate \{[^}]*width:\s*100%/);
   for (const [viewport, width] of [
-    [320, 264],
-    [390, 334],
-    [1440, 334],
+    [320, 292.8],
+    [390, 362.8],
+    [1440, 362.8],
   ] as const) {
     assert.ok(
       Math.abs(nixiePlateWidth(viewport) - width) < 0.05,
@@ -139,8 +141,13 @@ test("the bottom-plate nixie follows the same melt state as the plate", () => {
   assert.match(css, /@media \(max-width: 370px\) \{[^}]*\.nixie-face \{[^}]*width:\s*calc\(var\(--nixie-h\) \* 0\.184\)/);
   assert.match(nixie, /className="nixie-bezel"/);
   assert.match(css, /\.nixie-bezel \{[^}]*border-radius:\s*14px/);
-  assert.match(css, /\.nixie-bezel \{[^}]*padding:\s*0\.7rem 0\.9rem/);
-  assert.match(css, /\.nixie-bezel \{[^}]*width:\s*calc\(100% - 1\.2rem\)/);
+  assert.match(css, /\.nixie-bezel \{[^}]*height:\s*4\.8rem/);
+  assert.match(css, /\.nixie-bezel \{[^}]*padding:\s*10px/);
+  assert.match(css, /\.nixie-bezel \{[^}]*overflow:\s*hidden/);
+  assert.match(css, /\.nixie-viewport \{[^}]*overflow:\s*hidden/);
+  assert.equal(nixie.includes("nixie-window"), false);
+  assert.equal(css.includes(".nixie-window"), false);
+  assert.match(css, /\.nixie-bezel \{[^}]*width:\s*calc\(100% - 2 \* var\(--plate-face-inset\)\)/);
   assert.match(css, /\.nixie-bezel \{[^}]*inset 0 0 0 2px #6e5318/);
   assert.match(css, /\.nixie-bezel \{[^}]*inset 0 0 0 4px #e6cb82/);
   assert.match(css, /\.nixie-bezel \{[^}]*inset 0 0 0 7px #3a2a14/);

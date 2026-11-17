@@ -152,14 +152,10 @@ function layoutViewport(viewport: number): number {
   return Math.min(viewport, PHONE_LAYOUT);
 }
 
-/**
- * The scrap plate matches the melt plate inside the phone column:
- * that column minus the melt stack's 0.9rem side margins.
- */
+/** The scrap plate matches the cabinet: the full phone column. */
 export function nixiePlateWidth(viewport: number): number {
   const rem = 16;
-  const column = Math.min(1040, layoutViewport(viewport) - 1.7 * rem);
-  return column - 1.8 * rem;
+  return Math.min(1040, layoutViewport(viewport) - 1.7 * rem);
 }
 
 /** The melt-plate number band the window used to copy. */

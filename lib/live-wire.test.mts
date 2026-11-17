@@ -24,7 +24,7 @@ test("the live wire sits under the stack line inside the melt plate", () => {
   const plateLamp = css.slice(css.indexOf(".melt-plate .lamp,"));
   assert.match(plateLamp, /\.melt-plate \.lamp,\s*\.melt-plate \.lamp span \{\s*color:\s*#3a2710;/);
   assert.match(css, /\.melt-plate \.lamp \{[^}]*position:\s*absolute;/);
-  assert.match(css, /\.melt-plate \.lamp \{[^}]*bottom:\s*6px;/);
+  assert.match(css, /\.melt-plate \.lamp \{[^}]*bottom:\s*14px;/);
   assert.match(css, /\.eyebrow,\s*\.tagline,\s*\.plate-title \{\s*color:\s*#3a2710;/);
 });
 
