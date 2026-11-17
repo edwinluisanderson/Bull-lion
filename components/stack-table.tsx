@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { SplitFlap } from "@/components/split-flap";
+import { SwipeCard } from "@/components/swipe-card";
 import { unlockReelClick } from "@/lib/reel-click";
 import {
   FLAP_DESCRIPTION_INLINE,
@@ -63,6 +64,7 @@ export function StackTable({
   const [ready, setReady] = useState(false);
   const [pending, setPending] = useState<StackDraft | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [shift, setShift] = useState<StackFace[][] | null>(null);
   const [shiftStep, setShiftStep] = useState(0);
   const finalRef = useRef<StackLine[] | null>(null);
@@ -251,8 +253,26 @@ export function StackTable({
             </button>
           );
           return (
-            <li
+            <SwipeCard
               key={index}
+              id={line ? `${line.id}-${index}` : `blank-${index}`}
+              label={line?.description ?? "entry"}
+              open={line != null && openId === line.id}
+              locked={shift !== null || blank}
+              onOpen={() => {
+                if (line) setOpenId(line.id);
+              }}
+              onClose={() => {
+                if (!line) return;
+                setOpenId((current) => (current === line.id ? null : current));
+              }}
+              onDelete={() => {
+                if (!line || shift) return;
+                setOpenId((current) => (current === line.id ? null : current));
+                setLines(removeLine(lines, line.id));
+              }}
+            >
+            <div
               className="stack-card"
               data-rows={longDescription ? 3 : 2}
               style={{
@@ -302,7 +322,8 @@ export function StackTable({
                 )}
                 {longDescription ? null : remove}
               </div>
-            </li>
+            </div>
+            </SwipeCard>
           );
         })}
       </ul>

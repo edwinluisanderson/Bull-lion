@@ -75,6 +75,31 @@ function clickBuffer(ctx: AudioContext): AudioBuffer | null {
   }
 }
 
+/** Brass tick as the card crosses the track detent, or the heavier delete clunk. */
+export function playSwipeTone(kind: "detent" | "clunk"): void {
+  if (!spinSoundEnabled()) return;
+  try {
+    const ctx = reelAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") void ctx.resume().catch(() => {});
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const clunk = kind === "clunk";
+    osc.type = clunk ? "sine" : "triangle";
+    osc.frequency.setValueAtTime(clunk ? 150 : 880, now);
+    osc.frequency.exponentialRampToValueAtTime(clunk ? 70 : 420, now + (clunk ? 0.09 : 0.04));
+    gain.gain.setValueAtTime(clunk ? 0.34 : 0.16, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + (clunk ? 0.12 : 0.05));
+    osc.connect(gain);
+    gain.connect(flapSum(ctx));
+    osc.start(now);
+    osc.stop(now + (clunk ? 0.13 : 0.06));
+  } catch {
+    /* Audio is optional. */
+  }
+}
+
 /** One mechanical tick on the shared reel context. Silent when sound is off, and throttled. */
 export function playFlapSound(now = typeof performance !== "undefined" ? performance.now() : Date.now()): boolean {
   if (!spinSoundEnabled()) return false;
