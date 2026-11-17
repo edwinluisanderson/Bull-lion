@@ -130,8 +130,12 @@ test("the scrap-plate nixie follows the same melt state as the rolling plate", (
     /<NixieReadout spinning=\{spinning\} value=\{metal \? formatWholeDollars\(meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)\) : "—"\} \/>/,
   );
   assert.equal(machine.includes("RollingPrice"), false);
-  assert.match(css, /\.gear-panel-nixie-live \{[^}]*bottom:\s*22px/);
+  assert.match(css, /\.gear-panel-nixie-live \{[^}]*--nixie-glass-overlap:\s*16px/);
+  assert.match(css, /\.gear-panel-nixie-live \{[^}]*bottom:\s*32px/);
   assert.match(nixie, /className="gear-panel-nixie-live"/);
+  assert.equal(nixie.includes("nixie-shell"), false);
+  assert.equal((nixie.match(/className="rivet"/g) ?? []).length, 4);
+  assert.match(nixie, /className="nixie-glass"/);
   assert.match(nixie, /nixieSlots\(shownValue, NIXIE_SLOT_COUNT\)/);
   assert.match(css, /\.gear-panel-nixie \{[^}]*width:\s*100%/);
   assert.equal(css.includes(".scrap-readout"), false);
@@ -148,17 +152,17 @@ test("the scrap-plate nixie follows the same melt state as the rolling plate", (
   assert.equal(NIXIE_NARROW_FACE_ASPECT, 0.184);
   assert.match(css, /@media \(max-width: 370px\) \{[^}]*\.nixie-face \{[^}]*width:\s*calc\(var\(--nixie-h\) \* 0\.184\)/);
   assert.match(nixie, /className="nixie-bezel"/);
-  assert.match(css, /\.nixie-bezel \{[^}]*border-radius:\s*14px/);
+  assert.match(css, /\.nixie-bezel \{[^}]*border-radius:\s*8px/);
   assert.match(css, /\.nixie-bezel \{[^}]*height:\s*4\.8rem/);
   assert.match(css, /\.nixie-bezel \{[^}]*padding:\s*10px/);
   assert.match(css, /\.nixie-bezel \{[^}]*overflow:\s*hidden/);
+  assert.match(css, /\.nixie-bezel \{[^}]*background:\s*#000/);
+  assert.match(css, /\.nixie-bezel \{[^}]*top:\s*var\(--nixie-glass-overlap\)/);
   assert.match(css, /\.nixie-viewport \{[^}]*overflow:\s*hidden/);
   assert.equal(nixie.includes("nixie-window"), false);
   assert.equal(css.includes(".nixie-window"), false);
-  assert.match(css, /\.nixie-bezel \{[^}]*width:\s*calc\(100% - 2 \* var\(--plate-face-inset\)\)/);
-  assert.match(css, /\.nixie-bezel \{[^}]*inset 0 0 0 2px #6e5318/);
-  assert.match(css, /\.nixie-bezel \{[^}]*inset 0 0 0 4px #e6cb82/);
-  assert.match(css, /\.nixie-bezel \{[^}]*inset 0 0 0 7px #3a2a14/);
+  assert.match(css, /\.nixie-glass \{[^}]*inset:\s*0/);
+  assert.match(css, /\.nixie-glass > \.rivet\[data-corner="tl"\] \{[^}]*top:\s*2px/);
   assert.match(css, /\.readout \{[^}]*border-radius:\s*14px/);
   assert.match(css, /\.readout \{[^}]*padding:\s*0\.7rem 0\.9rem/);
   assert.match(css, /\.readout \{[^}]*inset 0 0 0 7px #3a2a14/);

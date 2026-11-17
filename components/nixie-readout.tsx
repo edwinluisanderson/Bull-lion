@@ -19,23 +19,6 @@ import {
 
 const TUBE_VIEWBOX = "5.2 0 13.6 64";
 
-function Shell({ id }: { id: string }) {
-  return (
-    <svg className="nixie-shell" viewBox="0 0 10 64" preserveAspectRatio="none" aria-hidden="true">
-      <defs>
-        <linearGradient id={`${id}-glass`} x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.28" />
-          <stop offset="18%" stopColor="#d5e7ee" stopOpacity="0.08" />
-          <stop offset="58%" stopColor="#ffffff" stopOpacity="0.03" />
-          <stop offset="100%" stopColor="#ffffff" stopOpacity="0.16" />
-        </linearGradient>
-      </defs>
-      <rect x="0.35" y="1.1" width="9.3" height="61.8" rx="4.65" fill={`url(#${id}-glass)`} stroke="#f4fbff" strokeOpacity="0.42" strokeWidth="0.35" />
-      <rect x="1.15" y="6" width="1.15" height="52" rx="0.55" fill="#ffffff" fillOpacity="0.16" />
-    </svg>
-  );
-}
-
 function HaloDefs({ id }: { id: string }) {
   return (
     <defs>
@@ -66,7 +49,6 @@ function DigitTube({
   const delay = `${column.order * NIXIE_STAGGER_MS}ms`;
   return (
     <div className={spare ? "nixie-tube is-spare" : "nixie-tube"} data-kind="digit" data-digit={shown ?? ""} style={{ "--nixie-delay": delay } as CSSProperties}>
-      <Shell id={id} />
       <svg className="nixie-face" data-digit={shown ?? ""} viewBox={TUBE_VIEWBOX} preserveAspectRatio="none" aria-hidden="true">
         <HaloDefs id={id} />
         <g transform={NIXIE_DIGIT_FRAME}>
@@ -98,7 +80,6 @@ function SymbolTube({
   const id = useId().replace(/:/g, "");
   return (
     <div className={spare ? "nixie-tube is-spare" : "nixie-tube"} data-kind={kind} data-lit={lit ? "true" : "false"}>
-      <Shell id={id} />
       <svg className="nixie-face" viewBox={TUBE_VIEWBOX} preserveAspectRatio="none" aria-hidden="true">
         <HaloDefs id={id} />
         <g transform={NIXIE_DIGIT_FRAME}>
@@ -186,6 +167,12 @@ export function NixieReadout({
     <div className="gear-panel-nixie-live">
       <div className="nixie-bezel" aria-label={shownValue}>
         <div className="nixie-viewport">{row}</div>
+      </div>
+      <div className="nixie-glass" aria-hidden="true">
+        <span className="rivet" data-corner="tl" />
+        <span className="rivet" data-corner="tr" />
+        <span className="rivet" data-corner="bl" />
+        <span className="rivet" data-corner="br" />
       </div>
     </div>
   );
