@@ -183,10 +183,8 @@ export function NixieReadout({
     </div>
   );
   return (
-    <div className="gear-panel-nixie-live">
-      <div className="nixie-bezel">
-        <div className="nixie-viewport">{row}</div>
-      </div>
+    <div className="nixie-bezel" aria-label={shownValue}>
+      <div className="nixie-viewport">{row}</div>
     </div>
   );
 }

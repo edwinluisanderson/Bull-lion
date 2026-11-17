@@ -1054,15 +1054,27 @@ button,
   pointer-events: none;
 }
 
-.gear-panel-nixie-live {
+.scrap-readout {
   position: absolute;
   z-index: 3;
   right: 0;
   bottom: 22px;
   left: 0;
   display: flex;
+  height: 4.8rem;
+  align-items: stretch;
   justify-content: center;
   pointer-events: none;
+}
+
+.scrap-readout .readout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: calc(100% - 3rem);
+  height: 4.8rem;
+  margin: 0;
 }
 
 .nixie-bezel {
@@ -1310,12 +1322,22 @@ button,
 }
 
 .melt-digits {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
+  min-width: 0;
   min-height: 4.8rem;
   margin: 0;
+}
+
+.melt-digits .nixie-bezel {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: calc(100% + 3rem - 2 * var(--plate-face-inset));
+  transform: translateX(-50%);
 }
 
 .melt-plate .tagline {

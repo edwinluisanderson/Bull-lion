@@ -3,7 +3,7 @@
 import { useLayoutEffect, useState } from "react";
 
 import { AssayDialog, AssayInfoIcon } from "@/components/assay-dialog";
-import { RollingPrice } from "@/components/rolling-price";
+import { NixieReadout } from "@/components/nixie-readout";
 import { formatStamp, formatWholeDollars } from "@/lib/format";
 import { LIVE_WIRE_TICK_MS, liveWireState } from "@/lib/live-wire";
 import type { WeightSpec } from "@/lib/metals";
@@ -62,12 +62,9 @@ export function Readout({
           <p className="plate-title">{metal.name}</p>
           <p className="readout-kicker melt-kicker">Melt Price</p>
         </div>
-        <section
-          className={spinning ? "readout melt-digits is-spinning" : "readout melt-digits"}
-          aria-busy={spinning}
-        >
-          <RollingPrice value={formatWholeDollars(total)} />
-        </section>
+        <div className={spinning ? "melt-digits is-spinning" : "melt-digits"} aria-busy={spinning}>
+          <NixieReadout spinning={spinning} value={formatWholeDollars(total)} />
+        </div>
         <p className="tagline">{formatStackPhrase(weight, pieces)}</p>
         <p className="lamp" data-state={wire} data-testid="price-source">
           <i />
