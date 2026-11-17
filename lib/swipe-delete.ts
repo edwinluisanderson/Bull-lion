@@ -2,11 +2,11 @@
 export const SWIPE_REVEAL_PX = 88;
 /** Movement below this stays undecided so a vertical scroll can win. */
 export const SWIPE_AXIS_SLOP = 8;
-/** A hard fling, in CSS pixels per millisecond. */
-export const SWIPE_FLING_PX_PER_MS = 0.65;
+/** Ignore a lever click that is really the pointerup ending a drag. */
+export const LEVER_TAP_GUARD_MS = 400;
 
 export type SwipeAxis = "undecided" | "scroll" | "drag";
-export type SwipeEnd = "shut" | "open" | "delete";
+export type SwipeEnd = "shut" | "open";
 
 /** Horizontal intent drags the card. A taller move keeps the page scrolling. */
 export function lockSwipeAxis(dx: number, dy: number, slop = SWIPE_AXIS_SLOP): SwipeAxis {
@@ -21,15 +21,17 @@ export function clampSwipe(dx: number, reveal = SWIPE_REVEAL_PX): number {
 }
 
 /**
- * Past halfway stays open. A short drag shuts. A hard fling that reaches the
- * end of the track deletes.
+ * Past halfway stays open. Anything shorter snaps shut.
+ * Speed never deletes; the lever is the only swipe control that removes a card.
  */
-export function settleSwipe(offset: number, velocity: number, reveal = SWIPE_REVEAL_PX): SwipeEnd {
-  const place = clampSwipe(offset, reveal);
-  const flung = velocity >= SWIPE_FLING_PX_PER_MS && place >= reveal * 0.9;
-  if (flung) return "delete";
-  if (place >= reveal / 2) return "open";
+export function settleSwipe(offset: number, reveal = SWIPE_REVEAL_PX): SwipeEnd {
+  if (clampSwipe(offset, reveal) >= reveal / 2) return "open";
   return "shut";
+}
+
+/** A later tap on the lever deletes. The pointerup that ends the drag does not. */
+export function leverTapDeletes(msSinceDragEnd: number, guard = LEVER_TAP_GUARD_MS): boolean {
+  return msSinceDragEnd >= guard;
 }
 
 /** The brass detent sits at halfway. Play the click once each time it is crossed. */
