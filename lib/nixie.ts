@@ -126,10 +126,12 @@ export function nixieCentered(formatted: string): NixieColumn[] {
  */
 export const NIXIE_HEIGHT_OVER_FONT = 2.497;
 /**
- * Tube width over height. The viewBox is cropped to 16×64 and then stretched
- * on x so an 8 is about 14.6px wide at the 28.8px readout size.
+ * Tube width over height. The viewBox is cropped to 13.6×64, just outside the
+ * digit stroke, then stretched on x so an 8 stays about 14.6px wide.
  */
-export const NIXIE_TUBE_ASPECT = 0.28;
+export const NIXIE_TUBE_ASPECT = 0.238;
+/** Gap between capsules, as a fraction of tube height. About 3px at phone size. */
+export const NIXIE_GAP_OVER_HEIGHT = 0.0417;
 /** USD per troy ounce, about 2.5× the sample gold quote, so the row has headroom. */
 export const NIXIE_SPOT_HEADROOM = 10_000;
 
@@ -143,15 +145,25 @@ export function maxMeltLabel(): string {
   return formatWholeDollars(maxMeltAmount());
 }
 
+/** The scrap plate: 92% of the workshop column, and never more than 920px. */
+export function nixiePlateWidth(viewport: number): number {
+  const rem = 16;
+  const column = Math.min(1040, viewport - 1.7 * rem);
+  return Math.min(920, column * 0.92);
+}
+
+/** The melt-plate number band the window used to copy. */
+export function nixieMeltBandWidth(viewport: number): number {
+  const rem = 16;
+  return Math.min(1040, viewport - 1.7 * rem) - 3 * rem;
+}
+
 /**
- * The centered window: the melt-band formula, and never wider than the scrap plate.
- * The plate is min(92% of the viewport, 920px).
+ * The Nixie window. It may run wider than the melt band, inset 4px from each
+ * side of the scrap plate so the tubes are not crammed into the old band.
  */
 export function nixieWindowWidth(viewport: number): number {
-  const rem = 16;
-  const band = Math.min(1040, viewport - 1.7 * rem) - 3 * rem;
-  const plate = Math.min(viewport * 0.92, 920);
-  return Math.min(band, plate);
+  return nixiePlateWidth(viewport) - 8;
 }
 
 export function nixieTubeHeight(viewport: number): number {
@@ -159,10 +171,12 @@ export function nixieTubeHeight(viewport: number): number {
   return font * NIXIE_HEIGHT_OVER_FONT;
 }
 
-/** How many equal tubes fit a window. Tubes are not stretched, so this floors. */
+/** How many separated tubes fit a window. Tubes are not stretched, so this floors. */
 export function nixieTubeCount(windowWidth: number, tubeHeight: number): number {
   if (!(windowWidth > 0) || !(tubeHeight > 0)) return 1;
-  return Math.max(1, Math.floor(windowWidth / (tubeHeight * NIXIE_TUBE_ASPECT)));
+  const tubeWidth = tubeHeight * NIXIE_TUBE_ASPECT;
+  const gap = tubeHeight * NIXIE_GAP_OVER_HEIGHT;
+  return Math.max(1, Math.floor((windowWidth + gap) / (tubeWidth + gap)));
 }
 
 /**

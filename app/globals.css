@@ -1028,7 +1028,7 @@ button,
 .gear-panel-nixie {
   position: relative;
   z-index: 3;
-  width: min(100%, calc(min(1040px, 100vw - 1.7rem) - 3rem));
+  width: calc(100% - 8px);
   max-width: 100%;
   pointer-events: none;
 }
@@ -1074,9 +1074,9 @@ button,
   --nixie-delay: 0ms;
   --nixie-h: calc(clamp(1.8rem, 6vw, 3rem) * 2.497);
   display: block;
-  width: calc(var(--nixie-h) * 0.28);
+  width: calc(var(--nixie-h) * 0.238);
   height: var(--nixie-h);
-  overflow: visible;
+  overflow: hidden;
 }
 
 .nixie-window {
@@ -1161,13 +1161,14 @@ button,
 }
 
 .nixie-tubes.is-centered {
-  gap: 0;
+  --nixie-h: calc(clamp(1.8rem, 6vw, 3rem) * 2.497);
+  gap: calc(var(--nixie-h) * 0.0417);
   width: 100%;
 }
 
 .nixie-tubes.is-centered .nixie-tube {
   flex: 0 0 auto;
-  width: calc(var(--nixie-h) * 0.28);
+  width: calc(var(--nixie-h) * 0.238);
   min-width: 0;
   margin-right: 0;
 }

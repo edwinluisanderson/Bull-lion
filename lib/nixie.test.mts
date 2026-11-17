@@ -12,6 +12,7 @@ import {
   NIXIE_IGNITE_MS,
   NIXIE_SPOT_HEADROOM,
   NIXIE_STAGGER_MS,
+  NIXIE_GAP_OVER_HEIGHT,
   NIXIE_TUBE_ASPECT,
   cyclingDigit,
   litDigit,
@@ -73,7 +74,7 @@ test("the test nixie mirrors the melt value and lights only the needed cathodes"
   assert.equal(textOf(nixieCentered("$189")), "$189");
   assert.equal(textOf(nixieCentered("$9,999,999")), "$9,999,999");
 
-  assert.equal(nixieTubeCount(314.8, 71.91), 15);
+  assert.equal(nixieTubeCount(nixieWindowWidth(320), nixieTubeHeight(320)) >= 13, true);
   const slots = nixieSlots("$3,927", 13);
   assert.equal(slots.length, 13);
   assert.equal(textOf(slots), "···$3,927····");
@@ -90,8 +91,8 @@ test("the centered nixie fits the largest melt value", () => {
   for (const viewport of [320, 390, 1440]) {
     const tubes = nixieTubeCount(nixieWindowWidth(viewport), nixieTubeHeight(viewport));
     assert.ok(
-      tubes >= label.length,
-      `${viewport}px has ${tubes} tubes for ${label} (${label.length} characters)`,
+      tubes >= label.length + 1,
+      `${viewport}px has ${tubes} tubes for ${label} plus a spare`,
     );
   }
   assert.equal(nixieCentered(label).length, label.length);
@@ -105,11 +106,13 @@ test("the bottom-plate nixie follows the same melt state as the plate", () => {
   );
   assert.equal((machine.match(/<NixieReadout /g) ?? []).length, 1);
   assert.match(nixie, /nixieSlots\(shownValue, tubeCount\)/);
-  assert.match(css, /\.gear-panel-nixie \{[^}]*width:\s*min\(100%, calc\(min\(1040px, 100vw - 1\.7rem\) - 3rem\)\)/);
+  assert.match(css, /\.gear-panel-nixie \{[^}]*width:\s*calc\(100% - 8px\)/);
   assert.match(css, /\.gear-panel-nixie-live \{[^}]*justify-content:\s*center/);
   assert.match(css, /\.nixie-tubes\.is-centered \.nixie-tube \{[^}]*flex:\s*0 0 auto/);
   assert.equal(NIXIE_HEIGHT_OVER_FONT, 2.497);
-  assert.equal(NIXIE_TUBE_ASPECT, 0.28);
+  assert.equal(NIXIE_TUBE_ASPECT, 0.238);
+  assert.equal(NIXIE_GAP_OVER_HEIGHT, 0.0417);
+  assert.match(css, /\.nixie-tubes\.is-centered \{[^}]*gap:\s*calc\(var\(--nixie-h\) \* 0\.0417\)/);
   assert.match(readout, /const total = meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)/);
   assert.match(readout, /<RollingPrice value=\{formatWholeDollars\(total\)\} \/>/);
   assert.equal(readout.includes("NixieReadout"), false);

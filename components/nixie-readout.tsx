@@ -17,7 +17,7 @@ import {
   type NixieColumn,
 } from "@/lib/nixie";
 
-const TUBE_VIEWBOX = "4 0 16 64";
+const TUBE_VIEWBOX = "5.2 0 13.6 64";
 
 function Glass({ id }: { id: string }) {
   return (
@@ -35,8 +35,8 @@ function Glass({ id }: { id: string }) {
           <stop offset="100%" stopColor="#ff7a1a" stopOpacity="0" />
         </radialGradient>
       </defs>
-      <rect x="2.2" y="1.2" width="19.6" height="61.6" rx="9.8" fill={`url(#${id}-glass)`} stroke="#f4fbff" strokeOpacity="0.42" strokeWidth="0.7" />
-      <rect x="4.1" y="6" width="2.4" height="52" rx="1.2" fill="#ffffff" fillOpacity="0.16" />
+      <rect x="5.35" y="1.2" width="13.3" height="61.6" rx="6.65" fill={`url(#${id}-glass)`} stroke="#f4fbff" strokeOpacity="0.42" strokeWidth="0.55" />
+      <rect x="6.3" y="6" width="1.5" height="52" rx="0.75" fill="#ffffff" fillOpacity="0.16" />
     </>
   );
 }
