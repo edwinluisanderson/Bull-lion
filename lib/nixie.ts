@@ -145,11 +145,14 @@ export function maxMeltLabel(): string {
   return formatWholeDollars(maxMeltAmount());
 }
 
-/** The scrap plate: 92% of the workshop column, and never more than 920px. */
+/**
+ * The scrap plate matches the melt plate: the workshop column minus the
+ * melt stack's 0.9rem side margins (1.8rem).
+ */
 export function nixiePlateWidth(viewport: number): number {
   const rem = 16;
   const column = Math.min(1040, viewport - 1.7 * rem);
-  return Math.min(920, column * 0.92);
+  return column - 1.8 * rem;
 }
 
 /** The melt-plate number band the window used to copy. */
@@ -159,11 +162,20 @@ export function nixieMeltBandWidth(viewport: number): number {
 }
 
 /**
- * The Nixie window fills the scrap plate. That is wider than the melt band
- * on a phone, and on a desktop the plate itself is the limit.
+ * The tube row sits inside the copied melt ring: 0.6rem in from the plate,
+ * then the readout's 0.9rem padding, on each side.
  */
 export function nixieWindowWidth(viewport: number): number {
-  return nixiePlateWidth(viewport);
+  const rem = 16;
+  return nixiePlateWidth(viewport) - 3 * rem;
+}
+
+/** Narrower cathodes where the ring leaves less than a full-size face. */
+export const NIXIE_NARROW_MAX_WIDTH = 370;
+export const NIXIE_NARROW_FACE_ASPECT = 0.184;
+
+export function nixieFaceAspect(viewport: number): number {
+  return viewport <= NIXIE_NARROW_MAX_WIDTH ? NIXIE_NARROW_FACE_ASPECT : NIXIE_TUBE_ASPECT;
 }
 
 /** 3px from phone widths through 5px on a desktop. */
@@ -179,7 +191,8 @@ export function nixieTubeWidth(viewport: number): number {
 
 export function nixieTubeHeight(viewport: number): number {
   const font = Math.min(48, Math.max(28.8, viewport * 0.06));
-  return font * NIXIE_HEIGHT_OVER_FONT;
+  const factor = viewport >= 900 ? 3.62 : NIXIE_HEIGHT_OVER_FONT;
+  return font * factor;
 }
 
 /** The centered row always holds the maximum value plus one spare tube. */
