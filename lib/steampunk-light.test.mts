@@ -66,6 +66,10 @@ test("three full caged lamps replace the dots under the wheels", () => {
   assert.match(machine, /pulseWheelLamp\(2\)/);
   assert.match(css, /\.wheel-lamps \{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
   assert.match(css, /\.wheel-lamps \.steampunk-light \{[^}]*width:\s*36px/);
+  assert.match(css, /\.gear-panel \.steampunk-light \{[^}]*width:\s*36px/);
+  assert.match(css, /\.gear-panel \.steampunk-light \{[^}]*height:\s*36px/);
+  assert.match(css, /\.gear-panel-lighthouse \{[^}]*width:\s*36px/);
+  assert.match(css, /\.gear-panel-cast \{[^}]*width:\s*36px/);
   assert.match(lamps, /prefers-reduced-motion: reduce/);
   assert.match(lamps, /REDUCED_LEVEL = 1/);
 });

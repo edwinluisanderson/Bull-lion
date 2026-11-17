@@ -971,13 +971,19 @@ button,
   overflow: visible;
 }
 
+/* Same cage as the three lamps under the wheels. */
+.gear-panel .steampunk-light {
+  width: 36px;
+  height: 36px;
+}
+
 .gear-panel-lighthouse {
   position: absolute;
   z-index: 2;
   bottom: 14px;
   left: 50%;
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   transform: translateX(-50%);
   pointer-events: none;
 }
@@ -1015,8 +1021,8 @@ button,
   z-index: 2;
   bottom: 20px;
   left: 22%;
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   pointer-events: none;
 }
 
