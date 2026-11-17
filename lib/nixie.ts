@@ -159,11 +159,11 @@ export function nixieMeltBandWidth(viewport: number): number {
 }
 
 /**
- * The Nixie window fills the scrap plate. That is wider than the melt band
- * on a phone, and on a desktop the plate itself is the limit.
+ * The Nixie window is the melt-plate number band inside its brass bezel.
+ * Eight pixels of padding on each side keep the glass off that frame.
  */
 export function nixieWindowWidth(viewport: number): number {
-  return nixiePlateWidth(viewport);
+  return nixieMeltBandWidth(viewport) - 16;
 }
 
 /** 3px from phone widths through 5px on a desktop. */
@@ -179,7 +179,13 @@ export function nixieTubeWidth(viewport: number): number {
 
 export function nixieTubeHeight(viewport: number): number {
   const font = Math.min(48, Math.max(28.8, viewport * 0.06));
-  return font * NIXIE_HEIGHT_OVER_FONT;
+  const factor = viewport >= 900 ? 3.62 : NIXIE_HEIGHT_OVER_FONT;
+  return font * factor;
+}
+
+/** Face width over tube height. Narrower at 320px so the digit stays off the glass. */
+export function nixieFaceAspect(viewport: number): number {
+  return viewport <= 340 ? 0.205 : NIXIE_TUBE_ASPECT;
 }
 
 /** The centered row always holds the maximum value plus one spare tube. */

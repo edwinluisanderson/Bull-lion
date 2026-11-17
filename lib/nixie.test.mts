@@ -14,6 +14,7 @@ import {
   NIXIE_STAGGER_MS,
   NIXIE_SLOT_COUNT,
   NIXIE_TUBE_ASPECT,
+  nixieFaceAspect,
   nixieGap,
   nixieTubeWidth,
   cyclingDigit,
@@ -93,7 +94,7 @@ test("the centered nixie fits the largest melt value", () => {
   assert.equal(NIXIE_SLOT_COUNT, label.length + 1);
   for (const viewport of [320, 390, 1440]) {
     const glass = nixieTubeWidth(viewport);
-    const face = nixieTubeHeight(viewport) * NIXIE_TUBE_ASPECT;
+    const face = nixieTubeHeight(viewport) * nixieFaceAspect(viewport);
     assert.equal(nixieTubeCount(), 13);
     assert.ok(glass > face, `${viewport}px glass ${glass} is not wider than the digit face ${face}`);
     assert.ok(nixieGap(viewport) >= 3 && nixieGap(viewport) <= 5);
@@ -102,15 +103,12 @@ test("the centered nixie fits the largest melt value", () => {
 });
 
 test("the bottom-plate nixie follows the same melt state as the plate", () => {
-  assert.equal(machine.includes("NixieReadout centered"), false);
-  assert.match(
-    machine,
-    /<NixieReadout spinning=\{spinning\} value=\{metal \? formatWholeDollars\(meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)\) : "—"\} \/>/,
-  );
-  assert.equal((machine.match(/<NixieReadout /g) ?? []).length, 1);
+  assert.match(machine, /<RollingPrice value=\{metal \? formatWholeDollars\(meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)\) : "—"\} \/>/);
+  assert.equal(machine.includes("NixieReadout"), false);
   assert.match(nixie, /nixieSlots\(shownValue, NIXIE_SLOT_COUNT\)/);
   assert.match(css, /\.gear-panel-nixie \{[^}]*width:\s*100%/);
-  assert.match(css, /\.gear-panel-nixie-live \{[^}]*justify-content:\s*center/);
+  assert.match(css, /\.melt-digits \{[^}]*padding-right:\s*8px/);
+  assert.match(css, /\.scrap-readout \{[^}]*justify-content:\s*center/);
   assert.match(css, /\.nixie-tubes\.is-centered \.nixie-tube \{[^}]*flex:\s*1 1 0/);
   assert.equal(NIXIE_HEIGHT_OVER_FONT, 2.497);
   assert.equal(NIXIE_TUBE_ASPECT, 0.238);
@@ -119,8 +117,8 @@ test("the bottom-plate nixie follows the same melt state as the plate", () => {
   assert.match(css, /@media \(max-width: 340px\) \{[^}]*\.nixie-face \{[^}]*width:\s*calc\(var\(--nixie-h\) \* 0\.205\)/);
   assert.match(css, /@media \(min-width: 900px\) \{[^}]*--nixie-h:\s*calc\(clamp\(1\.8rem, 6vw, 3rem\) \* 3\.62\)/);
   assert.match(readout, /const total = meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)/);
-  assert.match(readout, /<RollingPrice value=\{formatWholeDollars\(total\)\} \/>/);
-  assert.equal(readout.includes("NixieReadout"), false);
+  assert.match(readout, /<NixieReadout spinning=\{spinning\} value=\{formatWholeDollars\(total\)\} \/>/);
+  assert.equal(readout.includes("RollingPrice"), false);
   assert.equal(NIXIE_IGNITE_MS, 620);
   assert.equal(NIXIE_STAGGER_MS, 50);
   assert.equal(NIXIE_CYCLE_MS, 60);
