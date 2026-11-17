@@ -3,8 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 
 import { pullStage, stageBendDegrees, type PullStage } from "@/lib/drum";
-import { PULL_BALL_INK, pullBarSpan } from "@/lib/pull-bar";
-import { PULL_EMBOSS, PULL_WORD_EDGE_OPACITY, PULL_WORD_PATH, PULL_WORD_SHADE } from "@/lib/pull-word";
+import { pullBarSpan } from "@/lib/pull-bar";
+import {
+  PULL_EMBOSS,
+  PULL_WORD_BRASS,
+  PULL_WORD_EDGE_OPACITY,
+  PULL_WORD_PATH,
+  PULL_WORD_SHADE,
+} from "@/lib/pull-word";
 import { unlockReelClick, reelSnap } from "@/lib/reel-click";
 import { armSpinOverlay } from "@/lib/spin-overlay";
 
@@ -216,9 +222,20 @@ export function PullBall({
             y1="50"
             y2="50"
           >
-            <stop offset="0" stopColor={PULL_BALL_INK} stopOpacity={PULL_WORD_EDGE_OPACITY} />
-            <stop offset="0.5" stopColor={PULL_BALL_INK} stopOpacity="1" />
-            <stop offset="1" stopColor={PULL_BALL_INK} stopOpacity={PULL_WORD_EDGE_OPACITY} />
+            <stop offset="0" stopColor={PULL_WORD_BRASS} stopOpacity={PULL_WORD_EDGE_OPACITY} />
+            <stop offset="0.5" stopColor={PULL_WORD_BRASS} stopOpacity="1" />
+            <stop offset="1" stopColor={PULL_WORD_BRASS} stopOpacity={PULL_WORD_EDGE_OPACITY} />
+          </linearGradient>
+          <linearGradient
+            id="pull-letter-shade"
+            gradientUnits="userSpaceOnUse"
+            x1="50"
+            x2="50"
+            y1={PULL_WORD_SHADE.y1}
+            y2={PULL_WORD_SHADE.y2}
+          >
+            <stop offset="0" stopColor={PULL_EMBOSS.shade} stopOpacity={PULL_EMBOSS.shadeOpacity} />
+            <stop offset="0.62" stopColor={PULL_EMBOSS.shade} stopOpacity="0" />
           </linearGradient>
           <clipPath id="pull-letter-clip">
             <path d={PULL_WORD_PATH} fillRule="nonzero" />
@@ -245,6 +262,7 @@ export function PullBall({
             fill="url(#pull-sphere-ink)"
             fillRule="nonzero"
           />
+          <path d={PULL_WORD_PATH} fill="url(#pull-letter-shade)" fillRule="nonzero" />
           <path
             d={PULL_WORD_PATH}
             transform={`translate(${PULL_EMBOSS.lightX} ${PULL_EMBOSS.lightY})`}
