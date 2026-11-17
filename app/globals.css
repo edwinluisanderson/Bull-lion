@@ -1039,19 +1039,15 @@ button,
   left: 0;
 }
 
-.scrap-readout {
+.gear-panel-nixie-live {
   position: absolute;
   z-index: 3;
   right: 0;
-  bottom: 28px;
+  bottom: 22px;
   left: 0;
   display: flex;
   justify-content: center;
   pointer-events: none;
-}
-
-.scrap-readout .rolling-price {
-  margin: 0;
 }
 
 .nixie-plate {
@@ -1114,6 +1110,9 @@ button,
     --nixie-h: calc(clamp(1.8rem, 6vw, 3rem) * 3.62);
   }
 
+  .gear-panel {
+    min-height: 540px;
+  }
 }
 
 .nixie-window {
@@ -1303,8 +1302,6 @@ button,
   width: 100%;
   min-height: 4.8rem;
   margin: 0;
-  padding-right: 8px;
-  padding-left: 8px;
 }
 
 .melt-plate .tagline {
