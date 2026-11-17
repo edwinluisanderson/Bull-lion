@@ -1,11 +1,20 @@
 import { reelAudioContext } from "@/lib/reel-click";
 import { spinSoundEnabled } from "@/lib/spin-overlay";
 
-/** Quiet enough to sit under a reel click. */
-export const FLAP_GAIN = 0.05;
+/**
+ * One flap tick, just under the wheel-stop click.
+ * The filtered burst peaks near the click sample, so this gain lands the tick
+ * about 1 dB below a stop on the peak. The wheel-stop gain itself is unchanged.
+ */
+export const FLAP_GAIN = 0.26;
 /** How many flap ticks may start inside one window. */
 export const FLAP_MAX_PER_WINDOW = 2;
 export const FLAP_WINDOW_MS = 45;
+/**
+ * Shared sum, in linear amplitude. A tick is linear under this.
+ * Anything louder, including a pile of ticks, clips here.
+ */
+export const FLAP_SUM_LIMIT = 0.5;
 
 export type FlapSoundGate = {
   stamp: number;
@@ -23,6 +32,30 @@ export function nextFlapSound(gate: FlapSoundGate, now: number): { play: boolean
 let gate: FlapSoundGate = { stamp: 0, count: 0 };
 let noise: AudioBuffer | null = null;
 let noiseContext: AudioContext | null = null;
+let sumBus: WaveShaperNode | null = null;
+let sumContext: AudioContext | null = null;
+
+function flapCurve(): Float32Array<ArrayBuffer> {
+  const length = 1025;
+  const curve = new Float32Array(length);
+  const limit = FLAP_SUM_LIMIT;
+  for (let index = 0; index < length; index += 1) {
+    const x = (index / (length - 1)) * 2 - 1;
+    curve[index] = Math.max(-limit, Math.min(limit, x));
+  }
+  return curve;
+}
+
+function flapSum(ctx: AudioContext): AudioNode {
+  if (sumBus && sumContext === ctx) return sumBus;
+  const shaper = ctx.createWaveShaper();
+  shaper.curve = flapCurve();
+  shaper.oversample = "none";
+  shaper.connect(ctx.destination);
+  sumBus = shaper;
+  sumContext = ctx;
+  return shaper;
+}
 
 function clickBuffer(ctx: AudioContext): AudioBuffer | null {
   if (noise && noiseContext === ctx) return noise;
@@ -64,7 +97,7 @@ export function playFlapSound(now = typeof performance !== "undefined" ? perform
     gain.gain.value = FLAP_GAIN;
     source.connect(filter);
     filter.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(flapSum(ctx));
     source.start();
     return true;
   } catch {
@@ -76,4 +109,6 @@ export function resetFlapSoundForTests(): void {
   gate = { stamp: 0, count: 0 };
   noise = null;
   noiseContext = null;
+  sumBus = null;
+  sumContext = null;
 }

@@ -144,7 +144,10 @@ test("the scrap plate grows a split-flap stack and the flaps stay quiet when sou
     .find((part) => part.includes(".flap-leaf"));
   assert.match(reduced ?? "", /\.flap-leaf \{[^}]*animation:\s*none/);
   assert.match(sound, /spinSoundEnabled\(\)/);
-  assert.equal(FLAP_GAIN < 0.15, true);
+  assert.ok(FLAP_GAIN > 0.2 && FLAP_GAIN < 0.3);
+  assert.equal(FLAP_MAX_PER_WINDOW, 2);
+  assert.match(sound, /createWaveShaper\(\)/);
+  assert.equal(sound.includes("FLAP_SUM_LIMIT"), true);
   const first = nextFlapSound({ stamp: 0, count: 0 }, 10);
   assert.equal(first.play, true);
   let gate = first.gate;
