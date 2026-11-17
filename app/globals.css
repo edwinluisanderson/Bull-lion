@@ -1099,6 +1099,22 @@ button,
   overflow: hidden;
 }
 
+@media (max-width: 340px) {
+  .nixie-face {
+    width: calc(var(--nixie-h) * 0.205);
+  }
+}
+
+@media (min-width: 900px) {
+  .nixie-tube {
+    --nixie-h: calc(clamp(1.8rem, 6vw, 3rem) * 3.62);
+  }
+
+  .gear-panel {
+    min-height: 540px;
+  }
+}
+
 .nixie-window {
   position: absolute;
   z-index: 1;

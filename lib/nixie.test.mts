@@ -116,6 +116,8 @@ test("the bottom-plate nixie follows the same melt state as the plate", () => {
   assert.equal(NIXIE_TUBE_ASPECT, 0.238);
   assert.match(css, /\.nixie-tubes\.is-centered \{[^}]*gap:\s*clamp\(3px, 0\.35vw, 5px\)/);
   assert.match(css, /\.nixie-face \{[^}]*width:\s*calc\(var\(--nixie-h\) \* 0\.238\)/);
+  assert.match(css, /@media \(max-width: 340px\) \{[^}]*\.nixie-face \{[^}]*width:\s*calc\(var\(--nixie-h\) \* 0\.205\)/);
+  assert.match(css, /@media \(min-width: 900px\) \{[^}]*--nixie-h:\s*calc\(clamp\(1\.8rem, 6vw, 3rem\) \* 3\.62\)/);
   assert.match(readout, /const total = meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)/);
   assert.match(readout, /<RollingPrice value=\{formatWholeDollars\(total\)\} \/>/);
   assert.equal(readout.includes("NixieReadout"), false);
