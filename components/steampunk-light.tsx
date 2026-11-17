@@ -32,9 +32,19 @@ export function SteampunkLight({
     >
       <defs>
         <radialGradient id={`${id}-halo`} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#ffcf70" stopOpacity={driven ? undefined : paint.haloOpacity} style={varStyle("stopOpacity", "--lamp-halo")} />
-          <stop offset="48%" stopColor="#e6a23a" stopOpacity={driven ? undefined : paint.haloOpacity * 0.4} style={driven ? ({ stopOpacity: "calc(var(--lamp-halo) * 0.4)" } as CSSProperties) : undefined} />
-          <stop offset="100%" stopColor="#e6a23a" stopOpacity="0" />
+          <stop
+            offset="0%"
+            stopColor={driven ? "var(--lamp-bloom)" : "#ffcf70"}
+            stopOpacity={driven ? undefined : paint.haloOpacity}
+            style={varStyle("stopOpacity", "--lamp-halo")}
+          />
+          <stop
+            offset="48%"
+            stopColor={driven ? "var(--lamp-color)" : "#e6a23a"}
+            stopOpacity={driven ? undefined : paint.haloOpacity * 0.4}
+            style={driven ? ({ stopOpacity: "calc(var(--lamp-halo) * 0.4)" } as CSSProperties) : undefined}
+          />
+          <stop offset="100%" stopColor={driven ? "var(--lamp-color)" : "#e6a23a"} stopOpacity="0" />
         </radialGradient>
         <radialGradient id={`${id}-bulb`} cx="38%" cy="34%" r="70%">
           <stop offset="0%" stopColor={driven ? undefined : paint.bulbCore} style={varStyle("stopColor", "--lamp-core")} />
@@ -65,10 +75,10 @@ export function SteampunkLight({
       <circle cx="16" cy="16" r="26" fill={`url(#${id}-halo)`} />
       <circle cx="16" cy="16" r="13.15" fill="none" stroke={`url(#${id}-brass)`} strokeWidth="2.7" />
       <circle cx="16" cy="16" r="11.55" fill="#2a160c" fillOpacity="0.35" />
-      <circle cx="16" cy="16" r="7.4" fill="#ffcf70" fillOpacity={driven ? undefined : paint.glowOpacity} style={varStyle("fillOpacity", "--lamp-glow")} />
+      <circle cx="16" cy="16" r="7.4" fill={driven ? "var(--lamp-bloom)" : "#ffcf70"} fillOpacity={driven ? undefined : paint.glowOpacity} style={varStyle("fillOpacity", "--lamp-glow")} />
       <circle cx="16" cy="16" r="4.7" fill={`url(#${id}-bulb)`} />
       <circle cx="16" cy="16" r="11.2" fill={`url(#${id}-glass)`} stroke={`url(#${id}-rim)`} strokeWidth="0.9" />
-      <circle cx="16" cy="16" r="11.2" fill="#ffcf70" fillOpacity={driven ? undefined : paint.glassWarm} style={varStyle("fillOpacity", "--lamp-glass")} />
+      <circle cx="16" cy="16" r="11.2" fill={driven ? "var(--lamp-color)" : "#ffcf70"} fillOpacity={driven ? undefined : paint.glassWarm} style={varStyle("fillOpacity", "--lamp-glass")} />
       <ellipse cx="11.2" cy="10.4" rx="3.1" ry="1.7" fill="#ffffff" fillOpacity="0.72" transform="rotate(-32 11.2 10.4)" />
 
       <g clipPath={`url(#${id}-dome)`}>
@@ -82,7 +92,7 @@ export function SteampunkLight({
             <path key={`${bar.axis}-${bar.d}`} d={bar.d} />
           ))}
         </g>
-        <g stroke="#ffb347" strokeWidth="0.7" fill="none" strokeLinecap="round" strokeOpacity={driven ? undefined : paint.barWarm} style={varStyle("strokeOpacity", "--lamp-bar")}>
+        <g stroke={driven ? "var(--lamp-color)" : "#ffb347"} strokeWidth="0.7" fill="none" strokeLinecap="round" strokeOpacity={driven ? undefined : paint.barWarm} style={varStyle("strokeOpacity", "--lamp-bar")}>
           {bars.map((bar) => (
             <path key={`warm-${bar.axis}-${bar.d}`} d={bar.d} />
           ))}
