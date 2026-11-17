@@ -87,7 +87,7 @@ test("one lighthouse sweeps a beam across the bottom plate", () => {
   assert.match(css, /\.gear-panel-lighthouse \{[^}]*bottom:\s*14px/);
   assert.match(css, /\.gear-panel-lighthouse \{[^}]*left:\s*50%/);
   assert.match(css, /\.lighthouse-beam \{[^}]*conic-gradient\(/);
-  assert.match(css, /\.lighthouse-beam \{[^}]*mask-image:\s*radial-gradient/);
+  assert.match(css, /\.lighthouse-beam \{[^}]*mask-image:\s*radial-gradient\(circle, transparent 0 2\.3%/);
   assert.match(css, /\.lighthouse-beam \{[^}]*animation:\s*lighthouse-sweep 5s linear infinite/);
   const reduced = css
     .split("@media (prefers-reduced-motion: reduce)")
@@ -95,4 +95,18 @@ test("one lighthouse sweeps a beam across the bottom plate", () => {
     .find((part) => part.includes(".lighthouse-beam"));
   assert.ok(reduced);
   assert.match(reduced ?? "", /\.lighthouse-beam \{[^}]*animation:\s*none/);
+});
+
+test("the bottom plate is taller and a lower lamp casts its cage", () => {
+  assert.match(css, /\.gear-panel \{[^}]*min-height:\s*248px/);
+  assert.match(css, /\.gear-panel-row \{[^}]*min-height:\s*168px/);
+  assert.match(css, /\.gear-panel \{\s*min-height:\s*210px/);
+  assert.match(css, /\.gear-panel-row \{\s*min-height:\s*132px/);
+  const panel = machine.slice(machine.indexOf('className="gear-panel"'));
+  assert.match(panel, /<SteampunkLightCast \/>/);
+  assert.match(css, /\.gear-panel-cast \{[^}]*left:\s*22%/);
+  assert.match(css, /\.gear-panel-cast \{[^}]*bottom:\s*20px/);
+  assert.match(light, /scale\(1\.65\)/);
+  assert.match(light, /scale\(2\.45\)/);
+  assert.equal(light.includes("feGaussianBlur"), false);
 });

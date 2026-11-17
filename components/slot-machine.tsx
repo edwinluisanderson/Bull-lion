@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Gauge } from "@/components/gauge";
 import { WeightDial } from "@/components/weight-dial";
 import { Gear } from "@/components/gear";
-import { SteampunkLight } from "@/components/steampunk-light";
+import { SteampunkLight, SteampunkLightCast } from "@/components/steampunk-light";
 import { PullBall } from "@/components/lever";
 import { Readout } from "@/components/readout";
 import { Reel, type ReelSymbol } from "@/components/reel";
@@ -379,6 +379,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             <div className="lighthouse-beam" />
             <SteampunkLight className="lighthouse-lamp" />
           </div>
+          <SteampunkLightCast />
         </div>
         {lampCompare ? (
           <div className="lamp-compare">
