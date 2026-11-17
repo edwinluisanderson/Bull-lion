@@ -228,6 +228,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           {metal ? (
             <Readout
               metal={metal}
+              metals={book.metals}
               weight={weight}
               pieces={pieces}
               spinning={spinning}

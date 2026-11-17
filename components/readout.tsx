@@ -3,6 +3,7 @@
 import { useLayoutEffect, useState } from "react";
 
 import { AssayDialog, AssayInfoIcon } from "@/components/assay-dialog";
+import { MetalNameWheel } from "@/components/metal-name-wheel";
 import { NixieReadout } from "@/components/nixie-readout";
 import { formatStamp, formatWholeDollars } from "@/lib/format";
 import { LIVE_WIRE_TICK_MS, liveWireState } from "@/lib/live-wire";
@@ -13,6 +14,7 @@ import { formatStackPhrase } from "@/lib/weight-label";
 
 export function Readout({
   metal,
+  metals,
   weight,
   pieces,
   spinning,
@@ -21,6 +23,7 @@ export function Readout({
   fetchedAt,
 }: {
   metal: MetalQuote;
+  metals: readonly { symbol: string; name: string }[];
   weight: WeightSpec;
   pieces: number;
   spinning: boolean;
@@ -29,6 +32,10 @@ export function Readout({
   fetchedAt: string;
 }) {
   const total = meltValue(metal.usdPerTroyOz, weight.grams, pieces);
+  const index = Math.max(
+    0,
+    metals.findIndex((entry) => entry.symbol === metal.symbol),
+  );
   const [now, setNow] = useState<number | null>(null);
   useLayoutEffect(() => {
     const tick = () => setNow(Date.now());
@@ -59,7 +66,7 @@ export function Readout({
           }
         />
         <div className="melt-heading">
-          <p className="plate-title">{metal.name}</p>
+          <MetalNameWheel metals={metals} index={index} />
           <p className="readout-kicker melt-kicker">Melt Price</p>
         </div>
         <div className={spinning ? "melt-digits is-spinning" : "melt-digits"} aria-busy={spinning}>
