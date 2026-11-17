@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { SplitFlap } from "@/components/split-flap";
+import { SwipeCard } from "@/components/swipe-card";
 import { unlockReelClick } from "@/lib/reel-click";
 import {
   FLAP_DESCRIPTION_INLINE,
@@ -60,6 +61,7 @@ export function StackTable({
   const [ready, setReady] = useState(false);
   const [pending, setPending] = useState<StackDraft | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     setLines(readStack(window.localStorage));
@@ -180,8 +182,19 @@ export function StackTable({
             </button>
           );
           return (
-            <li
+            <SwipeCard
               key={line.id}
+              id={line.id}
+              label={line.description}
+              open={openId === line.id}
+              onOpen={() => setOpenId(line.id)}
+              onClose={() => setOpenId((current) => (current === line.id ? null : current))}
+              onDelete={() => {
+                setOpenId((current) => (current === line.id ? null : current));
+                setLines(removeLine(lines, line.id));
+              }}
+            >
+            <div
               className="stack-card"
               data-rows={longDescription ? 3 : 2}
               style={{
@@ -236,7 +249,8 @@ export function StackTable({
                   </span>
                 </div>
               ) : null}
-            </li>
+            </div>
+            </SwipeCard>
           );
         })}
       </ul>
