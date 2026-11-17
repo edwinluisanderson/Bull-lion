@@ -144,14 +144,7 @@ button,
 
 .workshop {
   --side: 0.85rem;
-  --plate-radius: 22px;
-  --plate-ring-width: 10px;
   --plate-face-inset: 12px;
-  --plate-gutter: 0.9rem;
-  --plate-ring:
-    inset 0 0 0 3px #120a06,
-    inset 0 0 0 7px #6d4a2e,
-    inset 0 0 0 10px #2a1810;
   --cabinet-radius: 28px;
   --cabinet-ring:
     inset 0 0 0 3px #1a0e08,
@@ -787,8 +780,8 @@ button,
 .assay-info {
   position: absolute;
   z-index: 6;
-  top: 12px;
-  right: 16px;
+  top: 4px;
+  right: 20px;
   display: grid;
   width: 44px;
   height: 44px;
@@ -838,8 +831,7 @@ button,
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
-  margin-top: 0.35rem;
-  margin-bottom: 0;
+  margin: 0.35rem 0.9rem 0;
 }
 
 .marquee {
@@ -936,16 +928,6 @@ button,
   box-shadow: 0 16px 28px rgba(0, 0, 0, 0.4);
 }
 
-.melt-plate::after {
-  content: "";
-  position: absolute;
-  z-index: 5;
-  inset: 0;
-  border-radius: var(--plate-radius);
-  box-shadow: var(--plate-ring);
-  pointer-events: none;
-}
-
 .cabinet::after,
 .gear-panel::after {
   content: "";
@@ -955,12 +937,6 @@ button,
   border-radius: var(--cabinet-radius);
   box-shadow: var(--cabinet-ring);
   pointer-events: none;
-}
-
-.melt-stack {
-  width: auto;
-  margin-right: var(--plate-gutter);
-  margin-left: var(--plate-gutter);
 }
 
 .cabinet,
@@ -1280,15 +1256,14 @@ button,
   text-align: center;
 }
 
-.melt-plate > .rivet,
 .gear-panel > .rivet {
   z-index: 6;
 }
 
-.nameplate > .rivet[data-corner="tl"] { top: 8px; left: 8px; }
-.nameplate > .rivet[data-corner="tr"] { top: 8px; right: 8px; }
-.nameplate > .rivet[data-corner="bl"] { bottom: 8px; left: 8px; }
-.nameplate > .rivet[data-corner="br"] { bottom: 8px; right: 8px; }
+.nameplate > .rivet[data-corner="tl"] { top: 6px; left: 6px; }
+.nameplate > .rivet[data-corner="tr"] { top: 6px; right: 6px; }
+.nameplate > .rivet[data-corner="bl"] { bottom: 6px; left: 6px; }
+.nameplate > .rivet[data-corner="br"] { bottom: 6px; right: 6px; }
 
 .gear-panel-bg {
   opacity: 0.22;
@@ -1355,11 +1330,14 @@ button,
   position: relative;
   flex: 1;
   min-width: 0;
-  padding: 14px var(--plate-face-inset) 2rem;
-  border-radius: var(--plate-radius);
+  padding: 0.45rem 0.6rem 0.55rem;
+  border-radius: 14px;
   text-align: center;
   background: var(--brass-plate);
-  box-shadow: 0 8px 14px rgba(0, 0, 0, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -3px 5px rgba(70, 40, 8, 0.35),
+    0 8px 14px rgba(0, 0, 0, 0.28);
 }
 
 .eyebrow,
@@ -1509,9 +1487,9 @@ button,
 .melt-plate .lamp {
   position: absolute;
   z-index: 4;
-  right: 16px;
-  bottom: 14px;
-  left: 16px;
+  right: 20px;
+  bottom: 6px;
+  left: 20px;
   justify-content: center;
   line-height: 1;
   white-space: nowrap;
