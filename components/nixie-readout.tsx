@@ -55,6 +55,7 @@ function DigitTube({
           {shown === null ? null : <circle className="nixie-halo is-on" cx="12" cy="32" r="6.2" fill={`url(#${id}-halo)`} />}
           {NIXIE_DIGITS.map((digit) => (
             <g key={digit} className={digit === shown ? "is-on" : undefined}>
+              <path className="nixie-aura" d={NIXIE_GLYPH[digit]} />
               <path className="nixie-glow" d={NIXIE_GLYPH[digit]} />
               {digit === shown ? null : <path className="nixie-mesh" d={NIXIE_GLYPH[digit]} />}
               <path className="nixie-cathode" d={NIXIE_GLYPH[digit]} />
@@ -88,6 +89,7 @@ function SymbolTube({
             <circle className={lit ? "nixie-dot is-on" : "nixie-dot"} cx="12" cy="40" r="1.7" />
           ) : (
             <g className={lit ? "is-on" : undefined}>
+              <path className="nixie-aura" d={glyph} />
               <path className="nixie-glow" d={glyph} />
               {lit ? null : <path className="nixie-mesh" d={glyph} />}
               <path className="nixie-cathode" d={glyph} />
