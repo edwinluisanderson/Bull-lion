@@ -867,7 +867,7 @@ button,
 .gear-panel {
   position: relative;
   width: min(92%, 920px);
-  min-height: 248px;
+  min-height: 320px;
   margin: 0.9rem auto 0;
   overflow: hidden;
   border-radius: 22px;
@@ -989,23 +989,28 @@ button,
 
 .nixie-tube {
   --nixie-delay: 0ms;
+  --nixie-h: clamp(64px, 8vw, 104px);
   display: block;
-  width: 20px;
-  height: 48px;
+  width: calc(var(--nixie-h) * 0.375);
+  height: var(--nixie-h);
   overflow: visible;
+}
+
+.nixie-tube[data-kind="dollar"] {
+  width: calc(var(--nixie-h) * 0.34);
 }
 
 .nixie-tube[data-kind="comma"],
 .nixie-tube[data-kind="dot"] {
-  width: 12px;
+  width: calc(var(--nixie-h) * 0.22);
 }
 
 .nixie-window {
   position: absolute;
   z-index: 1;
-  top: 11px;
+  top: 16%;
   right: -8px;
-  bottom: 11px;
+  bottom: 16%;
   left: -8px;
   border: 2px solid #c4963e;
   border-radius: 6px;
@@ -1079,6 +1084,13 @@ button,
 .nixie-dot.is-on {
   fill: #ff7a1a;
   opacity: 1;
+}
+
+.nixie-tubes.is-cycling .nixie-glow,
+.nixie-tubes.is-cycling .nixie-cathode,
+.nixie-tubes.is-cycling .nixie-halo,
+.nixie-tubes.is-cycling .nixie-dot {
+  transition: none;
 }
 
 @keyframes lighthouse-sweep {
@@ -1535,7 +1547,7 @@ button,
   }
 
   .gear-panel {
-    min-height: 210px;
+    min-height: 250px;
   }
 
   .gear-panel-row {

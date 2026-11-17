@@ -25,15 +25,21 @@ export const NIXIE_GLYPH: Record<(typeof NIXIE_DIGITS)[number], string> = {
   9: "M8.6 39c2.4 2.6 8.2 1.2 8.6-4 0.5-5.4-3.6-8.8-7.4-8.2-3.2.6-4.4 3.4-4 5.6.5 2.6 4.6 3.4 7.6 2.4",
 };
 
-export const NIXIE_DOLLAR = "M14.4 21.6v20.6M8.4 27.2c.1-3 7.8-3.5 7.8.1 0 2.5-3.2 3.3-6 4.1-2.8.8-4.2 2-4.2 4.1 0 3.1 7.6 3.5 8.4.3";
+/** An S crossed by a vertical stroke, not a closed bowl. */
+export const NIXIE_DOLLAR = "M12 22.4V42.4M16.2 26.2C16.2 23.2 7.6 23.4 7.8 27.6C8 31.2 16.4 30.8 16.2 35C16 39.2 7.4 38.6 7.6 42";
 export const NIXIE_COMMA = "M13.4 34.2c.4 3.4-1.8 5.4-3.8 7.6";
 export const NIXIE_DASH = "M8 32.2h8";
 
+/** Ones through the millions, so the row can show $9,999,999. */
+export const NIXIE_DIGIT_PLACES = 7;
+/** How fast the cathodes step while the reels are spinning. */
+export const NIXIE_CYCLE_MS = 60;
+
 export type NixieColumn =
-  | { kind: "digit"; key: string; digit: number; order: number }
-  | { kind: "dollar"; key: string }
-  | { kind: "comma"; key: string }
-  | { kind: "dot"; key: string }
+  | { kind: "digit"; key: string; digit: number | null; order: number }
+  | { kind: "dollar"; key: string; lit: boolean }
+  | { kind: "comma"; key: string; lit: boolean }
+  | { kind: "dot"; key: string; lit: boolean }
   | { kind: "mark"; key: string; char: string };
 
 /** The same parts as the melt plate, named for the tube each one needs. */
@@ -42,14 +48,65 @@ export function nixieColumns(formatted: string): NixieColumn[] {
     if (part.kind === "digit") {
       return { kind: "digit", key: part.key, digit: part.digit, order: part.order };
     }
-    if (part.char === "$") return { kind: "dollar", key: part.key };
-    if (part.char === ",") return { kind: "comma", key: part.key };
-    if (part.char === ".") return { kind: "dot", key: part.key };
+    if (part.char === "$") return { kind: "dollar", key: part.key, lit: true };
+    if (part.char === ",") return { kind: "comma", key: part.key, lit: true };
+    if (part.char === ".") return { kind: "dot", key: part.key, lit: true };
     return { kind: "mark", key: part.key, char: part.char };
   });
+}
+
+/**
+ * A fixed row wide enough for $9,999,999. Leading places stay in the row
+ * with every cathode dark. A longer value keeps its extra places.
+ * A decimal is added only when the formatted value actually has one.
+ */
+export function nixieBank(formatted: string): NixieColumn[] {
+  const parts = nixieColumns(formatted);
+  const hasDollar = parts.some((part) => part.kind === "dollar");
+  const digits = parts.filter((part) => part.kind === "digit");
+  if (!hasDollar && digits.length === 0) return parts;
+
+  const dotAt = parts.findIndex((part) => part.kind === "dot");
+  const integer = dotAt === -1 ? digits : digits.filter((part) => parts.indexOf(part) < dotAt);
+  const fraction = dotAt === -1 ? [] : digits.filter((part) => parts.indexOf(part) > dotAt);
+  const places = Math.max(NIXIE_DIGIT_PLACES, integer.length);
+  const columns: NixieColumn[] = [{ kind: "dollar", key: "dollar", lit: hasDollar }];
+
+  for (let place = places; place >= 1; place -= 1) {
+    if (place < places && place % 3 === 0) {
+      columns.push({ kind: "comma", key: `comma-${place}`, lit: integer.length > place });
+    }
+    const source = integer[integer.length - place];
+    columns.push({
+      kind: "digit",
+      key: `d-${place}`,
+      digit: source?.digit ?? null,
+      order: source?.order ?? 0,
+    });
+  }
+
+  if (dotAt !== -1) {
+    columns.push({ kind: "dot", key: "dot", lit: true });
+    fraction.forEach((part, index) => {
+      columns.push({
+        kind: "digit",
+        key: `f-${index + 1}`,
+        digit: part.digit,
+        order: part.order,
+      });
+    });
+  }
+
+  return columns;
 }
 
 /** Inside a digit tube, only the cathode for the current numeral is lit. */
 export function litDigit(column: NixieColumn): number | null {
   return column.kind === "digit" ? column.digit : null;
+}
+
+/** The cathode a tube shows while the reels are spinning. Each place is offset. */
+export function cyclingDigit(place: number, tick: number): number {
+  const step = Math.trunc(tick) + Math.trunc(place);
+  return ((step % 10) + 10) % 10;
 }

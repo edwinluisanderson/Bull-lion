@@ -381,7 +381,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             <SteampunkLight className="lighthouse-lamp" />
           </div>
           <SteampunkLightCast />
-          <NixieReadout value={metal ? formatWholeDollars(meltValue(metal.usdPerTroyOz, weight.grams, pieces)) : "—"} />
+          <NixieReadout spinning={spinning} value={metal ? formatWholeDollars(meltValue(metal.usdPerTroyOz, weight.grams, pieces)) : "—"} />
         </div>
         {lampCompare ? (
           <div className="lamp-compare">
