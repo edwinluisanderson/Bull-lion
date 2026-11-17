@@ -349,7 +349,12 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           <div className="cabinet-gears" aria-hidden="true">
             <div className="wheel-lamps">
               {Array.from({ length: WHEEL_LAMP_COUNT }, (_, index) => (
-                <SteampunkLight key={index} brightness={LAMP_FULL} />
+                <span key={index} className={`wheel-lamp wheel-lamp-${index + 1}`}>
+                  <SteampunkLight brightness={LAMP_OFF} />
+                  <SteampunkLight brightness={LAMP_LOW} />
+                  <SteampunkLight brightness={LAMP_MEDIUM} />
+                  <SteampunkLight brightness={LAMP_FULL} />
+                </span>
               ))}
             </div>
           </div>

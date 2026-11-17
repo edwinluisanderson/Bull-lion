@@ -59,9 +59,17 @@ test("three full caged lamps replace the dots under the wheels", () => {
   const underWheels = machine.slice(machine.indexOf('className="playfield"'), machine.indexOf('className="gear-panel"'));
   assert.match(underWheels, /className="wheel-lamps"/);
   assert.equal(underWheels.includes('className="bulbs"'), false);
+  assert.match(underWheels, /brightness=\{LAMP_OFF\}/);
+  assert.match(underWheels, /brightness=\{LAMP_LOW\}/);
+  assert.match(underWheels, /brightness=\{LAMP_MEDIUM\}/);
   assert.match(underWheels, /brightness=\{LAMP_FULL\}/);
   assert.match(css, /\.wheel-lamps \{[^}]*justify-content:\s*space-evenly/);
   assert.match(css, /\.wheel-lamps \.steampunk-light \{[^}]*width:\s*36px/);
+  assert.match(css, /\.wheel-lamp-1 \.steampunk-light:nth-child\(4\) \{[^}]*animation:\s*wheel-full-1 10\.4s ease infinite/);
+  assert.match(css, /\.wheel-lamp-2 \.steampunk-light:nth-child\(1\) \{[^}]*animation-delay:\s*0\.4s/);
+  assert.match(css, /\.wheel-lamp-3 \.steampunk-light:nth-child\(1\) \{[^}]*animation-delay:\s*0\.8s/);
+  const reduced = css.split("@media (prefers-reduced-motion: reduce)").slice(1).find((block) => block.includes(".wheel-lamp .steampunk-light:last-child"));
+  assert.match(reduced ?? "", /\.wheel-lamp \.steampunk-light:last-child \{[^}]*opacity:\s*1/);
 });
 
 test("brightness runs from an unlit bulb to a full warm halo", () => {
