@@ -864,6 +864,18 @@ button,
   padding: 0 0.75rem;
 }
 
+.wheel-lamps {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  width: 100%;
+}
+
+.wheel-lamps .steampunk-light {
+  width: 36px;
+  height: 36px;
+}
+
 .gear-panel {
   position: relative;
   width: min(92%, 920px);

@@ -30,7 +30,7 @@ import { LIVE_SPOT_NOTE, parsePriceBook, type PriceBook } from "@/lib/price-book
 import { settleReels } from "@/lib/haptics";
 import { playSpinOverlay, spinOverlayFor } from "@/lib/spin-overlay";
 import { meltValue } from "@/lib/value";
-import { LAMP_FULL, LAMP_LOW, LAMP_MEDIUM, LAMP_OFF, STEAMPUNK_LIGHT_COUNT } from "@/lib/steampunk-light";
+import { LAMP_FULL, LAMP_LOW, LAMP_MEDIUM, LAMP_OFF, STEAMPUNK_LIGHT_COUNT, WHEEL_LAMP_COUNT } from "@/lib/steampunk-light";
 import {
   weightStretchBetween,
   weightStretchLabel,
@@ -347,9 +347,9 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           </div>
 
           <div className="cabinet-gears" aria-hidden="true">
-            <div className="bulbs">
-              {Array.from({ length: 7 }, (_, index) => (
-                <span key={index} className={index % 2 === 0 ? "on" : undefined} />
+            <div className="wheel-lamps">
+              {Array.from({ length: WHEEL_LAMP_COUNT }, (_, index) => (
+                <SteampunkLight key={index} brightness={LAMP_FULL} />
               ))}
             </div>
           </div>
