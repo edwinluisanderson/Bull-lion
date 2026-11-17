@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Gauge } from "@/components/gauge";
 import { WeightDial } from "@/components/weight-dial";
 import { Gear } from "@/components/gear";
+import { SteampunkLight } from "@/components/steampunk-light";
 import { PullBall } from "@/components/lever";
 import { Readout } from "@/components/readout";
 import { Reel, type ReelSymbol } from "@/components/reel";
@@ -28,6 +29,7 @@ import { LIVE_SPOT_NOTE, parsePriceBook, type PriceBook } from "@/lib/price-book
 import { settleReels } from "@/lib/haptics";
 import { playSpinOverlay, spinOverlayFor } from "@/lib/spin-overlay";
 import { meltValue } from "@/lib/value";
+import { STEAMPUNK_LIGHT_COUNT } from "@/lib/steampunk-light";
 import {
   weightStretchBetween,
   weightStretchLabel,
@@ -349,6 +351,11 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           <span className="rivet" data-corner="tr" />
           <span className="rivet" data-corner="bl" />
           <span className="rivet" data-corner="br" />
+          <div className="gear-panel-lights">
+            {Array.from({ length: STEAMPUNK_LIGHT_COUNT }, (_, index) => (
+              <SteampunkLight key={index} />
+            ))}
+          </div>
           <Gear className="gear bg-gear gear-panel-bg gear-panel-bg-left" />
           <Gear className="gear bg-gear gear-panel-bg gear-panel-bg-right" />
           <div className="gear-panel-row">

@@ -885,6 +885,23 @@ button,
     0 16px 28px rgba(0, 0, 0, 0.4);
 }
 
+.gear-panel-lights {
+  position: absolute;
+  z-index: 2;
+  top: 16px;
+  right: 16%;
+  left: 16%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.steampunk-light {
+  display: block;
+  flex: none;
+}
+
 .gear-panel > .rivet[data-corner="tl"] { top: 8px; left: 8px; }
 .gear-panel > .rivet[data-corner="tr"] { top: 8px; right: 8px; }
 .gear-panel > .rivet[data-corner="bl"] { bottom: 8px; left: 8px; }
