@@ -144,6 +144,13 @@ button,
 
 .workshop {
   --side: 0.85rem;
+  --plate-radius: 22px;
+  --plate-ring-width: 10px;
+  --plate-face-inset: 12px;
+  --plate-ring:
+    inset 0 0 0 3px #120a06,
+    inset 0 0 0 7px #6d4a2e,
+    inset 0 0 0 10px #2a1810;
   position: relative;
   width: 100%;
   max-width: 390px;
@@ -774,8 +781,8 @@ button,
 .assay-info {
   position: absolute;
   z-index: 6;
-  top: 4px;
-  right: 20px;
+  top: 12px;
+  right: 16px;
   display: grid;
   width: 44px;
   height: 44px;
@@ -911,7 +918,7 @@ button,
   min-height: 360px;
   margin: 0.9rem auto 0;
   overflow: hidden;
-  border-radius: 22px;
+  border-radius: var(--plate-radius);
   background:
     repeating-linear-gradient(
       90deg,
@@ -920,9 +927,7 @@ button,
     ),
     linear-gradient(180deg, #5c3a22 0%, #3a2416 42%, #24150e 100%);
   box-shadow:
-    inset 0 0 0 3px #120a06,
-    inset 0 0 0 7px #6d4a2e,
-    inset 0 0 0 10px #2a1810,
+    var(--plate-ring),
     0 16px 28px rgba(0, 0, 0, 0.4);
 }
 
@@ -1040,7 +1045,7 @@ button,
 
 .nixie-bezel {
   box-sizing: border-box;
-  width: calc(100% - 1.2rem);
+  width: calc(100% - 2 * var(--plate-face-inset));
   height: 4.8rem;
   margin-inline: auto;
   padding: 10px;
@@ -1236,10 +1241,14 @@ button,
   text-align: center;
 }
 
-.gear-panel > .rivet[data-corner="tl"] { top: 8px; left: 8px; }
-.gear-panel > .rivet[data-corner="tr"] { top: 8px; right: 8px; }
-.gear-panel > .rivet[data-corner="bl"] { bottom: 8px; left: 8px; }
-.gear-panel > .rivet[data-corner="br"] { bottom: 8px; right: 8px; }
+.gear-panel > .rivet[data-corner="tl"],
+.nameplate > .rivet[data-corner="tl"] { top: 8px; left: 8px; }
+.gear-panel > .rivet[data-corner="tr"],
+.nameplate > .rivet[data-corner="tr"] { top: 8px; right: 8px; }
+.gear-panel > .rivet[data-corner="bl"],
+.nameplate > .rivet[data-corner="bl"] { bottom: 8px; left: 8px; }
+.gear-panel > .rivet[data-corner="br"],
+.nameplate > .rivet[data-corner="br"] { bottom: 8px; right: 8px; }
 
 .gear-panel-bg {
   opacity: 0.22;
@@ -1306,20 +1315,14 @@ button,
   position: relative;
   flex: 1;
   min-width: 0;
-  padding: 0.45rem 0.6rem 0.55rem;
-  border-radius: 14px;
+  padding: 14px var(--plate-face-inset) 2rem;
+  border-radius: var(--plate-radius);
   text-align: center;
   background: var(--brass-plate);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    inset 0 -3px 5px rgba(70, 40, 8, 0.35),
+    var(--plate-ring),
     0 8px 14px rgba(0, 0, 0, 0.28);
 }
-
-.nameplate > .rivet[data-corner="tl"] { top: 6px; left: 6px; }
-.nameplate > .rivet[data-corner="tr"] { top: 6px; right: 6px; }
-.nameplate > .rivet[data-corner="bl"] { bottom: 6px; left: 6px; }
-.nameplate > .rivet[data-corner="br"] { bottom: 6px; right: 6px; }
 
 .eyebrow,
 .tagline,
@@ -1468,9 +1471,9 @@ button,
 .melt-plate .lamp {
   position: absolute;
   z-index: 4;
-  right: 20px;
-  bottom: 6px;
-  left: 20px;
+  right: 16px;
+  bottom: 14px;
+  left: 16px;
   justify-content: center;
   line-height: 1;
   white-space: nowrap;

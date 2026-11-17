@@ -145,7 +145,7 @@ test("the bottom-plate nixie follows the same melt state as the plate", () => {
   assert.match(css, /\.nixie-viewport \{[^}]*overflow:\s*hidden/);
   assert.equal(nixie.includes("nixie-window"), false);
   assert.equal(css.includes(".nixie-window"), false);
-  assert.match(css, /\.nixie-bezel \{[^}]*width:\s*calc\(100% - 1\.2rem\)/);
+  assert.match(css, /\.nixie-bezel \{[^}]*width:\s*calc\(100% - 2 \* var\(--plate-face-inset\)\)/);
   assert.match(css, /\.nixie-bezel \{[^}]*inset 0 0 0 2px #6e5318/);
   assert.match(css, /\.nixie-bezel \{[^}]*inset 0 0 0 4px #e6cb82/);
   assert.match(css, /\.nixie-bezel \{[^}]*inset 0 0 0 7px #3a2a14/);
