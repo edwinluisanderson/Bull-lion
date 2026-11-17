@@ -1116,7 +1116,7 @@ button,
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2.8px;
 }
 
 .nixie-tube {
@@ -1219,7 +1219,7 @@ button,
 }
 
 .nixie-tubes.is-centered {
-  gap: 3px;
+  gap: 2.8px;
   width: 100%;
 }
 
@@ -1336,7 +1336,7 @@ button,
   position: absolute;
   top: 0;
   left: 50%;
-  width: calc(100% + 3rem - 2 * var(--plate-face-inset));
+  width: 100%;
   transform: translateX(-50%);
 }
 
