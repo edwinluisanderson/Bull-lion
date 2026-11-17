@@ -6,6 +6,7 @@ import { Gauge } from "@/components/gauge";
 import { WeightDial } from "@/components/weight-dial";
 import { Gear } from "@/components/gear";
 import { SteampunkLight, SteampunkLightCast } from "@/components/steampunk-light";
+import { NixieReadout } from "@/components/nixie-readout";
 import { PullBall } from "@/components/lever";
 import { Readout } from "@/components/readout";
 import { Reel, type ReelSymbol } from "@/components/reel";
@@ -17,7 +18,7 @@ import {
   IDLE_COUNT_GUARD,
   notePullStarted,
 } from "@/lib/count-guard";
-import { formatTroyOunces, formatUsd } from "@/lib/format";
+import { formatTroyOunces, formatUsd, formatWholeDollars } from "@/lib/format";
 import {
   COUNTS,
   DEFAULT_COUNT_INDEX,
@@ -380,6 +381,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             <SteampunkLight className="lighthouse-lamp" />
           </div>
           <SteampunkLightCast />
+          <NixieReadout value={metal ? formatWholeDollars(meltValue(metal.usdPerTroyOz, weight.grams, pieces)) : "—"} />
         </div>
         {lampCompare ? (
           <div className="lamp-compare">
