@@ -1313,7 +1313,9 @@ button,
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   width: 100%;
+  min-height: calc(3.6rem + 0.55rem - 0.45rem);
 }
 
 .melt-kicker {
@@ -1387,6 +1389,10 @@ button,
 .tagline {
   margin: 0.15rem 0 0;
   font-size: 0.95rem;
+}
+
+.melt-plate .plate-title {
+  font-size: 1.55rem;
 }
 
 .melt-plate .plate-title,

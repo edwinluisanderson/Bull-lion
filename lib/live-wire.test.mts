@@ -26,6 +26,8 @@ test("the live wire sits under the stack line inside the melt plate", () => {
   assert.match(css, /\.melt-plate \.lamp \{[^}]*position:\s*absolute;/);
   assert.match(css, /\.melt-plate \.lamp \{[^}]*bottom:\s*6px;/);
   assert.match(css, /\.eyebrow,\s*\.tagline,\s*\.plate-title \{\s*color:\s*#3a2710;/);
+  assert.match(css, /\.melt-heading \{[^}]*min-height:\s*calc\(3\.6rem \+ 0\.55rem - 0\.45rem\)/);
+  assert.match(css, /\.melt-plate \.plate-title \{[^}]*font-size:\s*1\.55rem/);
 });
 
 const NOW = Date.parse("2026-11-14T12:00:00.000Z");
