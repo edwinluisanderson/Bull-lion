@@ -13,13 +13,15 @@ export const NIXIE_STAGGER_MS = 50;
 export const NIXIE_DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 
 /**
- * Wire cathodes in a 24×64 tube, drawn for the middle of the glass.
- * `NIXIE_DIGIT_SCALE` stretches them vertically around the glass center.
- * `NIXIE_DIGIT_NARROW` pulls the same wires in from the tube walls.
+ * Wire cathodes in a 24×64 tube. Vertical scale is reduced so the tallest
+ * lit ink, the dollar sign, sits 14px inside the ring opening, centered.
+ * Width stays on `NIXIE_DIGIT_NARROW`. `NIXIE_DIGIT_LIFT` takes out the
+ * low offset left by the cathode shapes.
  */
-export const NIXIE_DIGIT_SCALE = 2.08;
+export const NIXIE_DIGIT_SCALE = 1.438;
 export const NIXIE_DIGIT_NARROW = 0.78;
-export const NIXIE_DIGIT_FRAME = `translate(12 32) scale(${NIXIE_DIGIT_NARROW} ${NIXIE_DIGIT_SCALE}) translate(-12 -32)`;
+export const NIXIE_DIGIT_LIFT = 0.69;
+export const NIXIE_DIGIT_FRAME = `translate(0 ${-NIXIE_DIGIT_LIFT}) translate(12 32) scale(${NIXIE_DIGIT_NARROW} ${NIXIE_DIGIT_SCALE}) translate(-12 -32)`;
 export const NIXIE_GLYPH: Record<(typeof NIXIE_DIGITS)[number], string> = {
   0: "M12 23.2c-3.3 0-5.5 3.5-5.5 9s2.2 9 5.5 9 5.5-3.5 5.5-9-2.2-9-5.5-9z",
   1: "M8.2 27.4 10.4 23.2v18.2h2.6v-18.2",
