@@ -139,7 +139,12 @@ test("the bottom-plate nixie follows the same melt state as the plate", () => {
   assert.match(css, /@media \(max-width: 370px\) \{[^}]*\.nixie-face \{[^}]*width:\s*calc\(var\(--nixie-h\) \* 0\.184\)/);
   assert.match(nixie, /className="nixie-bezel"/);
   assert.match(css, /\.nixie-bezel \{[^}]*border-radius:\s*14px/);
-  assert.match(css, /\.nixie-bezel \{[^}]*padding:\s*0\.7rem 0\.9rem/);
+  assert.match(css, /\.nixie-bezel \{[^}]*height:\s*4\.8rem/);
+  assert.match(css, /\.nixie-bezel \{[^}]*padding:\s*10px/);
+  assert.match(css, /\.nixie-bezel \{[^}]*overflow:\s*hidden/);
+  assert.match(css, /\.nixie-viewport \{[^}]*overflow:\s*hidden/);
+  assert.equal(nixie.includes("nixie-window"), false);
+  assert.equal(css.includes(".nixie-window"), false);
   assert.match(css, /\.nixie-bezel \{[^}]*width:\s*calc\(100% - 1\.2rem\)/);
   assert.match(css, /\.nixie-bezel \{[^}]*inset 0 0 0 2px #6e5318/);
   assert.match(css, /\.nixie-bezel \{[^}]*inset 0 0 0 4px #e6cb82/);

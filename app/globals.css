@@ -1016,17 +1016,15 @@ button,
 }
 
 .gear-panel-nixie {
-  position: relative;
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
   z-index: 3;
   width: 100%;
   max-width: 100%;
+  transform: translateY(-50%);
   pointer-events: none;
-}
-
-.gear-panel-nixie .nixie-window,
-.gear-panel-nixie .nixie-plate {
-  right: 0;
-  left: 0;
 }
 
 .gear-panel-nixie-live {
@@ -1043,8 +1041,9 @@ button,
 .nixie-bezel {
   box-sizing: border-box;
   width: calc(100% - 1.2rem);
+  height: 4.8rem;
   margin-inline: auto;
-  padding: 0.7rem 0.9rem;
+  padding: 10px;
   overflow: hidden;
   border-radius: 14px;
   background: linear-gradient(180deg, #1a120c, #0c0907);
@@ -1053,6 +1052,12 @@ button,
     inset 0 0 0 4px #e6cb82,
     inset 0 0 0 7px #3a2a14;
   pointer-events: none;
+}
+
+.nixie-viewport {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
 }
 
 .nixie-plate {
@@ -1108,23 +1113,6 @@ button,
   .nixie-face {
     width: calc(var(--nixie-h) * 0.184);
   }
-}
-
-.nixie-window {
-  position: absolute;
-  z-index: 1;
-  top: 16%;
-  right: -8px;
-  bottom: 16%;
-  left: -8px;
-  border: 2px solid #c4963e;
-  border-radius: 6px;
-  background: transparent;
-  box-shadow:
-    inset 0 0 0 1px #1a0e08,
-    inset 0 4px 5px rgba(0, 0, 0, 0.5),
-    0 0 0 1px #5c3a22,
-    0 1px 0 rgba(243, 226, 173, 0.28);
 }
 
 .nixie-glow,
