@@ -903,6 +903,55 @@ button,
   overflow: visible;
 }
 
+.gear-panel-lighthouse {
+  position: absolute;
+  z-index: 2;
+  bottom: 14px;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.lighthouse-beam {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  left: 50%;
+  width: 880px;
+  height: 880px;
+  margin-top: -440px;
+  margin-left: -440px;
+  background: conic-gradient(
+    from -16deg,
+    transparent 0deg 318deg,
+    rgba(255, 196, 96, 0) 326deg,
+    rgba(255, 210, 120, 0.55) 344deg,
+    rgba(255, 236, 190, 0.18) 356deg,
+    transparent 360deg
+  );
+  mask-image: radial-gradient(circle, transparent 0 5%, #000 12%, rgba(0, 0, 0, 0.72) 34%, transparent 68%);
+  transform-origin: center;
+  animation: lighthouse-sweep 5s linear infinite;
+  pointer-events: none;
+}
+
+.lighthouse-lamp {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes lighthouse-sweep {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lighthouse-beam {
+    animation: none;
+  }
+}
+
 .lamp-compare {
   position: fixed;
   z-index: 30;

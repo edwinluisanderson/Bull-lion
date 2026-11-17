@@ -375,6 +375,10 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             <Gear className="gear marquee-gear" />
             <Gear className="gear marquee-gear gear-reverse" />
           </div>
+          <div className="gear-panel-lighthouse">
+            <div className="lighthouse-beam" />
+            <SteampunkLight className="lighthouse-lamp" />
+          </div>
         </div>
         {lampCompare ? (
           <div className="lamp-compare">

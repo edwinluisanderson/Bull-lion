@@ -76,3 +76,23 @@ test("brightness runs from an unlit bulb to a full warm halo", () => {
   assert.match(light, /LAMP_REST/);
   assert.equal(light.includes("feGaussianBlur"), false);
 });
+
+test("one lighthouse sweeps a beam across the bottom plate", () => {
+  const panel = machine.slice(machine.indexOf('className="gear-panel"'));
+  const lights = panel.indexOf('className="gear-panel-lights"');
+  const house = panel.indexOf('className="gear-panel-lighthouse"');
+  assert.ok(lights > 0 && house > lights);
+  assert.equal((panel.match(/gear-panel-lighthouse/g) ?? []).length, 1);
+  assert.match(panel, /className="lighthouse-beam"/);
+  assert.match(css, /\.gear-panel-lighthouse \{[^}]*bottom:\s*14px/);
+  assert.match(css, /\.gear-panel-lighthouse \{[^}]*left:\s*50%/);
+  assert.match(css, /\.lighthouse-beam \{[^}]*conic-gradient\(/);
+  assert.match(css, /\.lighthouse-beam \{[^}]*mask-image:\s*radial-gradient/);
+  assert.match(css, /\.lighthouse-beam \{[^}]*animation:\s*lighthouse-sweep 5s linear infinite/);
+  const reduced = css
+    .split("@media (prefers-reduced-motion: reduce)")
+    .slice(1)
+    .find((part) => part.includes(".lighthouse-beam"));
+  assert.ok(reduced);
+  assert.match(reduced ?? "", /\.lighthouse-beam \{[^}]*animation:\s*none/);
+});
