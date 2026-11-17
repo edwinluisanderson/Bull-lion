@@ -1,4 +1,8 @@
+import { formatWholeDollars } from "@/lib/format";
+import { COUNTS } from "@/lib/metals";
 import { priceParts } from "@/lib/price-reels";
+import { meltValue } from "@/lib/value";
+import { WEIGHT_KG_MAX } from "@/lib/weight-stretch";
 
 /** Warm neon core. The halo around it is the same hue at low opacity. */
 export const NIXIE_ORANGE = "#ff7a1a";
@@ -116,13 +120,49 @@ export function nixieCentered(formatted: string): NixieColumn[] {
   return nixieBank(formatted).filter(nixieShows);
 }
 
-/** Tube width over height. The centered row keeps this shape while filling its window. */
-export const NIXIE_TUBE_ASPECT = 0.375;
+/**
+ * Tube height divided by the melt readout's font size.
+ * At 1.8rem (28.8px) the tube is 71.9px, which makes an 8 about 20.9px tall.
+ */
+export const NIXIE_HEIGHT_OVER_FONT = 2.497;
+/**
+ * Tube width over height. The viewBox is cropped to 16×64 and then stretched
+ * on x so an 8 is about 14.6px wide at the 28.8px readout size.
+ */
+export const NIXIE_TUBE_ASPECT = 0.28;
+/** USD per troy ounce, about 2.5× the sample gold quote, so the row has headroom. */
+export const NIXIE_SPOT_HEADROOM = 10_000;
 
-/** How many equal tubes fill a window of this width at the current tube height. */
+/** Heaviest stretch weight, highest piece count, and the headroom spot. */
+export function maxMeltAmount(): number {
+  const pieces = Math.max(...COUNTS);
+  return meltValue(NIXIE_SPOT_HEADROOM, WEIGHT_KG_MAX * 1000, pieces);
+}
+
+export function maxMeltLabel(): string {
+  return formatWholeDollars(maxMeltAmount());
+}
+
+/**
+ * The centered window: the melt-band formula, and never wider than the scrap plate.
+ * The plate is min(92% of the viewport, 920px).
+ */
+export function nixieWindowWidth(viewport: number): number {
+  const rem = 16;
+  const band = Math.min(1040, viewport - 1.7 * rem) - 3 * rem;
+  const plate = Math.min(viewport * 0.92, 920);
+  return Math.min(band, plate);
+}
+
+export function nixieTubeHeight(viewport: number): number {
+  const font = Math.min(48, Math.max(28.8, viewport * 0.06));
+  return font * NIXIE_HEIGHT_OVER_FONT;
+}
+
+/** How many equal tubes fit a window. Tubes are not stretched, so this floors. */
 export function nixieTubeCount(windowWidth: number, tubeHeight: number): number {
-  if (!(windowWidth > 0) || !(tubeHeight > 0)) return NIXIE_DIGIT_PLACES + 6;
-  return Math.max(1, Math.round(windowWidth / (tubeHeight * NIXIE_TUBE_ASPECT)));
+  if (!(windowWidth > 0) || !(tubeHeight > 0)) return 1;
+  return Math.max(1, Math.floor(windowWidth / (tubeHeight * NIXIE_TUBE_ASPECT)));
 }
 
 /**

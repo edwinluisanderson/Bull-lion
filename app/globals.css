@@ -855,15 +855,22 @@ button,
 }
 
 .cabinet-gears {
-  display: flex;
-  align-items: stretch;
+  position: relative;
+  display: block;
   box-sizing: border-box;
   min-height: calc(52px + 2.05rem);
   margin-top: 0;
-  padding: 10px 0 13px;
 }
 
 .wheel-lamps {
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* Center of the band, then up by half the playfield's 0.2rem bottom pad
+     and half the cabinet's 8px copper inset, so the lamp center sits
+     midway between the brass wheel frame and the copper's inner edge. */
+  top: calc(50% - 0.1rem - 4px);
+  transform: translateY(-50%);
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: center;
@@ -1019,26 +1026,15 @@ button,
 }
 
 .gear-panel-nixie {
-  position: absolute;
+  position: relative;
   z-index: 3;
-  bottom: 58px;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: calc(100% - 36px);
+  width: min(100%, calc(min(1040px, 100vw - 1.7rem) - 3rem));
+  max-width: 100%;
   pointer-events: none;
 }
 
-.gear-panel-nixie.is-centered {
-  position: relative;
-  bottom: auto;
-  left: auto;
-  width: calc(min(1040px, 100vw - 1.7rem) - 3rem);
-  max-width: 100%;
-  transform: none;
-}
-
-.gear-panel-nixie.is-centered .nixie-window,
-.gear-panel-nixie.is-centered .nixie-plate {
+.gear-panel-nixie .nixie-window,
+.gear-panel-nixie .nixie-plate {
   right: 0;
   left: 0;
 }
@@ -1076,20 +1072,11 @@ button,
 
 .nixie-tube {
   --nixie-delay: 0ms;
-  --nixie-h: clamp(64px, 8vw, 104px);
+  --nixie-h: calc(clamp(1.8rem, 6vw, 3rem) * 2.497);
   display: block;
-  width: calc(var(--nixie-h) * 0.375);
+  width: calc(var(--nixie-h) * 0.28);
   height: var(--nixie-h);
   overflow: visible;
-}
-
-.nixie-tube[data-kind="dollar"] {
-  width: calc(var(--nixie-h) * 0.34);
-}
-
-.nixie-tube[data-kind="comma"],
-.nixie-tube[data-kind="dot"] {
-  width: calc(var(--nixie-h) * 0.22);
 }
 
 .nixie-window {
@@ -1179,8 +1166,8 @@ button,
 }
 
 .nixie-tubes.is-centered .nixie-tube {
-  flex: 1 1 0;
-  width: auto;
+  flex: 0 0 auto;
+  width: calc(var(--nixie-h) * 0.28);
   min-width: 0;
   margin-right: 0;
 }

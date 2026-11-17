@@ -11,11 +11,13 @@ import {
   NIXIE_GLYPH,
   NIXIE_STAGGER_MS,
   cyclingDigit,
-  nixieBank,
+  NIXIE_HEIGHT_OVER_FONT,
   nixieSlots,
   nixieTubeCount,
   type NixieColumn,
 } from "@/lib/nixie";
+
+const TUBE_VIEWBOX = "4 0 16 64";
 
 function Glass({ id }: { id: string }) {
   return (
@@ -56,7 +58,7 @@ function DigitTube({
   const id = useId().replace(/:/g, "");
   const delay = `${column.order * NIXIE_STAGGER_MS}ms`;
   return (
-    <svg className={spare ? "nixie-tube is-spare" : "nixie-tube"} data-kind="digit" data-digit={shown ?? ""} viewBox="0 0 24 64" aria-hidden="true" style={{ "--nixie-delay": delay } as CSSProperties}>
+    <svg className={spare ? "nixie-tube is-spare" : "nixie-tube"} data-kind="digit" data-digit={shown ?? ""} viewBox={TUBE_VIEWBOX} preserveAspectRatio="none" aria-hidden="true" style={{ "--nixie-delay": delay } as CSSProperties}>
       <Glass id={id} />
       {shown === null ? null : <circle className="nixie-halo is-on" cx="12" cy="32" r="10" fill={`url(#${id}-halo)`} />}
       {NIXIE_DIGITS.map((digit) => (
@@ -83,7 +85,7 @@ function SymbolTube({
 }) {
   const id = useId().replace(/:/g, "");
   return (
-    <svg className={spare ? "nixie-tube is-spare" : "nixie-tube"} data-kind={kind} data-lit={lit ? "true" : "false"} viewBox="0 0 24 64" aria-hidden="true">
+    <svg className={spare ? "nixie-tube is-spare" : "nixie-tube"} data-kind={kind} data-lit={lit ? "true" : "false"} viewBox={TUBE_VIEWBOX} preserveAspectRatio="none" aria-hidden="true">
       <Glass id={id} />
       {lit ? <circle className="nixie-halo is-on" cx="12" cy={kind === "comma" || kind === "dot" ? 40 : 32} r={kind === "dot" ? 6 : 9} fill={`url(#${id}-halo)`} /> : null}
       {kind === "dot" ? (
@@ -110,22 +112,25 @@ function Tube({ column, tick, spare }: { column: NixieColumn; tick: number | nul
   return <SymbolTube kind="mark" glyph={NIXIE_DASH} lit={false} spare={spare} />;
 }
 
-/** A test nixie row. `value` is the same formatted melt string the plate shows. */
+/** The centered Nixie row. `value` is the same formatted melt string the plate shows. */
 export function NixieReadout({
   value,
   spinning = false,
-  centered = false,
 }: {
   value: string;
   spinning?: boolean;
-  /** Show only the tubes the value needs, centered as a group. */
-  centered?: boolean;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
-  const [tubeCount, setTubeCount] = useState(13);
-  const columns = centered ? nixieSlots(value, tubeCount) : nixieBank(value);
+  const [tubeCount, setTubeCount] = useState(12);
+  const [forced, setForced] = useState<string | null>(null);
+  const shownValue = forced ?? value;
+  const columns = nixieSlots(shownValue, tubeCount);
   const [tick, setTick] = useState(0);
   const [reduce, setReduce] = useState(false);
+  useEffect(() => {
+    const next = new URLSearchParams(window.location.search).get("nixie");
+    if (next) setForced(next);
+  }, []);
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const sync = () => setReduce(media.matches);
@@ -135,33 +140,32 @@ export function NixieReadout({
   }, []);
   const cycling = spinning && !reduce;
   useEffect(() => {
-    if (!centered) return;
     const node = frameRef.current;
     if (!node) return;
     const measure = () => {
       const width = node.clientWidth;
-      const height = Math.min(104, Math.max(64, window.innerWidth * 0.08));
-      setTubeCount(nixieTubeCount(width, height));
+      const font = Math.min(48, Math.max(28.8, window.innerWidth * 0.06));
+      setTubeCount(nixieTubeCount(width, font * NIXIE_HEIGHT_OVER_FONT));
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(node);
     return () => observer.disconnect();
-  }, [centered]);
+  }, []);
   useEffect(() => {
     if (!cycling) return;
     const id = window.setInterval(() => setTick((n) => n + 1), NIXIE_CYCLE_MS);
     return () => window.clearInterval(id);
   }, [cycling]);
 
-  const tubesClass = ["nixie-tubes", cycling ? "is-cycling" : "", centered ? "is-centered" : ""].filter(Boolean).join(" ");
+  const tubesClass = ["nixie-tubes", "is-centered", cycling ? "is-cycling" : ""].filter(Boolean).join(" ");
   const row = (
     <div
-      className={centered ? "gear-panel-nixie is-centered" : "gear-panel-nixie"}
-      ref={centered ? frameRef : undefined}
-      data-testid={centered ? "nixie-centered" : "nixie-value"}
-      data-value={value}
-      data-slots={centered ? columns.length : undefined}
+      className="gear-panel-nixie is-centered"
+      ref={frameRef}
+      data-testid="nixie-centered"
+      data-value={shownValue}
+      data-slots={columns.length}
       data-cycling={cycling ? "true" : "false"}
     >
       <div className="nixie-plate" aria-hidden="true" />
@@ -170,7 +174,7 @@ export function NixieReadout({
           <Tube
             key={column.key}
             column={column}
-            tick={cycling && (!centered || column.kind !== "digit" || column.digit !== null) ? tick : null}
+            tick={cycling && (column.kind !== "digit" || column.digit !== null) ? tick : null}
             spare={false}
           />
         ))}
@@ -178,6 +182,5 @@ export function NixieReadout({
       <div className="nixie-window" />
     </div>
   );
-  if (!centered) return row;
   return <div className="gear-panel-nixie-live">{row}</div>;
 }

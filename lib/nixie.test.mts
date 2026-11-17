@@ -8,15 +8,21 @@ import {
   NIXIE_DIGIT_PLACES,
   NIXIE_DIGITS,
   NIXIE_DOLLAR,
+  NIXIE_HEIGHT_OVER_FONT,
   NIXIE_IGNITE_MS,
+  NIXIE_SPOT_HEADROOM,
   NIXIE_STAGGER_MS,
+  NIXIE_TUBE_ASPECT,
   cyclingDigit,
   litDigit,
+  maxMeltLabel,
   nixieBank,
   nixieCentered,
   nixieColumns,
   nixieSlots,
   nixieTubeCount,
+  nixieTubeHeight,
+  nixieWindowWidth,
 } from "@/lib/nixie";
 
 const machine = readFileSync(new URL("../components/slot-machine.tsx", import.meta.url), "utf8");
@@ -67,8 +73,7 @@ test("the test nixie mirrors the melt value and lights only the needed cathodes"
   assert.equal(textOf(nixieCentered("$189")), "$189");
   assert.equal(textOf(nixieCentered("$9,999,999")), "$9,999,999");
 
-  assert.equal(nixieTubeCount(314.8, 64), 13);
-  assert.equal(nixieTubeCount(920, 104), 24);
+  assert.equal(nixieTubeCount(314.8, 71.91), 15);
   const slots = nixieSlots("$3,927", 13);
   assert.equal(slots.length, 13);
   assert.equal(textOf(slots), "···$3,927····");
@@ -77,19 +82,34 @@ test("the test nixie mirrors the melt value and lights only the needed cathodes"
   assert.equal(textOf(nixieSlots("$9,999,999", 13)), "·$9,999,999··");
 });
 
+test("the centered nixie fits the largest melt value", () => {
+  const label = maxMeltLabel();
+  assert.equal(NIXIE_SPOT_HEADROOM, 10_000);
+  assert.equal(label.startsWith("$"), true);
+  assert.ok(label.length >= 12);
+  for (const viewport of [320, 390, 1440]) {
+    const tubes = nixieTubeCount(nixieWindowWidth(viewport), nixieTubeHeight(viewport));
+    assert.ok(
+      tubes >= label.length,
+      `${viewport}px has ${tubes} tubes for ${label} (${label.length} characters)`,
+    );
+  }
+  assert.equal(nixieCentered(label).length, label.length);
+});
+
 test("the bottom-plate nixie follows the same melt state as the plate", () => {
+  assert.equal(machine.includes("NixieReadout centered"), false);
   assert.match(
     machine,
     /<NixieReadout spinning=\{spinning\} value=\{metal \? formatWholeDollars\(meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)\) : "—"\} \/>/,
   );
-  assert.match(
-    machine,
-    /<NixieReadout centered spinning=\{spinning\} value=\{metal \? formatWholeDollars\(meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)\) : "—"\} \/>/,
-  );
-  assert.match(nixie, /nixieSlots\(value, tubeCount\)/);
-  assert.match(css, /\.gear-panel-nixie\.is-centered \{[^}]*width:\s*calc\(min\(1040px, 100vw - 1\.7rem\) - 3rem\)/);
+  assert.equal((machine.match(/<NixieReadout /g) ?? []).length, 1);
+  assert.match(nixie, /nixieSlots\(shownValue, tubeCount\)/);
+  assert.match(css, /\.gear-panel-nixie \{[^}]*width:\s*min\(100%, calc\(min\(1040px, 100vw - 1\.7rem\) - 3rem\)\)/);
   assert.match(css, /\.gear-panel-nixie-live \{[^}]*justify-content:\s*center/);
-  assert.match(css, /\.nixie-tubes\.is-centered \.nixie-tube \{[^}]*flex:\s*1 1 0/);
+  assert.match(css, /\.nixie-tubes\.is-centered \.nixie-tube \{[^}]*flex:\s*0 0 auto/);
+  assert.equal(NIXIE_HEIGHT_OVER_FONT, 2.497);
+  assert.equal(NIXIE_TUBE_ASPECT, 0.28);
   assert.match(readout, /const total = meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)/);
   assert.match(readout, /<RollingPrice value=\{formatWholeDollars\(total\)\} \/>/);
   assert.equal(readout.includes("NixieReadout"), false);
@@ -106,13 +126,11 @@ test("the bottom-plate nixie follows the same melt state as the plate", () => {
   assert.match(nixie, /prefers-reduced-motion: reduce/);
   assert.match(css, /transition-delay:\s*var\(--nixie-delay\)/);
   assert.match(css, /\.nixie-cathode \{[^}]*0\.62s cubic-bezier\(0\.16, 0\.84, 0\.24, 1\)/);
-  assert.match(css, /\.nixie-tube \{[^}]*--nixie-h:\s*clamp\(64px, 8vw, 104px\)/);
+  assert.match(css, /\.nixie-tube \{[^}]*--nixie-h:\s*calc\(clamp\(1\.8rem, 6vw, 3rem\) \* 2\.497\)/);
   assert.match(css, /\.nixie-plate \{[^}]*background:\s*#000/);
   assert.match(css, /\.nixie-plate \{[^}]*top:\s*-4px/);
   assert.match(css, /\.nixie-plate \{[^}]*left:\s*-8px/);
   assert.match(nixie, /className="nixie-plate"/);
-  assert.match(css, /\.gear-panel-nixie \{[^}]*bottom:\s*58px/);
-  assert.match(css, /\.gear-panel-nixie \{[^}]*left:\s*50%/);
   assert.match(css, /\.nixie-tubes\.is-cycling \.nixie-cathode,[\s\S]*?transition:\s*none/);
   const reduced = css.split("@media (prefers-reduced-motion: reduce)").slice(1).find((block) => block.includes(".nixie-cathode"));
   assert.match(reduced ?? "", /\.nixie-cathode,[\s\S]*?transition:\s*none/);
