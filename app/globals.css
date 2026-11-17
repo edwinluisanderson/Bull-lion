@@ -152,6 +152,11 @@ button,
     inset 0 0 0 3px #120a06,
     inset 0 0 0 7px #6d4a2e,
     inset 0 0 0 10px #2a1810;
+  --cabinet-radius: 28px;
+  --cabinet-ring:
+    inset 0 0 0 3px #1a0e08,
+    inset 0 0 0 8px #8d5c34,
+    inset 0 0 0 11px #3a2416;
   position: relative;
   width: 100%;
   max-width: 390px;
@@ -179,7 +184,7 @@ button,
   position: relative;
   display: flex;
   flex-direction: column;
-  border-radius: 28px;
+  border-radius: var(--cabinet-radius);
   padding-bottom: 0;
   background:
     repeating-linear-gradient(
@@ -188,11 +193,7 @@ button,
       transparent 2px 9px
     ),
     linear-gradient(180deg, #6d4528 0%, #4a2e1b 18%, #3a2416 55%, #2a180f 100%);
-  box-shadow:
-    inset 0 0 0 3px #1a0e08,
-    inset 0 0 0 8px #8d5c34,
-    inset 0 0 0 11px #3a2416,
-    0 28px 50px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 28px 50px rgba(0, 0, 0, 0.45);
 }
 
 .rivet {
@@ -207,10 +208,14 @@ button,
     inset 0 -1px 1px rgba(0, 0, 0, 0.45);
 }
 
-.cabinet > .rivet[data-corner="tl"] { top: 14px; left: 14px; }
-.cabinet > .rivet[data-corner="tr"] { top: 14px; right: 14px; }
-.cabinet > .rivet[data-corner="bl"] { bottom: 14px; left: 14px; }
-.cabinet > .rivet[data-corner="br"] { bottom: 14px; right: 14px; }
+.cabinet > .rivet[data-corner="tl"],
+.gear-panel > .rivet[data-corner="tl"] { top: 14px; left: 14px; }
+.cabinet > .rivet[data-corner="tr"],
+.gear-panel > .rivet[data-corner="tr"] { top: 14px; right: 14px; }
+.cabinet > .rivet[data-corner="bl"],
+.gear-panel > .rivet[data-corner="bl"] { bottom: 14px; left: 14px; }
+.cabinet > .rivet[data-corner="br"],
+.gear-panel > .rivet[data-corner="br"] { bottom: 14px; right: 14px; }
 
 .plate-title {
   margin: 0.1rem 0 0;
@@ -920,7 +925,7 @@ button,
   margin-top: 0.9rem;
   margin-bottom: 0;
   overflow: hidden;
-  border-radius: var(--plate-radius);
+  border-radius: var(--cabinet-radius);
   background:
     repeating-linear-gradient(
       90deg,
@@ -931,8 +936,7 @@ button,
   box-shadow: 0 16px 28px rgba(0, 0, 0, 0.4);
 }
 
-.melt-plate::after,
-.gear-panel::after {
+.melt-plate::after {
   content: "";
   position: absolute;
   z-index: 5;
@@ -942,11 +946,28 @@ button,
   pointer-events: none;
 }
 
-.melt-stack,
-.gear-panel {
+.cabinet::after,
+.gear-panel::after {
+  content: "";
+  position: absolute;
+  z-index: 9;
+  inset: 0;
+  border-radius: var(--cabinet-radius);
+  box-shadow: var(--cabinet-ring);
+  pointer-events: none;
+}
+
+.melt-stack {
   width: auto;
   margin-right: var(--plate-gutter);
   margin-left: var(--plate-gutter);
+}
+
+.cabinet,
+.gear-panel {
+  width: auto;
+  margin-right: 0;
+  margin-left: 0;
 }
 
 .gear-panel-lights {
@@ -1264,13 +1285,9 @@ button,
   z-index: 6;
 }
 
-.gear-panel > .rivet[data-corner="tl"],
 .nameplate > .rivet[data-corner="tl"] { top: 8px; left: 8px; }
-.gear-panel > .rivet[data-corner="tr"],
 .nameplate > .rivet[data-corner="tr"] { top: 8px; right: 8px; }
-.gear-panel > .rivet[data-corner="bl"],
 .nameplate > .rivet[data-corner="bl"] { bottom: 8px; left: 8px; }
-.gear-panel > .rivet[data-corner="br"],
 .nameplate > .rivet[data-corner="br"] { bottom: 8px; right: 8px; }
 
 .gear-panel-bg {
