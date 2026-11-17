@@ -932,11 +932,18 @@ button,
 .gear-panel::after {
   content: "";
   position: absolute;
-  z-index: 9;
   inset: 0;
   border-radius: var(--cabinet-radius);
   box-shadow: var(--cabinet-ring);
   pointer-events: none;
+}
+
+.cabinet::after {
+  z-index: 7;
+}
+
+.gear-panel::after {
+  z-index: 9;
 }
 
 .cabinet,

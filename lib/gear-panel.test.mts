@@ -25,6 +25,9 @@ test("the decorative gears sit in the holding panel under the machine", () => {
     /\.cabinet::after,\s*\.gear-panel::after \{[^}]*box-shadow:\s*var\(--cabinet-ring\)/,
   );
   assert.match(css, /\.cabinet::after,\s*\.gear-panel::after \{[^}]*border-radius:\s*var\(--cabinet-radius\)/);
+  assert.match(css, /\.pull-handle \{[^}]*z-index:\s*8/);
+  assert.match(css, /\.cabinet::after \{[^}]*z-index:\s*7/);
+  assert.match(css, /\.gear-panel::after \{[^}]*z-index:\s*9/);
   assert.match(css, /\.gear-panel > \.rivet \{[^}]*z-index:\s*6/);
   assert.match(css, /\.cabinet-gears \{[^}]*min-height:\s*calc\(36px \+ 2\.05rem\)/);
 });
