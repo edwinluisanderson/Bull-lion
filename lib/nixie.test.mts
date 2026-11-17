@@ -8,6 +8,7 @@ import {
   NIXIE_DIGIT_PLACES,
   NIXIE_DIGITS,
   NIXIE_DOLLAR,
+  NIXIE_DIGIT_NARROW,
   NIXIE_DIGIT_SCALE,
   NIXIE_HEIGHT_OVER_FONT,
   NIXIE_IGNITE_MS,
@@ -136,6 +137,7 @@ test("the bottom-plate nixie follows the same melt state as the plate", () => {
   assert.match(css, /\.nixie-tubes\.is-centered \.nixie-tube \{[^}]*flex:\s*1 1 0/);
   assert.equal(NIXIE_HEIGHT_OVER_FONT, 2.497);
   assert.equal(NIXIE_DIGIT_SCALE, 2.08);
+  assert.equal(NIXIE_DIGIT_NARROW, 0.86);
   assert.match(nixie, /transform=\{NIXIE_DIGIT_FRAME\}/);
   assert.match(css, /\.is-on \.nixie-cathode \{[^}]*stroke-width:\s*1\.85/);
   assert.equal(NIXIE_TUBE_ASPECT, 0.238);
