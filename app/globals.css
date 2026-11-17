@@ -867,7 +867,7 @@ button,
 .gear-panel {
   position: relative;
   width: min(92%, 920px);
-  min-height: 320px;
+  min-height: 480px;
   margin: 0.9rem auto 0;
   overflow: hidden;
   border-radius: 22px;
@@ -969,6 +969,11 @@ button,
   z-index: 1;
 }
 
+.gear-panel-stage {
+  position: relative;
+  min-height: 320px;
+}
+
 .gear-panel-nixie {
   position: absolute;
   z-index: 3;
@@ -976,6 +981,25 @@ button,
   left: 50%;
   transform: translateX(-50%);
   max-width: calc(100% - 36px);
+  pointer-events: none;
+}
+
+.gear-panel-nixie.is-centered {
+  position: relative;
+  bottom: auto;
+  left: auto;
+  max-width: 100%;
+  transform: none;
+}
+
+.gear-panel-nixie-live {
+  position: absolute;
+  z-index: 3;
+  right: 18px;
+  bottom: 18px;
+  left: 18px;
+  display: flex;
+  justify-content: center;
   pointer-events: none;
 }
 
@@ -1084,6 +1108,29 @@ button,
 .nixie-dot.is-on {
   fill: #ff7a1a;
   opacity: 1;
+}
+
+.nixie-tubes.is-centered {
+  gap: 0;
+}
+
+.nixie-tubes.is-centered .nixie-tube {
+  margin-right: 3px;
+  transition:
+    width 0.42s cubic-bezier(0.16, 0.84, 0.24, 1),
+    margin-right 0.42s cubic-bezier(0.16, 0.84, 0.24, 1),
+    opacity 0.3s ease;
+}
+
+.nixie-tubes.is-centered .nixie-tube:last-child {
+  margin-right: 0;
+}
+
+.nixie-tubes.is-centered .nixie-tube.is-spare {
+  width: 0;
+  margin-right: 0;
+  opacity: 0;
+  overflow: hidden;
 }
 
 .nixie-tubes.is-cycling .nixie-glow,
@@ -1547,6 +1594,10 @@ button,
   }
 
   .gear-panel {
+    min-height: 360px;
+  }
+
+  .gear-panel-stage {
     min-height: 250px;
   }
 
@@ -1611,7 +1662,8 @@ button,
   .nixie-glow,
   .nixie-cathode,
   .nixie-halo,
-  .nixie-dot {
+  .nixie-dot,
+  .nixie-tubes.is-centered .nixie-tube {
     animation: none;
     transition: none;
   }

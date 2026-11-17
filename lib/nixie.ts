@@ -105,6 +105,17 @@ export function litDigit(column: NixieColumn): number | null {
   return column.kind === "digit" ? column.digit : null;
 }
 
+/** A centered row keeps only the tubes the current value uses. */
+export function nixieShows(column: NixieColumn): boolean {
+  if (column.kind === "digit") return column.digit !== null;
+  if (column.kind === "mark") return true;
+  return column.lit;
+}
+
+export function nixieCentered(formatted: string): NixieColumn[] {
+  return nixieBank(formatted).filter(nixieShows);
+}
+
 /** The cathode a tube shows while the reels are spinning. Each place is offset. */
 export function cyclingDigit(place: number, tick: number): number {
   const step = Math.trunc(tick) + Math.trunc(place);

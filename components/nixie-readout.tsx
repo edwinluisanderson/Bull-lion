@@ -12,6 +12,7 @@ import {
   NIXIE_STAGGER_MS,
   cyclingDigit,
   nixieBank,
+  nixieShows,
   type NixieColumn,
 } from "@/lib/nixie";
 
@@ -42,11 +43,19 @@ function placeOf(key: string): number {
   return Number.isFinite(place) ? place : 0;
 }
 
-function DigitTube({ column, shown }: { column: Extract<NixieColumn, { kind: "digit" }>; shown: number | null }) {
+function DigitTube({
+  column,
+  shown,
+  spare,
+}: {
+  column: Extract<NixieColumn, { kind: "digit" }>;
+  shown: number | null;
+  spare: boolean;
+}) {
   const id = useId().replace(/:/g, "");
   const delay = `${column.order * NIXIE_STAGGER_MS}ms`;
   return (
-    <svg className="nixie-tube" data-kind="digit" data-digit={shown ?? ""} viewBox="0 0 24 64" aria-hidden="true" style={{ "--nixie-delay": delay } as CSSProperties}>
+    <svg className={spare ? "nixie-tube is-spare" : "nixie-tube"} data-kind="digit" data-digit={shown ?? ""} viewBox="0 0 24 64" aria-hidden="true" style={{ "--nixie-delay": delay } as CSSProperties}>
       <Glass id={id} />
       {shown === null ? null : <circle className="nixie-halo is-on" cx="12" cy="32" r="10" fill={`url(#${id}-halo)`} />}
       {NIXIE_DIGITS.map((digit) => (
@@ -64,14 +73,16 @@ function SymbolTube({
   kind,
   glyph,
   lit,
+  spare,
 }: {
   kind: "dollar" | "comma" | "dot" | "mark";
   glyph?: string;
   lit: boolean;
+  spare: boolean;
 }) {
   const id = useId().replace(/:/g, "");
   return (
-    <svg className="nixie-tube" data-kind={kind} data-lit={lit ? "true" : "false"} viewBox="0 0 24 64" aria-hidden="true">
+    <svg className={spare ? "nixie-tube is-spare" : "nixie-tube"} data-kind={kind} data-lit={lit ? "true" : "false"} viewBox="0 0 24 64" aria-hidden="true">
       <Glass id={id} />
       {lit ? <circle className="nixie-halo is-on" cx="12" cy={kind === "comma" || kind === "dot" ? 40 : 32} r={kind === "dot" ? 6 : 9} fill={`url(#${id}-halo)`} /> : null}
       {kind === "dot" ? (
@@ -87,19 +98,28 @@ function SymbolTube({
   );
 }
 
-function Tube({ column, tick }: { column: NixieColumn; tick: number | null }) {
+function Tube({ column, tick, spare }: { column: NixieColumn; tick: number | null; spare: boolean }) {
   if (column.kind === "digit") {
     const shown = tick === null ? column.digit : cyclingDigit(placeOf(column.key), tick);
-    return <DigitTube column={column} shown={shown} />;
+    return <DigitTube column={column} shown={shown} spare={spare} />;
   }
-  if (column.kind === "dollar") return <SymbolTube kind="dollar" glyph={NIXIE_DOLLAR} lit={column.lit} />;
-  if (column.kind === "comma") return <SymbolTube kind="comma" glyph={NIXIE_COMMA} lit={tick === null ? column.lit : false} />;
-  if (column.kind === "dot") return <SymbolTube kind="dot" lit={column.lit} />;
-  return <SymbolTube kind="mark" glyph={NIXIE_DASH} lit={false} />;
+  if (column.kind === "dollar") return <SymbolTube kind="dollar" glyph={NIXIE_DOLLAR} lit={column.lit} spare={spare} />;
+  if (column.kind === "comma") return <SymbolTube kind="comma" glyph={NIXIE_COMMA} lit={tick === null ? column.lit : false} spare={spare} />;
+  if (column.kind === "dot") return <SymbolTube kind="dot" lit={column.lit} spare={spare} />;
+  return <SymbolTube kind="mark" glyph={NIXIE_DASH} lit={false} spare={spare} />;
 }
 
 /** A test nixie row. `value` is the same formatted melt string the plate shows. */
-export function NixieReadout({ value, spinning = false }: { value: string; spinning?: boolean }) {
+export function NixieReadout({
+  value,
+  spinning = false,
+  centered = false,
+}: {
+  value: string;
+  spinning?: boolean;
+  /** Show only the tubes the value needs, centered as a group. */
+  centered?: boolean;
+}) {
   const columns = nixieBank(value);
   const [tick, setTick] = useState(0);
   const [reduce, setReduce] = useState(false);
@@ -117,14 +137,22 @@ export function NixieReadout({ value, spinning = false }: { value: string; spinn
     return () => window.clearInterval(id);
   }, [cycling]);
 
-  return (
-    <div className="gear-panel-nixie" data-testid="nixie-value" data-value={value} data-cycling={cycling ? "true" : "false"}>
-      <div className={cycling ? "nixie-tubes is-cycling" : "nixie-tubes"}>
+  const tubesClass = ["nixie-tubes", cycling ? "is-cycling" : "", centered ? "is-centered" : ""].filter(Boolean).join(" ");
+  const row = (
+    <div
+      className={centered ? "gear-panel-nixie is-centered" : "gear-panel-nixie"}
+      data-testid={centered ? "nixie-centered" : "nixie-value"}
+      data-value={value}
+      data-cycling={cycling ? "true" : "false"}
+    >
+      <div className={tubesClass}>
         {columns.map((column) => (
-          <Tube key={column.key} column={column} tick={cycling ? tick : null} />
+          <Tube key={column.key} column={column} tick={cycling ? tick : null} spare={centered && !nixieShows(column)} />
         ))}
       </div>
       <div className="nixie-window" />
     </div>
   );
+  if (!centered) return row;
+  return <div className="gear-panel-nixie-live">{row}</div>;
 }

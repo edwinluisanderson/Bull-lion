@@ -365,6 +365,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           <span className="rivet" data-corner="tr" />
           <span className="rivet" data-corner="bl" />
           <span className="rivet" data-corner="br" />
+          <div className="gear-panel-stage">
           <div className="gear-panel-lights">
             {Array.from({ length: STEAMPUNK_LIGHT_COUNT }, (_, index) => (
               <SteampunkLight key={index} brightness={lampBrightness} />
@@ -382,6 +383,8 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           </div>
           <SteampunkLightCast />
           <NixieReadout spinning={spinning} value={metal ? formatWholeDollars(meltValue(metal.usdPerTroyOz, weight.grams, pieces)) : "—"} />
+          </div>
+          <NixieReadout centered spinning={spinning} value={metal ? formatWholeDollars(meltValue(metal.usdPerTroyOz, weight.grams, pieces)) : "—"} />
         </div>
         {lampCompare ? (
           <div className="lamp-compare">

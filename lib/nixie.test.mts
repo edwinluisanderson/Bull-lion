@@ -13,6 +13,7 @@ import {
   cyclingDigit,
   litDigit,
   nixieBank,
+  nixieCentered,
   nixieColumns,
 } from "@/lib/nixie";
 
@@ -60,6 +61,9 @@ test("the test nixie mirrors the melt value and lights only the needed cathodes"
   assert.equal(cents.some((column) => column.kind === "dot"), true);
   assert.equal(textOf(cents), "$····1,234.50");
   assert.equal(nixieColumns("$1,234.50").some((column) => column.kind === "dot"), true);
+  assert.equal(textOf(nixieCentered("$3,927")), "$3,927");
+  assert.equal(textOf(nixieCentered("$189")), "$189");
+  assert.equal(textOf(nixieCentered("$9,999,999")), "$9,999,999");
 });
 
 test("the bottom-plate nixie follows the same melt state as the plate", () => {
@@ -67,6 +71,13 @@ test("the bottom-plate nixie follows the same melt state as the plate", () => {
     machine,
     /<NixieReadout spinning=\{spinning\} value=\{metal \? formatWholeDollars\(meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)\) : "—"\} \/>/,
   );
+  assert.match(
+    machine,
+    /<NixieReadout centered spinning=\{spinning\} value=\{metal \? formatWholeDollars\(meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)\) : "—"\} \/>/,
+  );
+  assert.match(nixie, /spare=\{centered && !nixieShows\(column\)\}/);
+  assert.match(css, /\.gear-panel-nixie-live \{[^}]*justify-content:\s*center/);
+  assert.match(css, /\.nixie-tubes\.is-centered \.nixie-tube\.is-spare \{[^}]*width:\s*0/);
   assert.match(readout, /const total = meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)/);
   assert.match(readout, /<RollingPrice value=\{formatWholeDollars\(total\)\} \/>/);
   assert.equal(readout.includes("NixieReadout"), false);
