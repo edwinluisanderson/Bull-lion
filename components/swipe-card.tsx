@@ -124,7 +124,7 @@ export function SwipeCard({
 
   return (
     <li
-      className="stack-swipe"
+      className={offset > 0 ? "stack-swipe is-raised" : "stack-swipe"}
       data-swipe-id={id}
       data-open={open ? "true" : "false"}
       style={{ ["--reveal" as string]: `${SWIPE_REVEAL_PX}px`, ["--swipe" as string]: `${offset}px` }}

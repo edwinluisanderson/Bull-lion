@@ -127,6 +127,11 @@
   }
 }
 
+html,
+body {
+  overflow-x: clip;
+}
+
 body {
   margin: 0;
   background: #140e0a;
@@ -928,6 +933,10 @@ button,
   box-shadow: 0 16px 28px rgba(0, 0, 0, 0.4);
 }
 
+.gear-panel:has(.stack-swipe.is-raised) {
+  overflow: visible;
+}
+
 .cabinet::after,
 .gear-panel::after {
   content: "";
@@ -1076,6 +1085,10 @@ button,
   box-shadow:
     inset 0 0 0 1px rgba(212, 168, 92, 0.35),
     inset 0 1px 0 rgba(255, 236, 196, 0.18);
+}
+
+.split-stack:has(.stack-swipe.is-raised) {
+  z-index: 12;
 }
 
 .split-stack-head {
@@ -1389,7 +1402,7 @@ button,
 
 .stack-swipe {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   border-radius: 10px;
   touch-action: pan-y;
   background:
@@ -1437,6 +1450,19 @@ button,
   user-select: none;
   transform: translateX(var(--swipe, 0px));
   transition: transform 160ms ease-out;
+}
+
+.stack-swipe.is-raised {
+  z-index: 3;
+}
+
+.stack-swipe.is-raised .stack-card {
+  background: linear-gradient(165deg, #5c3a22, #24150e 58%, #140c08);
+  box-shadow:
+    inset 0 0 0 1px #2a160c,
+    inset 0 0 0 3px #c4963e,
+    inset 0 0 0 4px #3a2416,
+    0 14px 24px rgba(0, 0, 0, 0.5);
 }
 
 .stack-swipe-face.is-dragging {
