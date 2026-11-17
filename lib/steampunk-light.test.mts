@@ -20,6 +20,7 @@ import {
 
 const light = readFileSync(new URL("../components/steampunk-light.tsx", import.meta.url), "utf8");
 const machine = readFileSync(new URL("../components/slot-machine.tsx", import.meta.url), "utf8");
+const lamps = readFileSync(new URL("../components/wheel-lamps.tsx", import.meta.url), "utf8");
 const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 
 test("a light is a caged bulb larger than a rivet", () => {
@@ -57,19 +58,16 @@ test("three full caged lamps replace the dots under the wheels", () => {
   assert.equal(WHEEL_LAMP_COUNT, 3);
   assert.equal(WHEEL_LAMP_PX, 36);
   const underWheels = machine.slice(machine.indexOf('className="playfield"'), machine.indexOf('className="gear-panel"'));
-  assert.match(underWheels, /className="wheel-lamps"/);
+  assert.match(underWheels, /<WheelLamps \/>/);
   assert.equal(underWheels.includes('className="bulbs"'), false);
-  assert.match(underWheels, /brightness=\{LAMP_OFF\}/);
-  assert.match(underWheels, /brightness=\{LAMP_LOW\}/);
-  assert.match(underWheels, /brightness=\{LAMP_MEDIUM\}/);
-  assert.match(underWheels, /brightness=\{LAMP_FULL\}/);
-  assert.match(css, /\.wheel-lamps \{[^}]*justify-content:\s*space-evenly/);
+  assert.match(underWheels, /<WheelLamps \/>/);
+  assert.match(machine, /pulseWheelLamp\(0\)/);
+  assert.match(machine, /pulseWheelLamp\(1\)/);
+  assert.match(machine, /pulseWheelLamp\(2\)/);
+  assert.match(css, /\.wheel-lamps \{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
   assert.match(css, /\.wheel-lamps \.steampunk-light \{[^}]*width:\s*36px/);
-  assert.match(css, /\.wheel-lamp-1 \.steampunk-light:nth-child\(4\) \{[^}]*animation:\s*wheel-full-1 10\.4s ease infinite/);
-  assert.match(css, /\.wheel-lamp-2 \.steampunk-light:nth-child\(1\) \{[^}]*animation-delay:\s*0\.4s/);
-  assert.match(css, /\.wheel-lamp-3 \.steampunk-light:nth-child\(1\) \{[^}]*animation-delay:\s*0\.8s/);
-  const reduced = css.split("@media (prefers-reduced-motion: reduce)").slice(1).find((block) => block.includes(".wheel-lamp .steampunk-light:last-child"));
-  assert.match(reduced ?? "", /\.wheel-lamp \.steampunk-light:last-child \{[^}]*opacity:\s*1/);
+  assert.match(lamps, /prefers-reduced-motion: reduce/);
+  assert.match(lamps, /REDUCED_LEVEL = 1/);
 });
 
 test("brightness runs from an unlit bulb to a full warm halo", () => {

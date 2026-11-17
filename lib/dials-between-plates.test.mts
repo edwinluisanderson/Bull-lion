@@ -21,7 +21,7 @@ test("the dials and lights sit between the melt plate and the wheels", () => {
   assert.equal((between.match(/<Gauge/g) ?? []).length, 2);
   assert.equal(between.includes('className="bulbs"'), false);
   const underWheels = machine.slice(wheels, machine.indexOf('className="gear-panel"'));
-  assert.match(underWheels, /className="cabinet-gears"[\s\S]*className="wheel-lamps"/);
+  assert.match(underWheels, /className="cabinet-gears"[\s\S]*<WheelLamps \/>/);
   assert.equal(underWheels.includes('className="bulbs"'), false);
   assert.equal(between.includes("bullion-logo"), false);
   assert.match(machine, /label="METAL"/);

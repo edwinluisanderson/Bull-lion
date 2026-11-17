@@ -856,105 +856,32 @@ button,
 
 .cabinet-gears {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
   box-sizing: border-box;
   min-height: calc(52px + 2.05rem);
-  margin-top: -0.2rem;
-  padding: 0 0.75rem;
+  margin-top: 0;
+  padding: 10px 0 13px;
 }
 
 .wheel-lamps {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: center;
-  justify-content: space-evenly;
   width: 100%;
+  box-sizing: border-box;
+  padding-left: calc(0.75rem + 14px);
+  padding-right: calc(0.55rem + 14px);
+}
+
+.wheel-lamp {
+  justify-self: center;
+  width: 36px;
+  height: 36px;
 }
 
 .wheel-lamps .steampunk-light {
   width: 36px;
   height: 36px;
-}
-
-/* Four stacked lamps. One level is visible at a time. A step takes 2.6s, the old .bulbs period. */
-.wheel-lamp {
-  position: relative;
-  display: block;
-  width: 36px;
-  height: 36px;
-}
-
-.wheel-lamp .steampunk-light {
-  position: absolute;
-  top: 0;
-  left: 0;
-  opacity: 0;
-}
-
-.wheel-lamp-1 .steampunk-light:nth-child(1) { animation: wheel-off-1 10.4s ease infinite; }
-.wheel-lamp-1 .steampunk-light:nth-child(2) { animation: wheel-low-1 10.4s ease infinite; }
-.wheel-lamp-1 .steampunk-light:nth-child(3) { animation: wheel-mid-1 10.4s ease infinite; }
-.wheel-lamp-1 .steampunk-light:nth-child(4) { animation: wheel-full-1 10.4s ease infinite; }
-
-.wheel-lamp-2 .steampunk-light:nth-child(1) { animation: wheel-off-2 10.4s ease infinite; animation-delay: 0.4s; }
-.wheel-lamp-2 .steampunk-light:nth-child(2) { animation: wheel-low-2 10.4s ease infinite; animation-delay: 0.4s; }
-.wheel-lamp-2 .steampunk-light:nth-child(3) { animation: wheel-mid-2 10.4s ease infinite; animation-delay: 0.4s; }
-.wheel-lamp-2 .steampunk-light:nth-child(4) { animation: wheel-full-2 10.4s ease infinite; animation-delay: 0.4s; }
-
-.wheel-lamp-3 .steampunk-light:nth-child(1) { animation: wheel-off-3 10.4s ease infinite; animation-delay: 0.8s; }
-.wheel-lamp-3 .steampunk-light:nth-child(2) { animation: wheel-low-3 10.4s ease infinite; animation-delay: 0.8s; }
-.wheel-lamp-3 .steampunk-light:nth-child(3) { animation: wheel-mid-3 10.4s ease infinite; animation-delay: 0.8s; }
-.wheel-lamp-3 .steampunk-light:nth-child(4) { animation: wheel-full-3 10.4s ease infinite; animation-delay: 0.8s; }
-
-@keyframes wheel-full-1 {
-  0%, 2%, 87.5%, 100% { opacity: 1; }
-  12.5%, 75% { opacity: 0; }
-}
-@keyframes wheel-off-1 {
-  0%, 2%, 37.5%, 100% { opacity: 0; }
-  12.5%, 25% { opacity: 1; }
-}
-@keyframes wheel-low-1 {
-  0%, 25%, 62.5%, 100% { opacity: 0; }
-  37.5%, 50% { opacity: 1; }
-}
-@keyframes wheel-mid-1 {
-  0%, 50%, 87.5%, 100% { opacity: 0; }
-  62.5%, 75% { opacity: 1; }
-}
-
-@keyframes wheel-low-2 {
-  0%, 2%, 87.5%, 100% { opacity: 1; }
-  12.5%, 75% { opacity: 0; }
-}
-@keyframes wheel-full-2 {
-  0%, 2%, 37.5%, 100% { opacity: 0; }
-  12.5%, 25% { opacity: 1; }
-}
-@keyframes wheel-mid-2 {
-  0%, 25%, 62.5%, 100% { opacity: 0; }
-  37.5%, 50% { opacity: 1; }
-}
-@keyframes wheel-off-2 {
-  0%, 50%, 87.5%, 100% { opacity: 0; }
-  62.5%, 75% { opacity: 1; }
-}
-
-@keyframes wheel-mid-3 {
-  0%, 2%, 87.5%, 100% { opacity: 1; }
-  12.5%, 75% { opacity: 0; }
-}
-@keyframes wheel-low-3 {
-  0%, 2%, 37.5%, 100% { opacity: 0; }
-  12.5%, 25% { opacity: 1; }
-}
-@keyframes wheel-off-3 {
-  0%, 25%, 62.5%, 100% { opacity: 0; }
-  37.5%, 50% { opacity: 1; }
-}
-@keyframes wheel-full-3 {
-  0%, 50%, 87.5%, 100% { opacity: 0; }
-  62.5%, 75% { opacity: 1; }
 }
 
 .gear-panel {
@@ -1681,6 +1608,10 @@ button,
     min-height: calc(36px + 2.05rem);
   }
 
+  .wheel-lamps {
+    padding-right: calc(0.75rem + 14px);
+  }
+
   .gear-panel {
     min-height: 360px;
   }
@@ -1754,15 +1685,6 @@ button,
   .nixie-tubes.is-centered .nixie-tube {
     animation: none;
     transition: none;
-  }
-
-  .wheel-lamp .steampunk-light {
-    animation: none;
-    opacity: 0;
-  }
-
-  .wheel-lamp .steampunk-light:last-child {
-    opacity: 1;
   }
 }
 

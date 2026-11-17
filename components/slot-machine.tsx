@@ -6,6 +6,8 @@ import { Gauge } from "@/components/gauge";
 import { WeightDial } from "@/components/weight-dial";
 import { Gear } from "@/components/gear";
 import { SteampunkLight, SteampunkLightCast } from "@/components/steampunk-light";
+import { WheelLamps } from "@/components/wheel-lamps";
+import { pulseWheelLamp } from "@/lib/wheel-lamp";
 import { NixieReadout } from "@/components/nixie-readout";
 import { PullBall } from "@/components/lever";
 import { Readout } from "@/components/readout";
@@ -30,7 +32,7 @@ import { LIVE_SPOT_NOTE, parsePriceBook, type PriceBook } from "@/lib/price-book
 import { settleReels } from "@/lib/haptics";
 import { playSpinOverlay, spinOverlayFor } from "@/lib/spin-overlay";
 import { meltValue } from "@/lib/value";
-import { LAMP_FULL, LAMP_LOW, LAMP_MEDIUM, LAMP_OFF, STEAMPUNK_LIGHT_COUNT, WHEEL_LAMP_COUNT } from "@/lib/steampunk-light";
+import { LAMP_FULL, LAMP_LOW, LAMP_MEDIUM, LAMP_OFF, STEAMPUNK_LIGHT_COUNT } from "@/lib/steampunk-light";
 import {
   weightStretchBetween,
   weightStretchLabel,
@@ -268,7 +270,10 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   spinToken={spinToken}
                   spinOrder={0}
                   bendDegrees={bendDegrees}
-                  onIndex={setMetalIndex}
+                  onIndex={(index) => {
+                    pulseWheelLamp(0);
+                    setMetalIndex(index);
+                  }}
                   onMotion={onMetalMotion}
                 />
                 <Reel
@@ -296,6 +301,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                     setCustomGrams(grams);
                   }}
                   onIndex={(index) => {
+                    pulseWheelLamp(1);
                     setWeightIndex(index);
                     setCustomGrams(null);
                   }}
@@ -333,6 +339,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                     setCustomPieces(value);
                   }}
                   onIndex={(index) => {
+                    pulseWheelLamp(2);
                     setCountIndex(index);
                     setCustomPieces(null);
                   }}
@@ -347,16 +354,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           </div>
 
           <div className="cabinet-gears" aria-hidden="true">
-            <div className="wheel-lamps">
-              {Array.from({ length: WHEEL_LAMP_COUNT }, (_, index) => (
-                <span key={index} className={`wheel-lamp wheel-lamp-${index + 1}`}>
-                  <SteampunkLight brightness={LAMP_OFF} />
-                  <SteampunkLight brightness={LAMP_LOW} />
-                  <SteampunkLight brightness={LAMP_MEDIUM} />
-                  <SteampunkLight brightness={LAMP_FULL} />
-                </span>
-              ))}
-            </div>
+            <WheelLamps />
           </div>
 
           {book.note === LIVE_SPOT_NOTE ? null : (

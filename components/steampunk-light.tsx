@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useId, type CSSProperties } from "react";
 
 import { cagePaths, LAMP_REST, lampPaint, STEAMPUNK_LIGHT_PX } from "@/lib/steampunk-light";
 
@@ -8,14 +8,19 @@ import { cagePaths, LAMP_REST, lampPaint, STEAMPUNK_LIGHT_PX } from "@/lib/steam
 export function SteampunkLight({
   className = "",
   brightness,
+  driven = false,
 }: {
   className?: string;
   /** Omit to keep the resting lamp. 0 is off, 1 is full. */
   brightness?: number;
+  /** Read brightness from inherited CSS variables. The wheel lamps drive these. */
+  driven?: boolean;
 }) {
   const id = useId().replace(/:/g, "");
   const bars = cagePaths();
   const paint = brightness === undefined ? LAMP_REST : lampPaint(brightness);
+  const varStyle = (property: string, variable: string): CSSProperties | undefined =>
+    driven ? ({ [property]: `var(${variable})` } as CSSProperties) : undefined;
   return (
     <svg
       className={`steampunk-light ${className}`.trim()}
@@ -27,14 +32,14 @@ export function SteampunkLight({
     >
       <defs>
         <radialGradient id={`${id}-halo`} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#ffcf70" stopOpacity={paint.haloOpacity} />
-          <stop offset="48%" stopColor="#e6a23a" stopOpacity={paint.haloOpacity * 0.4} />
+          <stop offset="0%" stopColor="#ffcf70" stopOpacity={driven ? undefined : paint.haloOpacity} style={varStyle("stopOpacity", "--lamp-halo")} />
+          <stop offset="48%" stopColor="#e6a23a" stopOpacity={driven ? undefined : paint.haloOpacity * 0.4} style={driven ? ({ stopOpacity: "calc(var(--lamp-halo) * 0.4)" } as CSSProperties) : undefined} />
           <stop offset="100%" stopColor="#e6a23a" stopOpacity="0" />
         </radialGradient>
         <radialGradient id={`${id}-bulb`} cx="38%" cy="34%" r="70%">
-          <stop offset="0%" stopColor={paint.bulbCore} />
-          <stop offset="42%" stopColor={paint.bulbMid} />
-          <stop offset="100%" stopColor={paint.bulbEdge} />
+          <stop offset="0%" stopColor={driven ? undefined : paint.bulbCore} style={varStyle("stopColor", "--lamp-core")} />
+          <stop offset="42%" stopColor={driven ? undefined : paint.bulbMid} style={varStyle("stopColor", "--lamp-mid")} />
+          <stop offset="100%" stopColor={driven ? undefined : paint.bulbEdge} style={varStyle("stopColor", "--lamp-edge")} />
         </radialGradient>
         <radialGradient id={`${id}-glass`} cx="32%" cy="30%" r="75%">
           <stop offset="0%" stopColor="#ffffff" stopOpacity="0.72" />
@@ -60,10 +65,10 @@ export function SteampunkLight({
       <circle cx="16" cy="16" r="26" fill={`url(#${id}-halo)`} />
       <circle cx="16" cy="16" r="13.15" fill="none" stroke={`url(#${id}-brass)`} strokeWidth="2.7" />
       <circle cx="16" cy="16" r="11.55" fill="#2a160c" fillOpacity="0.35" />
-      <circle cx="16" cy="16" r="7.4" fill="#ffcf70" fillOpacity={paint.glowOpacity} />
+      <circle cx="16" cy="16" r="7.4" fill="#ffcf70" fillOpacity={driven ? undefined : paint.glowOpacity} style={varStyle("fillOpacity", "--lamp-glow")} />
       <circle cx="16" cy="16" r="4.7" fill={`url(#${id}-bulb)`} />
       <circle cx="16" cy="16" r="11.2" fill={`url(#${id}-glass)`} stroke={`url(#${id}-rim)`} strokeWidth="0.9" />
-      <circle cx="16" cy="16" r="11.2" fill="#ffcf70" fillOpacity={paint.glassWarm} />
+      <circle cx="16" cy="16" r="11.2" fill="#ffcf70" fillOpacity={driven ? undefined : paint.glassWarm} style={varStyle("fillOpacity", "--lamp-glass")} />
       <ellipse cx="11.2" cy="10.4" rx="3.1" ry="1.7" fill="#ffffff" fillOpacity="0.72" transform="rotate(-32 11.2 10.4)" />
 
       <g clipPath={`url(#${id}-dome)`}>
@@ -77,7 +82,7 @@ export function SteampunkLight({
             <path key={`${bar.axis}-${bar.d}`} d={bar.d} />
           ))}
         </g>
-        <g stroke="#ffb347" strokeWidth="0.7" fill="none" strokeLinecap="round" strokeOpacity={paint.barWarm}>
+        <g stroke="#ffb347" strokeWidth="0.7" fill="none" strokeLinecap="round" strokeOpacity={driven ? undefined : paint.barWarm} style={varStyle("strokeOpacity", "--lamp-bar")}>
           {bars.map((bar) => (
             <path key={`warm-${bar.axis}-${bar.d}`} d={bar.d} />
           ))}
