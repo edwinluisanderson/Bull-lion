@@ -2453,3 +2453,50 @@ button,
   }
 }
 
+
+/* --- mockup restyle (scratch) --- */
+.gauge.gauge--brass {
+  filter: drop-shadow(0 1.5px 1px rgba(0, 0, 0, 0.6)) drop-shadow(0 6px 7px rgba(0, 0, 0, 0.45));
+  overflow: visible;
+}
+.gauge-row:has(.gauge--round-b) { align-items: end; }
+.gauge-row:has(.gauge--round-b) .gauge.weight-dial { transform: none; width: min(calc(148px * 96 / 120), 80%); }
+/* B size test (scratch) */
+.gauge-row:has(.gauge--round-b) { --gauge-b: 110px; padding-left: 14px; padding-right: 14px; }
+.gauge-row:has(.gauge--round-b) .gauge.weight-dial { width: var(--gauge-b); max-width: none; flex: none; }
+.gauge-row:has(.gauge--round-b) .gauge-center { overflow: visible; }
+/* Round gauge + engraved name plate (ported from PR #41 6ebbdd7), scratch */
+.gauge-unit { display: flex; flex-direction: column; align-items: center; }
+.gauge-unit .gauge-unit-face { display: block; width: 100%; height: auto; overflow: visible; }
+.gauge-unit .gauge-nameplate {
+  position: relative; z-index: 1;
+  display: inline-grid; box-sizing: border-box; width: max-content;
+  height: 17px; margin-top: -5px;
+  align-items: center; justify-content: center;
+  padding: 0 15px 0 calc(15px + 0.16em);
+  border-radius: 3px;
+  background: linear-gradient(180deg, #f8e7b8 0%, #d7b56a 28%, #a3783c 62%, #5c3d18 100%);
+  box-shadow: inset 0 1px 0 #fff6d8, inset 0 -1px 0 #3a2410, 0 0 0 0.75px #2a1a08, 0 1.5px 2px rgba(0, 0, 0, 0.5);
+  color: #140c06;
+  font-family: var(--font-display), Palatino, serif;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.16em; line-height: 1;
+}
+.gauge-unit .gauge-nameplate::before, .gauge-unit .gauge-nameplate::after {
+  content: ""; position: absolute; top: 50%; width: 4px; height: 4px; margin-top: -2px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff4cc 0%, #c99d4c 45%, #5e3f15 100%);
+  box-shadow: 0 0 0 0.5px #3a2610;
+}
+.gauge-unit .gauge-nameplate::before { left: 5px; }
+.gauge-unit .gauge-nameplate::after { right: 5px; }
+.gauge-unit .gauge-nameplate > span { grid-area: 1 / 1; }
+.gauge-unit .gauge-nameplate-shade { color: rgba(0, 0, 0, 0.28); transform: translateY(-0.5px); }
+.gauge-unit .gauge-nameplate-light { display: none; }
+.gauge-unit .gauge-nameplate-cut { color: #0a0705; text-shadow: none; }
+/* Edwin: ~20px clear gap between melt plate and dial bezels */
+.gauge-row:has(.gauge--round-b) { padding-top: calc(20px - var(--gauge-b) * 5.5 / 96); }
+/* Brass surround casting around the three round gauges (mockup, scratch) */
+.between-plates > .gauge-surround {
+  position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; overflow: visible;
+  filter: drop-shadow(0 1px 0.6px rgba(0, 0, 0, 0.55)) drop-shadow(0 5px 6px rgba(0, 0, 0, 0.5));
+}
+.between-plates > .gauge-row { position: relative; z-index: 1; }

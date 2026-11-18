@@ -85,8 +85,11 @@ test("nine ticks span the arc and only the ends share a needle stop", () => {
   assert.deepEqual(shared, [0, -1, -1, -1, -1, -1, -1, -1, 15]);
 
   const source = readFileSync(new URL("../components/weight-dial.tsx", import.meta.url), "utf8");
+  const restyle = readFileSync(new URL("../components/gauge-restyle.tsx", import.meta.url), "utf8");
   assert.match(source, /weightDialTickAngles\(\)/);
   assert.match(source, /weightDialAngle\(weightDialIndex\(values, grams\), values\.length\)/);
-  assert.match(source, /radius - 8/);
-  assert.match(source, /radius - 1\.5/);
+  assert.match(restyle, /r - 8/);
+  assert.match(restyle, /r - 1\.5/);
+  assert.equal(WEIGHT_DIAL_SWEEP_DEG, 332);
+  assert.equal(WEIGHT_DIAL_GAP_DEG, 28);
 });
