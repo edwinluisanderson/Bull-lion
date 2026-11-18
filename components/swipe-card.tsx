@@ -2,14 +2,13 @@
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 
-import { createPortal } from "react-dom";
-
 import {
   DELETE_AHOOGA_EVERY_MS,
   DELETE_LINGER_MS,
   playDeleteAhooga,
   stopDeleteAhooga,
 } from "@/lib/delete-alarm";
+import { unlockAppAudio } from "@/lib/sound-preload";
 import { playSwipeTone } from "@/lib/flap-sound";
 import {
   SWIPE_REVEAL_PX,
@@ -97,6 +96,7 @@ export function SwipeCard({
   }
 
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    unlockAppAudio();
     if (locked || event.button !== 0) return;
     drag.current = {
       pointer: event.pointerId,
@@ -168,10 +168,6 @@ export function SwipeCard({
   }
 
   const alarm = departing ? "off" : dragging && offset > 0 ? "drag" : open && !dragging ? "open" : "off";
-  const glow =
-    alarm === "open" && typeof document !== "undefined"
-      ? createPortal(<div className="delete-alarm-glow" aria-hidden="true" />, document.body)
-      : null;
 
   return (
     <li
@@ -181,7 +177,7 @@ export function SwipeCard({
       data-alarm={alarm}
       style={{ ["--reveal" as string]: `${SWIPE_REVEAL_PX}px`, ["--swipe" as string]: `${shown}px` }}
     >
-      {glow}
+      {alarm === "open" ? <div className="delete-alarm-glow" aria-hidden="true" /> : null}
       <button
         type="button"
         className="stack-swipe-delete"
@@ -194,9 +190,8 @@ export function SwipeCard({
         onClick={onLeverClick}
       >
         <span className="stack-swipe-plate" aria-hidden="true">
-          <span className="delete-amber">
-            <span className="delete-amber-rotor" />
-          </span>
+          <span className="delete-beam" aria-hidden="true" />
+          <span className="delete-amber" aria-hidden="true" />
           <span className="stack-swipe-push" />
         </span>
       </button>

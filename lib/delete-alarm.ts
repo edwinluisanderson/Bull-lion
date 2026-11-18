@@ -1,3 +1,4 @@
+import { decodeSoundClip } from "@/lib/decode-clip";
 import { reelAudioContext } from "@/lib/reel-click";
 import { spinSoundEnabled } from "@/lib/spin-overlay";
 
@@ -38,20 +39,23 @@ function pageVisibility(): string {
 
 function load(ctx: AudioContext): Promise<void> {
   if (buffer) return Promise.resolve();
-  if (typeof ctx.decodeAudioData !== "function") return Promise.resolve();
   if (loading) return loading;
   loading = (async () => {
-    try {
-      const response = await fetch(DELETE_AHOOGA_URL);
-      if (!response.ok) return;
-      const data = await response.arrayBuffer();
-      buffer = await ctx.decodeAudioData(data.slice(0));
-    } catch {
-      buffer = null;
-      loading = null;
-    }
+    buffer = await decodeSoundClip(ctx, DELETE_AHOOGA_URL);
+    if (!buffer) loading = null;
   })();
   return loading;
+}
+
+/** Decode the blast ahead of the first locked card. Does not resume the context. */
+export function loadDeleteAhooga(): Promise<void> {
+  try {
+    const ctx = reelAudioContext();
+    if (!ctx) return Promise.resolve();
+    return load(ctx);
+  } catch {
+    return Promise.resolve();
+  }
 }
 
 /** Stop the blast that is playing. A later open starts a new one. */
