@@ -2,6 +2,14 @@
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 
+import { createPortal } from "react-dom";
+
+import {
+  DELETE_AHOOGA_EVERY_MS,
+  DELETE_LINGER_MS,
+  playDeleteAhooga,
+  stopDeleteAhooga,
+} from "@/lib/delete-alarm";
 import { playSwipeTone } from "@/lib/flap-sound";
 import {
   SWIPE_REVEAL_PX,
@@ -34,6 +42,7 @@ export function SwipeCard({
 }) {
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [departing, setDeparting] = useState(false);
   const drag = useRef({
     pointer: -1,
     axis: "undecided" as SwipeAxis,
@@ -46,10 +55,31 @@ export function SwipeCard({
     offset: 0,
     endedAt: Number.NEGATIVE_INFINITY,
   });
+  const departTimer = useRef(0);
+  const shown = dragging || departing ? offset : open ? SWIPE_REVEAL_PX : 0;
+
+  useEffect(() => () => window.clearTimeout(departTimer.current), []);
 
   useEffect(() => {
-    if (!dragging) setOffset(open ? SWIPE_REVEAL_PX : 0);
-  }, [open, dragging]);
+    const lockedOpen = open && !dragging && !departing;
+    if (!lockedOpen) return;
+    let alive = true;
+    const blast = () => {
+      if (alive) void playDeleteAhooga();
+    };
+    blast();
+    const timer = window.setInterval(blast, DELETE_AHOOGA_EVERY_MS);
+    const onHide = () => {
+      if (document.visibilityState !== "visible") stopDeleteAhooga();
+    };
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onHide);
+      stopDeleteAhooga();
+    };
+  }, [open, dragging, departing]);
 
   useEffect(() => {
     if (!open) return;
@@ -120,19 +150,38 @@ export function SwipeCard({
     else onClose();
   }
 
+  function depart() {
+    if (departing) return;
+    stopDeleteAhooga();
+    playSwipeTone("clunk");
+    if (reduced()) {
+      onDelete();
+      return;
+    }
+    setDeparting(true);
+    departTimer.current = window.setTimeout(() => onDelete(), DELETE_LINGER_MS);
+  }
+
   function onLeverClick() {
     if (!leverTapDeletes(performance.now() - drag.current.endedAt)) return;
-    playSwipeTone("clunk");
-    onDelete();
+    depart();
   }
+
+  const alarm = departing ? "off" : dragging && offset > 0 ? "drag" : open && !dragging ? "open" : "off";
+  const glow =
+    alarm === "open" && typeof document !== "undefined"
+      ? createPortal(<div className="delete-alarm-glow" aria-hidden="true" />, document.body)
+      : null;
 
   return (
     <li
-      className={offset > 0 ? "stack-swipe is-raised" : "stack-swipe"}
+      className={`stack-swipe${shown > 0 || departing ? " is-raised" : ""}${departing ? " is-departing" : ""}`}
       data-swipe-id={id}
       data-open={open ? "true" : "false"}
-      style={{ ["--reveal" as string]: `${SWIPE_REVEAL_PX}px`, ["--swipe" as string]: `${offset}px` }}
+      data-alarm={alarm}
+      style={{ ["--reveal" as string]: `${SWIPE_REVEAL_PX}px`, ["--swipe" as string]: `${shown}px` }}
     >
+      {glow}
       <button
         type="button"
         className="stack-swipe-delete"
@@ -145,6 +194,9 @@ export function SwipeCard({
         onClick={onLeverClick}
       >
         <span className="stack-swipe-plate" aria-hidden="true">
+          <span className="delete-amber">
+            <span className="delete-amber-rotor" />
+          </span>
           <span className="stack-swipe-push" />
         </span>
       </button>
@@ -157,8 +209,7 @@ export function SwipeCard({
         onKeyDown={(event) => {
           if (event.key !== "Delete" && event.key !== "Backspace") return;
           event.preventDefault();
-          playSwipeTone("clunk");
-          onDelete();
+          depart();
         }}
         tabIndex={0}
         aria-keyshortcuts="Delete"
