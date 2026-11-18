@@ -213,6 +213,8 @@ export function PageSnap() {
     };
     const onLayout = () => {
       if (touching || gliding) return;
+      // A delete cover changes the page height on purpose. Snapping mid-slide yanks the rows.
+      if (document.querySelector(".stack-swipe.is-departing")) return;
       cancelAnimationFrame(resizeFrame);
       resizeFrame = requestAnimationFrame(finish);
     };

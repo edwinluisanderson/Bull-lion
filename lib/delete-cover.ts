@@ -1,0 +1,94 @@
+/** How long the rows take to slide up over a deleted slot. */
+export const COVER_SLIDE_MS = 520;
+/**
+ * The slide class is applied one frame after the transition is armed,
+ * so the hold is a little longer than the CSS animation.
+ */
+export const COVER_FRAME_MS = 40;
+/** Matches `.split-rows { gap: 8px }`. */
+export const STACK_ROW_GAP_PX = 8;
+
+export type CoverPhase = "shoot" | "slide";
+
+export type DeleteCover = {
+  id: string;
+  index: number;
+  phase: CoverPhase;
+  /** How far the rows below travel: the slot plus the flex gap. */
+  distance: number;
+  /** Measured row height. The last slot collapses through this. */
+  rowHeight: number;
+  /**
+   * Nothing sits below this row inside the list.
+   * The slot collapses from the bottom instead of being covered by a card.
+   */
+  tail: boolean;
+  /** The only card. The total collapses with the slot so the page does not jump. */
+  solo: boolean;
+  totalHeight: number;
+};
+
+export function coverDistance(rowHeight: number, gap = STACK_ROW_GAP_PX): number {
+  const height = Number.isFinite(rowHeight) ? Math.max(0, rowHeight) : 0;
+  return height + Math.max(0, gap);
+}
+
+export function coveringIndexes(count: number, remnantIndex: number): number[] {
+  if (!Number.isInteger(count) || count < 1) return [];
+  if (!Number.isInteger(remnantIndex) || remnantIndex < 0 || remnantIndex >= count) return [];
+  return Array.from({ length: count - remnantIndex - 1 }, (_, offset) => remnantIndex + 1 + offset);
+}
+
+export function coverUsesTail(count: number, remnantIndex: number): boolean {
+  return Number.isInteger(count) && count > 0 && remnantIndex === count - 1;
+}
+
+export function beginDeleteCover(
+  id: string,
+  index: number,
+  count: number,
+  rowHeight: number,
+  totalHeight = 0,
+): DeleteCover {
+  const height = Number.isFinite(rowHeight) ? Math.max(0, rowHeight) : 0;
+  const tail = coverUsesTail(count, index);
+  return {
+    id,
+    index,
+    phase: "shoot",
+    distance: coverDistance(height),
+    rowHeight: height,
+    tail,
+    solo: tail && count === 1,
+    totalHeight: Number.isFinite(totalHeight) ? Math.max(0, totalHeight) : 0,
+  };
+}
+
+/**
+ * The shell stays through the shoot. The slide is what covers it.
+ * Only the step after the slide removes it.
+ */
+export function advanceDeleteCover(cover: DeleteCover): DeleteCover | "remove" {
+  if (cover.phase === "shoot") return { ...cover, phase: "slide" };
+  return "remove";
+}
+
+export function isRemnantRow(cover: DeleteCover | null, id: string): boolean {
+  return cover != null && cover.id === id;
+}
+
+/** Following cards cover the slot. A tail slot has no following card. */
+export function isCoveringRow(cover: DeleteCover | null, index: number): boolean {
+  if (!cover || cover.phase !== "slide" || cover.tail) return false;
+  return index > cover.index;
+}
+
+/**
+ * A last row that follows another row still owns a flex gap.
+ * Pulling that gap closed as the height hits zero keeps the removal from jumping.
+ * The only card in the list has no gap above it, so its margin stays put.
+ */
+export function collapseInset(tail: boolean, index: number, gap = STACK_ROW_GAP_PX): number {
+  if (!tail || index <= 0) return 0;
+  return gap;
+}

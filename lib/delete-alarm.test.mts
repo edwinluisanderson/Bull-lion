@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
-import { DELETE_AHOOGA_EVERY_MS, DELETE_LINGER_MS, deleteAlarmAllowed, deleteAlarmDue } from "@/lib/delete-alarm";
+import { DELETE_AHOOGA_EVERY_MS, deleteAlarmAllowed, deleteAlarmDue } from "@/lib/delete-alarm";
 
 const alarm = readFileSync(new URL("./delete-alarm.ts", import.meta.url), "utf8");
 const card = readFileSync(new URL("../components/swipe-card.tsx", import.meta.url), "utf8");
@@ -35,8 +35,8 @@ test("a locked card spins amber lamps, glows, and a tap shoots the card off", ()
   assert.equal(card.includes("createPortal"), false);
   assert.match(card, /playDeleteAhooga/);
   assert.match(card, /stopDeleteAhooga/);
-  assert.match(card, /DELETE_LINGER_MS/);
-  assert.equal(DELETE_LINGER_MS > 280, true);
+  assert.equal(card.includes("DELETE_LINGER_MS"), false);
+  assert.match(card, /onDepart\(\)/);
   assert.equal(card.includes('end === "delete"'), false);
   assert.match(card, /unlockAppAudio/);
   assert.match(machine, /preloadAppSounds\(\)/);
@@ -65,7 +65,7 @@ test("a locked card spins amber lamps, glows, and a tap shoots the card off", ()
   assert.match(css, /\.delete-alarm-glow \{[^}]*position:\s*fixed/);
   assert.match(css, /\.delete-alarm-glow \{[^}]*z-index:\s*0/);
   assert.match(css, /\.stack-swipe\.is-departing \.stack-swipe-face \{[^}]*translateX\(120vw\)/);
-  assert.match(css, /\.stack-swipe\.is-departing \.stack-swipe-delete \{[^}]*delete-linger/);
+  assert.equal(css.includes("delete-linger"), false);
   const reduced = css
     .split("@media (prefers-reduced-motion: reduce)")
     .slice(1)
