@@ -4,11 +4,11 @@ import { useEffect } from "react";
 
 import {
   ALWAYS_SNAP_NAMES,
-  glideDuration,
+  criticallyDamped,
   magnetCaption,
-  magneticEase,
   nearestStop,
   settleSnap,
+  springOmega,
   type SnapMark,
 } from "@/lib/page-snap";
 
@@ -28,18 +28,24 @@ function snapPoints(root: Element): { points: SnapMark[]; maxScroll: number; top
 }
 
 /**
- * Ease toward a stop. If the browser moves the scroll out from under us
- * (a fling that has not actually let go), stop writing and let `scrollend`
- * try again once the native scroll releases it.
+ * Critically damped glide. Velocity is scrollTop's pixels per second at the
+ * moment the native scroll let go. Only the part already aimed at the stop is
+ * kept, and it is capped so the spring eases in instead of kicking.
+ * If the browser moves the scroll out from under us, stop writing and let
+ * `scrollend` try again once the native scroll releases it.
  */
-function glide(root: Element, to: number, strength: number, onDone: () => void) {
+function glide(root: Element, to: number, strength: number, velocityPxPerSec: number, onDone: () => void) {
   const from = root.scrollTop;
-  if (Math.abs(to - from) < 1) {
+  const offset0 = from - to;
+  if (Math.abs(offset0) < 1) {
     root.scrollTop = to;
     onDone();
     return () => {};
   }
-  const ms = glideDuration(strength);
+  const omega = springOmega(strength, Math.abs(offset0));
+  const toward = offset0 === 0 ? 0 : velocityPxPerSec * -Math.sign(offset0);
+  const cap = omega * Math.abs(offset0) * 0.35;
+  const v0 = toward > 0 ? -Math.sign(offset0) * Math.min(toward, cap) : 0;
   const start = performance.now();
   let frame = 0;
   let placed = from;
@@ -56,14 +62,19 @@ function glide(root: Element, to: number, strength: number, onDone: () => void) 
       finishOnce();
       return;
     }
-    const t = Math.min(1, (now - start) / ms);
-    const eased = magneticEase(t, strength);
+    const elapsed = (now - start) / 1000;
+    const sample = criticallyDamped(elapsed, omega, offset0, v0);
     const limit = Math.max(0, root.scrollHeight - root.clientHeight);
-    const next = Math.min(limit, Math.max(0, from + (to - from) * eased));
+    const next = Math.min(limit, Math.max(0, to + sample.offset));
     root.scrollTop = next;
     placed = root.scrollTop;
-    if (t < 1) frame = requestAnimationFrame(step);
-    else finishOnce();
+    const settled = Math.abs(sample.offset) < 0.4 && Math.abs(sample.velocity) < 12;
+    if (!settled && elapsed < 4) frame = requestAnimationFrame(step);
+    else {
+      root.scrollTop = Math.min(limit, Math.max(0, to));
+      placed = root.scrollTop;
+      finishOnce();
+    }
   };
   frame = requestAnimationFrame(step);
   return () => {
@@ -132,7 +143,7 @@ function mountMagnetCaption(): () => void {
     if (now < heldUntil && easingTowardHold(root.scrollTop)) return;
     heldScroll = root.scrollTop;
     heldTarget = nearest.at;
-    heldUntil = now + 2200;
+    heldUntil = now + 3600;
     label.textContent = magnetCaption(nearest.distance, nearest.name);
   };
 
@@ -151,9 +162,12 @@ function mountMagnetCaption(): () => void {
  * The finger path and the fling stay native. Android Chrome composites that
  * scroll, and writing `scrollTop` while the fling is in flight fights it.
  * `scrollend` is the moment the fling lets go, including one that slowed to
- * rest near a stop. Closer rests ease faster. A rest at the field radius or
- * farther is left exactly where it landed. A new touch, wheel, or scroll key
- * cancels the ease so the gesture wins.
+ * rest near a stop. The glide is a critically damped spring: it eases in from
+ * the scroll's current velocity, acceleration stays capped, and a closer rest
+ * finishes sooner without a hard snap. A rest at the field radius or farther
+ * is left exactly where it landed. A new touch, wheel, or scroll key cancels
+ * the ease. Touch listeners leave the event alone, so a pull down at the
+ * top stays a native overscroll and Android Chrome can refresh.
  */
 export function PageSnap() {
   useEffect(() => {
@@ -162,6 +176,9 @@ export function PageSnap() {
     let cancelGlide = () => {};
     let gliding = false;
     let touching = 0;
+    let velocity = 0;
+    let lastY = root.scrollTop;
+    let lastT = performance.now();
 
     const finish = () => {
       if (gliding) return;
@@ -176,10 +193,24 @@ export function PageSnap() {
       if (pull == null || Math.abs(pull.target - root.scrollTop) < 1) return;
       gliding = true;
       cancelGlide();
-      cancelGlide = glide(root, pull.target, pull.strength, () => {
+      cancelGlide = glide(root, pull.target, pull.strength, velocity, () => {
         gliding = false;
         cancelGlide = () => {};
       });
+    };
+
+    const sampleVelocity = () => {
+      const now = performance.now();
+      const y = root.scrollTop;
+      const dt = now - lastT;
+      if (!gliding && dt > 0 && dt < 80) {
+        const instant = ((y - lastY) / dt) * 1000;
+        velocity = velocity * 0.45 + instant * 0.55;
+      } else if (dt >= 80) {
+        velocity = 0;
+      }
+      lastY = y;
+      lastT = now;
     };
 
     const stop = () => {
@@ -211,6 +242,7 @@ export function PageSnap() {
     };
     const observer = new ResizeObserver(onLayout);
     observer.observe(document.body);
+    document.addEventListener("scroll", sampleVelocity, { passive: true });
     document.addEventListener("scrollend", finish);
     window.addEventListener("pointerdown", onDown);
     window.addEventListener("pointerup", onUp);
@@ -222,6 +254,7 @@ export function PageSnap() {
       stop();
       cancelAnimationFrame(resizeFrame);
       observer.disconnect();
+      document.removeEventListener("scroll", sampleVelocity);
       document.removeEventListener("scrollend", finish);
       window.removeEventListener("pointerdown", onDown);
       window.removeEventListener("pointerup", onUp);
