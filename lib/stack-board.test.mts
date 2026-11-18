@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { FLAP_GAIN, FLAP_MAX_PER_WINDOW, nextFlapSound } from "@/lib/flap-sound";
-import { FLAP_BOARD_COLUMNS, FLAP_DESCRIPTION, FLAP_MELT, FLAP_METAL, FLAP_QTY, FLAP_WEIGHT, flapFrames, flapText, padFlap } from "@/lib/split-flap";
+import { FLAP_BOARD_COLUMNS, FLAP_DESCRIPTION, FLAP_MELT, FLAP_METAL, FLAP_QTY, FLAP_TOTAL_COLUMNS, FLAP_TOTAL_LABEL_COLUMNS, FLAP_WEIGHT, flapFrames, flapText, padFlap, rightFlap } from "@/lib/split-flap";
 import {
   STACK_STORAGE_KEY,
   defaultLineDescription,
@@ -169,13 +169,29 @@ test("the stack survives a reload and drops a broken record", () => {
   assert.deepEqual(readStack(store), []);
 });
 
+test("the melt total label stays put and the value sits on the right of a fixed field", () => {
+  assert.equal(FLAP_TOTAL_LABEL_COLUMNS + FLAP_TOTAL_COLUMNS, FLAP_BOARD_COLUMNS);
+  const narrow = rightFlap("$30", FLAP_TOTAL_COLUMNS);
+  const wide = rightFlap("$10,000", FLAP_TOTAL_COLUMNS);
+  assert.equal(narrow.length, wide.length);
+  assert.equal(narrow.endsWith("$30"), true);
+  assert.equal(wide.endsWith("$10,000"), true);
+  assert.equal(narrow.startsWith(" "), true);
+  assert.match(table, /My Stack Melt Total/);
+  assert.match(table, /rightFlap\(flapMoney\(total\), FLAP_TOTAL_COLUMNS\)/);
+  assert.match(table, /1 \/ span \$\{FLAP_TOTAL_LABEL_COLUMNS\}/);
+  assert.equal(table.includes("--total-em"), false);
+});
+
 test("the scrap plate grows a split-flap stack and the flaps stay quiet when sound is off", () => {
   assert.match(machine, /<StackTable/);
   assert.match(machine, /className="scrap-readout-gap"/);
   assert.match(table, /Add to stack/);
   assert.match(table, /Combine/);
   assert.match(table, /Keep separate/);
-  assert.match(table, /Grand total/);
+  assert.match(table, /My Stack Melt Total/);
+  assert.equal(table.includes("Grand total"), false);
+  assert.equal(table.includes("--total-em"), false);
   assert.match(table, /readStack\(window\.localStorage\)/);
   assert.match(table, /writeStack\(window\.localStorage, lines\)/);
   assert.match(table, /resolveAdd\(existing, pending, choice\)/);
@@ -187,6 +203,9 @@ test("the scrap plate grows a split-flap stack and the flaps stay quiet when sou
   assert.match(css, /\.split-stack-title \{[^}]*text-transform:\s*none/);
   assert.match(css, /\.stack-card \{[^}]*--flap-font:\s*clamp\(\s*16px,/);
   assert.match(css, /\.stack-card \{[^}]*grid-template-columns:\s*repeat\(var\(--flap-cols/);
+  assert.match(css, /\.stack-card \{[^}]*column-gap:\s*2px/);
+  assert.match(css, /\.split-total \{[^}]*grid-template-columns:\s*repeat\(var\(--flap-cols/);
+  assert.match(css, /\.split-total-label \{[^}]*text-align:\s*left/);
   assert.match(css, /\.flap-tile \{[^}]*background:\s*#000/);
   assert.match(css, /\.flap-top,\s*\.flap-bottom,\s*\.flap-leaf \{[^}]*background:\s*#000/);
   assert.match(css, /\.stack-card \{[^}]*box-shadow:[^}]*#c4963e/);

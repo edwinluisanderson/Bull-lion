@@ -13,8 +13,10 @@ import {
   FLAP_MELT,
   FLAP_METAL,
   FLAP_QTY,
+  FLAP_TOTAL_COLUMNS,
+  FLAP_TOTAL_LABEL_COLUMNS,
   FLAP_WEIGHT,
-  flapAdvance,
+  rightFlap,
 } from "@/lib/split-flap";
 import {
   defaultLineDescription,
@@ -315,9 +317,13 @@ export function StackTable({
         })}
       </ul>
       {lines.length > 0 ? (
-        <div className="split-total" style={{ ["--total-em" as string]: flapAdvance(flapMoney(total), FLAP_MELT).toFixed(3) }}>
-          <span className="split-total-label">Grand total</span>
-          <SplitFlap text={flapMoney(total)} width={FLAP_MELT} />
+        <div className="split-total" style={{ ["--flap-cols" as string]: FLAP_BOARD_COLUMNS }}>
+          <span className="split-total-label" style={{ gridColumn: `1 / span ${FLAP_TOTAL_LABEL_COLUMNS}` }}>
+            My Stack Melt Total
+          </span>
+          <span className="stack-span split-total-flaps" style={{ gridColumn: `${FLAP_TOTAL_LABEL_COLUMNS + 1} / -1` }}>
+            <SplitFlap text={rightFlap(flapMoney(total), FLAP_TOTAL_COLUMNS)} width={FLAP_TOTAL_COLUMNS} />
+          </span>
         </div>
       ) : null}
       {prompt}

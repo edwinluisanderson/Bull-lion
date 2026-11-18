@@ -1121,10 +1121,10 @@ button,
 }
 
 .split-total {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(var(--flap-cols, 19), minmax(0, 1fr));
   align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
+  column-gap: 2px;
 }
 
 .split-empty {
@@ -1145,20 +1145,20 @@ button,
 
 .stack-card {
   container-type: inline-size;
-  /* Cap ink stays near 14px at 390. The 0.88em divisor keeps an O inside one equal cell. */
-  --flap-font: clamp(16px, calc((100cqw - 18px) / var(--flap-cols, 19) / 0.85), 19.3px);
+  /* Cap ink stays near 14px at 390. The gap term is 18 one-pixel tracks at 2px. */
+  --flap-font: clamp(16px, calc((100cqw - 36px) / var(--flap-cols, 19) / 0.85), 19.3px);
 }
 
 .split-total {
   container-type: inline-size;
-  --flap-font: clamp(18px, 19.3px, 19.3px);
+  --flap-font: clamp(16px, calc((100cqw - 36px) / var(--flap-cols, 19) / 0.85), 19.3px);
 }
 
 .stack-card {
   position: relative;
   display: grid;
   grid-template-columns: repeat(var(--flap-cols, 19), minmax(0, 1fr));
-  column-gap: 1px;
+  column-gap: 2px;
   row-gap: 2px;
   min-width: 0;
   padding: 10px 8px 11px;
@@ -1184,7 +1184,6 @@ button,
   grid-template-columns: subgrid;
   grid-column: 1 / -1;
   min-width: 0;
-  gap: 0;
   max-width: none;
 }
 
@@ -1485,8 +1484,12 @@ button,
 }
 
 .split-total-label {
-  font-size: 0.68rem;
-  text-align: right;
+  justify-self: start;
+  overflow: hidden;
+  font-size: 0.56rem;
+  letter-spacing: 0.04em;
+  text-align: left;
+  white-space: nowrap;
 }
 
 .stack-prompt-back {
