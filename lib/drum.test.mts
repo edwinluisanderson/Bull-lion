@@ -10,6 +10,7 @@ import {
   glideSettleNotch,
   modStop,
   nearestEnabledNotch,
+  pointerPullCommits,
   pullStage,
   releaseCommitsSpin,
   shouldApplyGuard,
@@ -26,6 +27,17 @@ test("pull stages split at 75 and 85 percent", () => {
   assert.equal(pullStage(1.4), "c");
   assert.equal(releaseCommitsSpin(0.84), false);
   assert.equal(releaseCommitsSpin(0.85), true);
+});
+
+test("a pointer pull adds a card only for a real drag released past stage C", () => {
+  assert.equal(pointerPullCommits(false, 0, "release"), false);
+  assert.equal(pointerPullCommits(false, 1, "release"), false);
+  assert.equal(pointerPullCommits(true, 0.84, "release"), false);
+  assert.equal(pointerPullCommits(true, 0.85, "release"), true);
+  assert.equal(pointerPullCommits(true, 1, "release"), true);
+  assert.equal(pointerPullCommits(true, 1, "cancel"), false);
+  assert.equal(pointerPullCommits(true, 0.9, "cancel"), false);
+  assert.equal(pointerPullCommits(false, 1, "cancel"), false);
 });
 
 test("stage A barely strains and stage B kicks backward two to five degrees", () => {

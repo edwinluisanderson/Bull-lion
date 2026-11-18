@@ -449,7 +449,7 @@ export function StackTable({
           );
           return (
             <SwipeCard
-              key={line ? line.id : `blank-${index}`}
+              key={index}
               id={line ? line.id : `blank-${index}`}
               label={line?.description ?? "entry"}
               open={line != null && openId === line.id}

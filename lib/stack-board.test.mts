@@ -111,6 +111,10 @@ test("new lines stay newest-first and the cascade walks downward", () => {
   assert.equal(frames[0]?.at(-1), null);
   assert.equal(frames[1]?.at(-1)?.id, "a");
   assert.equal(frames[1]?.[1]?.id, "a");
+  const slidingIds = (frames[1] ?? []).map((face) => face?.id).filter((id) => id != null);
+  assert.equal(new Set(slidingIds).size < slidingIds.length, true);
+  assert.match(table, /key=\{index\}/);
+  assert.equal(table.includes("key={line ? line.id"), false);
   assert.equal(frames[2]?.[1]?.id, "b");
   assert.equal(frames.at(-1)?.[0]?.id, "c");
   assert.deepEqual(

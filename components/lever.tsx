@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { pullStage, stageBendDegrees, type PullStage } from "@/lib/drum";
+import { pointerPullCommits, pullStage, stageBendDegrees, type PullStage } from "@/lib/drum";
 import { pullBarSpan } from "@/lib/pull-bar";
 import {
   PULL_EMBOSS,
@@ -32,7 +32,6 @@ export function PullBall({
   const stageRef = useRef<PullStage>("a");
   const committed = useRef(false);
   const dragged = useRef(false);
-  const suppressClick = useRef(false);
   const frame = useRef(0);
 
   function reduced() {
@@ -75,12 +74,14 @@ export function PullBall({
     const previous = stageRef.current;
     if (stage === previous) return;
     if (previous === "a" && (stage === "b" || stage === "c")) reelSnap();
-    if (stage === "c" && !committed.current) {
-      committed.current = true;
-      onBend(0);
-      onCommit();
-    }
     stageRef.current = stage;
+  }
+
+  function commitSpin() {
+    if (committed.current) return;
+    committed.current = true;
+    onBend(0);
+    onCommit();
   }
 
   function stopFrame() {
@@ -124,11 +125,11 @@ export function PullBall({
     if (committed.current) return;
     measureThrow();
     if (reduced()) {
-      committed.current = true;
-      onBend(0);
-      onCommit();
+      commitSpin();
       committed.current = false;
       stageRef.current = "a";
+      setTravelValue(0);
+      setMotion("rest");
       return;
     }
     stopFrame();
@@ -141,6 +142,7 @@ export function PullBall({
         frame.current = requestAnimationFrame(step);
         return;
       }
+      commitSpin();
       glideHome(true);
     };
     frame.current = requestAnimationFrame(step);
@@ -188,12 +190,11 @@ export function PullBall({
           window.removeEventListener("pointerup", onUp);
           window.removeEventListener("pointercancel", onUp);
           originY.current = null;
-          if (!dragged.current) {
-            setMotion("rest");
-            return;
-          }
-          suppressClick.current = true;
-          glideHome(committed.current || pullStage(travelRef.current) === "c");
+          const end = up.type === "pointercancel" ? "cancel" : "release";
+          const commit = pointerPullCommits(dragged.current, travelRef.current, end);
+          if (commit) commitSpin();
+          if (travelRef.current > 0) glideHome(commit);
+          else setMotion("rest");
         };
         window.addEventListener("pointermove", onMove);
         window.addEventListener("pointerup", onUp);
@@ -202,13 +203,6 @@ export function PullBall({
       onKeyDown={(event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
-        fullPull();
-      }}
-      onClick={() => {
-        if (suppressClick.current) {
-          suppressClick.current = false;
-          return;
-        }
         fullPull();
       }}
     >

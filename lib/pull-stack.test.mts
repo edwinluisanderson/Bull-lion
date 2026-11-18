@@ -127,7 +127,11 @@ test("a pull adds its own line, and the board has no Add button", () => {
 });
 
 test("the handle still only commits at the bottom, and the spin snapshots before the token", () => {
-  assert.match(lever, /if \(stage === "c" && !committed\.current\)/);
+  assert.match(lever, /pointerPullCommits\(dragged\.current, travelRef\.current, end\)/);
+  assert.match(lever, /if \(commit\) commitSpin\(\)/);
+  assert.match(lever, /function commitSpin\(\) \{\s*if \(committed\.current\) return;/);
+  assert.match(lever, /onKeyDown=\{[\s\S]*fullPull\(\)/);
+  assert.equal(lever.includes("onClick"), false);
   assert.match(lever, /onCommit\(\)/);
   assert.equal(lever.includes("pullSerial"), false);
   assert.equal(lever.includes("notePullAdd"), false);
@@ -141,4 +145,18 @@ test("the handle still only commits at the bottom, and the spin snapshots before
   assert.match(table, /insertCascade\(existing, incoming\)/);
   assert.match(flap, /playFlapSound\(\)/);
   assert.match(table, /pullSerial/);
+});
+
+test("the pull ball keeps its 48px face and gains an invisible 12px grab ring", () => {
+  const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+  const ring = css.match(/\.pull-ball::before \{[^}]*\}/)?.[0] ?? "";
+  assert.match(ring, /content:\s*""/);
+  assert.match(ring, /width:\s*max\(48px,\s*calc\(100% \+ 24px\)\)/);
+  assert.match(ring, /height:\s*max\(48px,\s*calc\(100% \+ 24px\)\)/);
+  assert.match(ring, /background:\s*transparent/);
+  assert.match(ring, /clip-path:\s*inset\(0 0 12px 12px\)/);
+  assert.match(css, /\.pull-handle \{[^}]*width:\s*48px/);
+  assert.match(css, /\.pull-handle \{[^}]*height:\s*48px/);
+  assert.match(css, /\.pull-ball \{[^}]*width:\s*100%/);
+  assert.match(css, /\.pull-ball \{[^}]*padding:\s*0/);
 });
