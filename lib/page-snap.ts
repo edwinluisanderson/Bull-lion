@@ -178,7 +178,8 @@ export function magnetCaption(distancePx: number, stopName: string): string {
 /**
  * Stops measured after layout.
  * Always-stops are kept even when they sit closer than {@link SNAP_MIN_GAP_PX}.
- * If two stops land within half a pixel they are one stop.
+ * If two stops land within half a pixel they are one stop. A My Stack that
+ * shares that stop is named `stack/<other>`, so the caption shows both.
  * My Stack is kept when its top can be scrolled to the top of the screen,
  * which is when its unclamped offset is at most `maxScroll`. It is not dropped
  * for sitting near the wheels or the page bottom. An offset past `maxScroll`
@@ -201,7 +202,9 @@ export function collectStops(points: readonly SnapMark[], maxScroll: number, min
   const absorb = (at: number, name: string) => {
     const twin = stops.find((stop) => Math.abs(stop.at - at) <= 0.5);
     if (twin) {
-      if (!twin.name && name) twin.name = name;
+      if (name === "stack" && twin.name !== "stack" && !twin.name.startsWith("stack/")) {
+        twin.name = twin.name ? `stack/${twin.name}` : "stack";
+      } else if (!twin.name && name) twin.name = name;
       return true;
     }
     return false;

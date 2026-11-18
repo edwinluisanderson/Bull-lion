@@ -94,6 +94,7 @@ test("My Stack is a stop when its top can reach the top of the screen", () => {
     [0, 400, 1000],
   );
   assert.equal(exact.filter((stop) => Math.abs(stop.at - 1000) <= 0.5).length, 1);
+  assert.equal(exact.find((stop) => Math.abs(stop.at - 1000) <= 0.5)?.name, "stack/bottom");
 
   const before = collectStops([wheels, { at: 950, always: false, name: "stack" }], 1000);
   assert.deepEqual(
@@ -117,6 +118,22 @@ test("My Stack is a stop when its top can reach the top of the screen", () => {
   const tie = settleSnap({ scrollTop: 975, maxScroll: 1000, points: [wheels, { at: 950, always: false, name: "stack" }], reduced: false });
   assert.equal(tie?.target, 950);
   assert.equal(tie?.name, "stack");
+});
+
+test("a My Stack that shares a stop is named stack and the other stop", () => {
+  const withBottom = collectStops([{ at: 1000, always: false, name: "stack" }], 1000);
+  assert.equal(withBottom.filter((stop) => Math.abs(stop.at - 1000) <= 0.5).length, 1);
+  assert.equal(withBottom.find((stop) => Math.abs(stop.at - 1000) <= 0.5)?.name, "stack/bottom");
+
+  const withWheels = collectStops(
+    [
+      { at: 400, always: true, name: "wheels" },
+      { at: 400.4, always: false, name: "stack" },
+    ],
+    1200,
+  );
+  assert.equal(withWheels.find((stop) => stop.at === 400)?.name, "stack/wheels");
+  assert.equal(withWheels.filter((stop) => Math.abs(stop.at - 400) <= 0.5).length, 1);
 });
 
 test("the field engages evenly and fades only at the outer rim", () => {
