@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { FLAP_GAIN, FLAP_MAX_PER_WINDOW, nextFlapSound } from "@/lib/flap-sound";
-import { descriptionNeedsOwnRow, flapFrames, padFlap } from "@/lib/split-flap";
+import { FLAP_BOARD_COLUMNS, FLAP_DESCRIPTION, FLAP_MELT, FLAP_METAL, FLAP_QTY, FLAP_WEIGHT, flapFrames, flapText, padFlap } from "@/lib/split-flap";
 import {
   STACK_STORAGE_KEY,
   defaultLineDescription,
@@ -54,8 +54,12 @@ test("split flaps walk forward and jump when motion is reduced", () => {
   assert.deepEqual(flapFrames("C", "A", true), ["A"]);
   assert.equal(padFlap("gold 1 oz", 6), "GOLD 1");
   assert.equal(flapFrames(" ", "A").at(-1), "A");
-  assert.equal(descriptionNeedsOwnRow("Gold 1 oz"), false);
-  assert.equal(descriptionNeedsOwnRow("Pocket coin from the old drawer"), true);
+  assert.equal(FLAP_DESCRIPTION, FLAP_BOARD_COLUMNS);
+  assert.equal(FLAP_BOARD_COLUMNS, FLAP_METAL + FLAP_WEIGHT + FLAP_QTY + FLAP_MELT);
+  const long = "Pocket coin from the old drawer";
+  assert.ok(flapText(long).length > FLAP_DESCRIPTION);
+  assert.equal(padFlap(long, FLAP_DESCRIPTION), "POCKET COIN FROM TH");
+  assert.equal(padFlap("Gold 1 oz", FLAP_DESCRIPTION).trimEnd(), "GOLD 1 OZ");
 });
 
 test("adding a line asks before combining the same metal and weight", () => {
@@ -113,7 +117,7 @@ test("new lines stay newest-first and the cascade walks downward", () => {
     frames.at(-1)?.map((face) => face?.id),
     ["c", "b", "a"],
   );
-  assert.equal(descriptionNeedsOwnRow(frames[1]?.at(-1)?.description ?? ""), false);
+  assert.equal(padFlap(frames[1]?.at(-1)?.description ?? "", FLAP_DESCRIPTION).trimEnd(), "GOLD 1 OZ");
 
   const longExisting = newer.lines.map((line, index) =>
     index === 1 ? { ...line, description: "Pocket coin from the old drawer" } : line,
@@ -121,7 +125,7 @@ test("new lines stay newest-first and the cascade walks downward", () => {
   const shifted = insertCascade(longExisting, { ...incoming, id: "d", description: "Gold 1 oz" });
   const landed = shifted[1]?.at(-1);
   assert.equal(landed?.id, "a");
-  assert.equal(descriptionNeedsOwnRow(landed?.description ?? ""), true);
+  assert.equal(padFlap(landed?.description ?? "", FLAP_DESCRIPTION), "POCKET COIN FROM TH");
 
   const combined = resolveAdd(newer.lines, { ...gold, grams: 1, qty: 4, description: "Gold 1 g" }, "combine", "z");
   assert.deepEqual(combined.map((line) => line.id), ["b", "a"]);
@@ -181,12 +185,15 @@ test("the scrap plate grows a split-flap stack and the flaps stay quiet when sou
   assert.match(css, /\.flap-top span,\s*\.flap-bottom span,\s*\.flap-leaf span \{[^}]*transform:\s*translateY\(0\.06em\)/);
   assert.match(table, />My Stack</);
   assert.match(css, /\.split-stack-title \{[^}]*text-transform:\s*none/);
-  assert.match(css, /\.stack-card \{[^}]*--flap-font:\s*clamp\(\s*18px,/);
-  assert.match(css, /\.stack-card-row \{[^}]*gap:\s*14px/);
-  assert.match(css, /\.stack-card \{/);
-  assert.match(table, /data-rows=\{longDescription \? 3 : 2\}/);
-  assert.match(table, /className="stack-card-row"/);
-  assert.match(table, /descriptionNeedsOwnRow\(line\.description\)/);
+  assert.match(css, /\.stack-card \{[^}]*--flap-font:\s*clamp\(\s*16px,/);
+  assert.match(css, /\.stack-card \{[^}]*grid-template-columns:\s*repeat\(var\(--flap-cols/);
+  assert.match(css, /\.flap-tile \{[^}]*background:\s*#000/);
+  assert.match(css, /\.flap-top,\s*\.flap-bottom,\s*\.flap-leaf \{[^}]*background:\s*#000/);
+  assert.match(css, /\.stack-card \{[^}]*box-shadow:[^}]*#c4963e/);
+  assert.match(table, /data-rows=\{2\}/);
+  assert.equal(table.includes("descriptionNeedsOwnRow"), false);
+  assert.equal(table.includes("data-rows={3}"), false);
+  assert.match(table, /width=\{FLAP_DESCRIPTION\}/);
   assert.match(table, /insertCascade\(existing, incoming\)/);
   assert.match(table, /prefers-reduced-motion: reduce/);
   assert.match(css, /\.split-stack \{/);

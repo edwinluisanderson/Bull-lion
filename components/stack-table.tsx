@@ -7,13 +7,12 @@ import { SplitFlap } from "@/components/split-flap";
 import { SwipeCard } from "@/components/swipe-card";
 import { unlockReelClick } from "@/lib/reel-click";
 import {
-  FLAP_DESCRIPTION_INLINE,
-  FLAP_DESCRIPTION_LONG,
+  FLAP_BOARD_COLUMNS,
+  FLAP_DESCRIPTION,
   FLAP_MELT,
   FLAP_METAL,
   FLAP_QTY,
   FLAP_WEIGHT,
-  descriptionNeedsOwnRow,
   flapAdvance,
 } from "@/lib/split-flap";
 import {
@@ -89,7 +88,7 @@ export function StackTable({
       weightLabel: selection.weightLabel,
       grams: selection.grams,
       qty: selection.qty,
-      description: defaultLineDescription(selection.name, selection.weightLabel, FLAP_DESCRIPTION_INLINE),
+      description: defaultLineDescription(selection.name, selection.weightLabel, FLAP_DESCRIPTION),
     };
   }
 
@@ -200,22 +199,15 @@ export function StackTable({
         {shown.map((line, index) => {
           const blank = line == null;
           const melt = blank ? null : rowMelt(priceFor(quotes, line.symbol), line.grams, line.qty);
-          const longDescription = !blank && descriptionNeedsOwnRow(line.description);
-          const descriptionWidth = longDescription ? FLAP_DESCRIPTION_LONG : FLAP_DESCRIPTION_INLINE;
           const mark = blank ? "" : line.mark;
           const weightLabel = blank ? "" : line.weightLabel;
           const qtyLabel = blank ? "" : String(line.qty);
           const descriptionText = blank ? "" : line.description;
-          const factsEm =
-            flapAdvance(mark, FLAP_METAL) +
-            flapAdvance(weightLabel, FLAP_WEIGHT) +
-            flapAdvance(qtyLabel, FLAP_QTY) +
-            flapAdvance(flapMoney(melt), FLAP_MELT);
-          const descEm = Math.max(0.5, flapAdvance(descriptionText, descriptionWidth));
-          const factsGaps = (FLAP_METAL + FLAP_WEIGHT + FLAP_QTY + FLAP_MELT - 4) + 14 * 3 + 2;
-          const descGaps = descriptionWidth - 1 + 14 + 20;
+          const weightStart = FLAP_METAL + 1;
+          const qtyStart = weightStart + FLAP_WEIGHT;
+          const meltStart = qtyStart + FLAP_QTY;
           const description = blank || shift ? (
-            <SplitFlap text={descriptionText} width={descriptionWidth} />
+            <SplitFlap text={descriptionText} width={FLAP_DESCRIPTION} />
           ) : editing === line.id ? (
             <input
               className="stack-name"
@@ -238,7 +230,7 @@ export function StackTable({
               aria-label={`Edit description, ${line.description}`}
               onClick={() => setEditing(line.id)}
             >
-              <SplitFlap text={line.description} width={descriptionWidth} />
+              <SplitFlap text={line.description} width={FLAP_DESCRIPTION} />
             </button>
           );
           const remove = blank ? null : (
@@ -272,56 +264,43 @@ export function StackTable({
                 setLines(removeLine(lines, line.id));
               }}
             >
-            <div
-              className="stack-card"
-              data-rows={longDescription ? 3 : 2}
-              style={{
-                ["--facts-em" as string]: factsEm.toFixed(3),
-                ["--facts-gaps" as string]: `${factsGaps}px`,
-                ["--desc-em" as string]: descEm.toFixed(3),
-                ["--desc-gaps" as string]: `${descGaps}px`,
-              }}
-            >
+            <div className="stack-card" data-rows={2} style={{ ["--flap-cols" as string]: FLAP_BOARD_COLUMNS }}>
               {blank ? null : (
                 <span className="sr-only">
                   {line.mark}, {line.weightLabel}, quantity {line.qty}, {line.description}, melt {flapMoney(melt)}
                 </span>
               )}
-              <div className="stack-card-row">
-                <span className="stack-field">
-                  <span className="stack-kicker">Metal</span>
-                  <SplitFlap text={mark} width={FLAP_METAL} />
-                </span>
-                <span className="stack-field">
-                  <span className="stack-kicker">Weight</span>
-                  <SplitFlap text={weightLabel} width={FLAP_WEIGHT} />
-                </span>
-                <span className="stack-field">
-                  <span className="stack-kicker">Qty</span>
-                  <SplitFlap text={qtyLabel} width={FLAP_QTY} />
-                </span>
-                <span className="stack-field stack-field-melt">
-                  <span className="stack-kicker">Melt</span>
-                  <SplitFlap text={blank ? "" : flapMoney(melt)} width={FLAP_MELT} />
-                </span>
-              </div>
-              {longDescription ? (
-                <div className="stack-card-row stack-card-label">
-                  <span className="stack-kicker">Description</span>
-                  {remove}
-                </div>
-              ) : null}
-              <div className="stack-card-row">
-                {longDescription ? (
-                  description
-                ) : (
-                  <span className="stack-field">
-                    <span className="stack-kicker">Description</span>
-                    {description}
-                  </span>
-                )}
-                {longDescription ? null : remove}
-              </div>
+              <span className="stack-kicker" style={{ gridColumn: `1 / span ${FLAP_METAL}`, gridRow: 1 }}>
+                Metal
+              </span>
+              <span className="stack-kicker" style={{ gridColumn: `${weightStart} / span ${FLAP_WEIGHT}`, gridRow: 1 }}>
+                Weight
+              </span>
+              <span className="stack-kicker" style={{ gridColumn: `${qtyStart} / span ${FLAP_QTY}`, gridRow: 1 }}>
+                Qty
+              </span>
+              <span className="stack-kicker" style={{ gridColumn: `${meltStart} / span ${FLAP_MELT}`, gridRow: 1 }}>
+                Melt
+              </span>
+              <span className="stack-span" style={{ gridColumn: `1 / span ${FLAP_METAL}`, gridRow: 2 }}>
+                <SplitFlap text={mark} width={FLAP_METAL} />
+              </span>
+              <span className="stack-span" style={{ gridColumn: `${weightStart} / span ${FLAP_WEIGHT}`, gridRow: 2 }}>
+                <SplitFlap text={weightLabel} width={FLAP_WEIGHT} />
+              </span>
+              <span className="stack-span" style={{ gridColumn: `${qtyStart} / span ${FLAP_QTY}`, gridRow: 2 }}>
+                <SplitFlap text={qtyLabel} width={FLAP_QTY} />
+              </span>
+              <span className="stack-span" style={{ gridColumn: `${meltStart} / span ${FLAP_MELT}`, gridRow: 2 }}>
+                <SplitFlap text={blank ? "" : flapMoney(melt)} width={FLAP_MELT} />
+              </span>
+              <span className="stack-kicker stack-kicker-next" style={{ gridColumn: "1 / -1", gridRow: 3 }}>
+                Description
+              </span>
+              <span className="stack-span" style={{ gridColumn: "1 / -1", gridRow: 4 }}>
+                {description}
+              </span>
+              {remove}
             </div>
             </SwipeCard>
           );
