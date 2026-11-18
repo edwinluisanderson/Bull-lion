@@ -1,24 +1,28 @@
-/** How far toward the next catch you must travel before it holds. */
-export const SNAP_COMMIT = 0.45;
-/** A gap taller than this share of the screen is read freely in the middle. */
-export const SNAP_TALL_VIEWPORTS = 0.92;
-/** Near a catch inside a tall gap, still stick. Capped so the two edges never meet. */
-export const SNAP_EDGE_VIEWPORT = 0.16;
-export const SNAP_EDGE_CAP_PX = 96;
+/**
+ * A stop only catches a scroll that comes to rest inside this many pixels.
+ * 48px is inside the 40–60px band: wide enough to feel like a rubber band on a
+ * phone, narrow enough that a normal flick on a tall desktop window breaks free.
+ * A share of the viewport would grow on a tall window and start grabbing scrolls
+ * that should stay put.
+ */
+export const SNAP_RADIUS_PX = 48;
+/** Already on the stop. Don't start another spring. */
 export const SNAP_SLOP_PX = 8;
-export const SNAP_MERGE_PX = 2;
 
 export type SnapSettle = {
   scrollTop: number;
   maxScroll: number;
-  /** Document offsets that catch, including the top and the bottom when wanted. */
+  /** Document offsets that can catch, including the top and the bottom. */
   points: readonly number[];
-  viewport: number;
   reduced: boolean;
 };
 
-/** Clamp every catch into the scroll range and drop ones that land on each other. */
-export function snapStops(points: readonly number[], maxScroll: number, mergePx = SNAP_MERGE_PX): number[] {
+/**
+ * Clamp catches into the scroll range. Stops closer than the capture radius
+ * become one stop, so the page top and the main plate (about 20px apart) are
+ * a single rubber band instead of two detents.
+ */
+export function snapStops(points: readonly number[], maxScroll: number, mergePx = SNAP_RADIUS_PX): number[] {
   const limit = Math.max(0, maxScroll);
   const sorted = points
     .map((point) => Math.min(limit, Math.max(0, point)))
@@ -29,42 +33,33 @@ export function snapStops(points: readonly number[], maxScroll: number, mergePx 
     if (last === undefined || point - last > mergePx) stops.push(point);
   }
   if (stops.length === 0 || stops[0] > mergePx) stops.unshift(0);
+  else stops[0] = 0;
   const end = stops[stops.length - 1];
   if (end === undefined || limit - end > mergePx) stops.push(limit);
+  else stops[stops.length - 1] = limit;
   return stops;
 }
 
 /**
- * Where a settled scroll should rest.
- * Short gaps pull back until the push passes the commit line, then catch the next plate.
- * A gap taller than the screen leaves the middle alone so that section can be read.
+ * The stop to spring back to, or null when the page should stay exactly where it landed.
+ * Only a rest inside the capture radius is caught. Past that, scrolling is left alone.
  * Reduced motion never moves the scroll.
- * Returns null when the page should stay where it is.
  */
 export function settleSnap(input: SnapSettle): number | null {
   if (input.reduced) return null;
   const limit = Math.max(0, input.maxScroll);
   const y = Math.min(limit, Math.max(0, input.scrollTop));
   const stops = snapStops(input.points, limit);
-  let prev = stops[0] ?? 0;
-  let next = stops[stops.length - 1] ?? limit;
+  let nearest = stops[0] ?? 0;
+  let best = Math.abs(y - nearest);
   for (const stop of stops) {
-    if (stop <= y) prev = stop;
-    if (stop >= y) {
-      next = stop;
-      break;
+    const distance = Math.abs(y - stop);
+    if (distance < best) {
+      nearest = stop;
+      best = distance;
     }
   }
-  if (Math.abs(y - prev) <= SNAP_SLOP_PX || Math.abs(y - next) <= SNAP_SLOP_PX) return null;
-  const gap = next - prev;
-  if (gap <= SNAP_SLOP_PX) return null;
-  const viewport = Math.max(1, input.viewport);
-  if (gap > viewport * SNAP_TALL_VIEWPORTS) {
-    const edge = Math.min(SNAP_EDGE_CAP_PX, viewport * SNAP_EDGE_VIEWPORT, gap / 2 - 1);
-    if (y - prev <= edge) return prev;
-    if (next - y <= edge) return next;
-    return null;
-  }
-  const progress = (y - prev) / gap;
-  return progress < SNAP_COMMIT ? prev : next;
+  if (best <= SNAP_SLOP_PX) return null;
+  if (best <= SNAP_RADIUS_PX) return nearest;
+  return null;
 }

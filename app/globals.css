@@ -136,7 +136,8 @@ body {
 }
 
 html {
-  scroll-snap-type: y proximity;
+  /* Catch zones are applied after the scroll rests. The browser must not glide between stops. */
+  scroll-snap-type: none;
   overscroll-behavior-y: contain;
 }
 

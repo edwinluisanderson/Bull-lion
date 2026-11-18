@@ -4,18 +4,17 @@ import { useEffect } from "react";
 
 import { settleSnap } from "@/lib/page-snap";
 
-const GLIDE_MS = 220;
+const GLIDE_MS = 280;
 
-function snapPoints(root: Element): { points: number[]; maxScroll: number; viewport: number; top: number } {
+function snapPoints(root: Element): { points: number[]; maxScroll: number; top: number } {
   const top = root.scrollTop;
-  const viewport = root.clientHeight;
-  const maxScroll = Math.max(0, root.scrollHeight - viewport);
+  const maxScroll = Math.max(0, root.scrollHeight - root.clientHeight);
   const points = [...root.ownerDocument.querySelectorAll<HTMLElement>("[data-snap]")].map((node) => {
     const y = node.getBoundingClientRect().top + top;
     return Math.min(maxScroll, Math.max(0, y));
   });
   points.push(0, maxScroll);
-  return { points, maxScroll, viewport, top };
+  return { points, maxScroll, top };
 }
 
 function glide(root: Element, to: number, reduced: boolean) {
@@ -28,15 +27,19 @@ function glide(root: Element, to: number, reduced: boolean) {
   let frame = 0;
   const step = (now: number) => {
     const t = Math.min(1, (now - start) / GLIDE_MS);
-    const eased = 1 - (1 - t) ** 3;
-    root.scrollTop = from + (to - from) * eased;
+    const c1 = 1.15;
+    const c3 = c1 + 1;
+    const eased = 1 + c3 * (t - 1) ** 3 + c1 * (t - 1) ** 2;
+    const limit = Math.max(0, root.scrollHeight - root.clientHeight);
+    const next = from + (to - from) * eased;
+    root.scrollTop = Math.min(limit, Math.max(0, next));
     if (t < 1) frame = requestAnimationFrame(step);
   };
   frame = requestAnimationFrame(step);
   return () => cancelAnimationFrame(frame);
 }
 
-/** After a flick settles, catch the next plate or pull back. Tall sections stay readable. */
+/** After a flick settles, spring onto a nearby stop. Anywhere else, stay put. */
 export function PageSnap() {
   useEffect(() => {
     const root = document.scrollingElement;
@@ -55,7 +58,6 @@ export function PageSnap() {
         scrollTop: measured.top,
         maxScroll: measured.maxScroll,
         points: measured.points,
-        viewport: measured.viewport,
         reduced,
       });
       if (target == null || Math.abs(target - root.scrollTop) < 1) return;
