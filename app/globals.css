@@ -1088,6 +1088,25 @@ button,
   min-height: 250px;
 }
 
+.scrap-gauge-test {
+  position: absolute;
+  z-index: 2;
+  top: 18px;
+  left: 50%;
+  width: min(148px, 46%);
+  aspect-ratio: 120 / 96;
+  transform: translateX(-50%);
+  pointer-events: none;
+  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.35));
+}
+
+.scrap-gauge-test svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+
 .gear-panel-nixie {
   position: absolute;
   top: 50%;
