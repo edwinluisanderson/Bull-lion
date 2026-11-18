@@ -285,4 +285,6 @@ test("the page eases after scrollend and the plates are marked", () => {
   assert.equal(snapSource.includes("preventDefault"), false);
   assert.match(snapSource, /get\("magnet"\) !== "1"/);
   assert.match(snapSource, /pointer-events:\s*none/);
+  assert.match(snapSource, /stack-swipe\.is-departing/);
+  assert.match(snapSource, /requestAnimationFrame\(onLayout\)/);
 });

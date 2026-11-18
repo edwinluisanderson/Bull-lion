@@ -12,8 +12,10 @@ import {
   collapseInset,
   coverDistance,
   coveringIndexes,
+  deleteRowLocked,
   isCoveringRow,
   isRemnantRow,
+  queuedCoverId,
 } from "@/lib/delete-cover";
 
 const card = readFileSync(new URL("../components/swipe-card.tsx", import.meta.url), "utf8");
@@ -61,7 +63,8 @@ test("the last card has no row below it, so the slot collapses from the bottom",
 test("the face still shoots off and the button is not faded away", () => {
   assert.equal(card.includes("DELETE_LINGER_MS"), false);
   assert.match(card, /onDepart\(\)/);
-  assert.match(card, /setDeparting\(true\)/);
+  assert.equal(card.includes("setDeparting"), false);
+  assert.match(card, /leaving \? " is-departing"/);
   assert.match(css, /\.stack-swipe\.is-departing \.stack-swipe-face \{[^}]*translateX\(120vw\)/);
   assert.match(css, new RegExp(`transition: transform ${DELETE_SHOOT_MS}ms`));
   assert.equal(css.includes("delete-linger"), false);
@@ -76,7 +79,27 @@ test("the face still shoots off and the button is not faded away", () => {
   assert.match(table, /is-cover-front/);
   assert.match(table, /coverSlack\(\)/);
   assert.match(table, /releaseCoverSlack\(\)/);
+  assert.match(table, /deleteRowLocked\(shift !== null, blank, cover\?\.id \?\? null, line\?\.id \?\? null\)/);
+  assert.match(table, /id=\{line \? line\.id : `blank-\$\{index\}`\}/);
+  assert.match(table, /queuedCoverId\(/);
   assert.match(card, /is-collapsing/);
   assert.equal(COVER_SLIDE_MS > COVER_FRAME_MS, true);
   assert.match(css, /\.split-rows \{[^}]*gap:\s*8px/);
+});
+
+test("a second delete waits its turn and the other cards stay swipeable", () => {
+  assert.equal(deleteRowLocked(true, false, null, "silver"), true);
+  assert.equal(deleteRowLocked(false, true, null, "silver"), true);
+  assert.equal(deleteRowLocked(false, false, "gold", "gold"), true);
+  assert.equal(deleteRowLocked(false, false, "gold", "silver"), false);
+  assert.equal(deleteRowLocked(false, false, null, "silver"), false);
+  assert.equal(queuedCoverId("gold", "silver"), "silver");
+  assert.equal(queuedCoverId("gold", "gold"), null);
+  assert.equal(queuedCoverId("gold", null), null);
+
+  const snap = readFileSync(new URL("../components/page-snap.tsx", import.meta.url), "utf8");
+  assert.match(snap, /stack-swipe\.is-departing/);
+  assert.match(snap, /requestAnimationFrame\(onLayout\)/);
+  assert.match(table, /queuedDelete/);
+  assert.match(card, /if \(leaving\) return/);
 });

@@ -196,6 +196,7 @@ export function PageSnap() {
     };
 
     let resizeFrame = 0;
+    let departWaitStart = 0;
     const onDown = () => {
       touching += 1;
       stop();
@@ -214,7 +215,15 @@ export function PageSnap() {
     const onLayout = () => {
       if (touching || gliding) return;
       // A delete cover changes the page height on purpose. Snapping mid-slide yanks the rows.
-      if (document.querySelector(".stack-swipe.is-departing")) return;
+      // Keep checking until that row is gone, then settle. A stuck flag must not spin forever.
+      if (document.querySelector(".stack-swipe.is-departing")) {
+        if (departWaitStart === 0) departWaitStart = performance.now();
+        if (performance.now() - departWaitStart > 3000) return;
+        cancelAnimationFrame(resizeFrame);
+        resizeFrame = requestAnimationFrame(onLayout);
+        return;
+      }
+      departWaitStart = 0;
       cancelAnimationFrame(resizeFrame);
       resizeFrame = requestAnimationFrame(finish);
     };
