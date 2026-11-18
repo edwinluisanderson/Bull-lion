@@ -210,17 +210,13 @@ button,
 }
 
 .cabinet > .rivet[data-corner="tl"],
-.gear-panel > .rivet[data-corner="tl"],
-.stack-plate > .rivet[data-corner="tl"] { top: 14px; left: 14px; }
+.gear-panel > .rivet[data-corner="tl"] { top: 14px; left: 14px; }
 .cabinet > .rivet[data-corner="tr"],
-.gear-panel > .rivet[data-corner="tr"],
-.stack-plate > .rivet[data-corner="tr"] { top: 14px; right: 14px; }
+.gear-panel > .rivet[data-corner="tr"] { top: 14px; right: 14px; }
 .cabinet > .rivet[data-corner="bl"],
-.gear-panel > .rivet[data-corner="bl"],
-.stack-plate > .rivet[data-corner="bl"] { bottom: 14px; left: 14px; }
+.gear-panel > .rivet[data-corner="bl"] { bottom: 14px; left: 14px; }
 .cabinet > .rivet[data-corner="br"],
-.gear-panel > .rivet[data-corner="br"],
-.stack-plate > .rivet[data-corner="br"] { bottom: 14px; right: 14px; }
+.gear-panel > .rivet[data-corner="br"] { bottom: 14px; right: 14px; }
 
 .plate-title {
   margin: 0.1rem 0 0;
@@ -1078,33 +1074,14 @@ button,
 }
 
 .stack-plate {
-  position: relative;
-  margin-top: 20px;
-  padding: 28px 16px 16px;
-  overflow: hidden;
-  border-radius: var(--cabinet-radius);
-  background:
-    repeating-linear-gradient(
-      90deg,
-      rgba(0, 0, 0, 0.18) 0 2px,
-      transparent 2px 9px
-    ),
-    linear-gradient(180deg, #5c3a22 0%, #3a2416 42%, #24150e 100%);
-  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.4);
-}
-
-.stack-plate::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 6;
-  border-radius: var(--cabinet-radius);
-  box-shadow: var(--cabinet-ring);
-  pointer-events: none;
-}
-
-.stack-plate > .rivet {
-  z-index: 7;
+  box-sizing: border-box;
+  width: auto;
+  margin: 20px 0 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  overflow: visible;
 }
 
 .scrap-readout-gap {
@@ -1114,15 +1091,12 @@ button,
 .split-stack {
   position: relative;
   z-index: 4;
-  margin: 0 0 8px;
-  padding: 6px 8px 8px;
-  border-radius: 10px;
-  background:
-    linear-gradient(180deg, rgba(36, 24, 16, 0.2), rgba(12, 8, 6, 0.45)),
-    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 7px);
-  box-shadow:
-    inset 0 0 0 1px rgba(212, 168, 92, 0.35),
-    inset 0 1px 0 rgba(255, 236, 196, 0.18);
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background: none;
+  box-shadow: none;
 }
 
 .split-stack:has(.stack-swipe.is-raised) {

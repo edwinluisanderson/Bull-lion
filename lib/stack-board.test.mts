@@ -202,9 +202,16 @@ test("My Stack sits between the cabinet and the scrap plate", () => {
   assert.equal(scrap.includes("<StackTable"), false);
   assert.match(scrap, /className="scrap-readout"/);
   assert.match(scrap, /className="scrap-readout-gap"/);
-  assert.match(css, /\.stack-plate \{[^}]*margin-top:\s*20px/);
-  assert.match(css, /\.stack-plate \{[^}]*border-radius:\s*var\(--cabinet-radius\)/);
-  assert.match(css, /\.stack-plate::after \{[^}]*box-shadow:\s*var\(--cabinet-ring\)/);
+  assert.equal(plate.includes('className="rivet"'), false);
+  assert.match(css, /\.stack-plate \{[^}]*width:\s*auto/);
+  assert.match(css, /\.stack-plate \{[^}]*margin:\s*20px 0 0/);
+  assert.match(css, /\.stack-plate \{[^}]*padding:\s*0/);
+  assert.match(css, /\.stack-plate \{[^}]*background:\s*none/);
+  assert.match(css, /\.stack-plate \{[^}]*box-shadow:\s*none/);
+  assert.equal(css.includes(".stack-plate::after"), false);
+  assert.match(css, /\.split-stack \{[^}]*width:\s*100%/);
+  assert.match(css, /\.split-stack \{[^}]*padding:\s*0/);
+  assert.match(css, /\.split-stack \{[^}]*background:\s*none/);
   assert.match(css, /\.stack-plate:has\(\.stack-swipe\.is-raised\) \{[^}]*overflow:\s*visible/);
 });
 

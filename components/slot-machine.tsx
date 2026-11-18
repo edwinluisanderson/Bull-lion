@@ -371,10 +371,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           )}
         </section>
         <div className="stack-plate">
-          <span className="rivet" data-corner="tl" />
-          <span className="rivet" data-corner="tr" />
-          <span className="rivet" data-corner="bl" />
-          <span className="rivet" data-corner="br" />
           <StackTable
             selection={
               metal
