@@ -6,6 +6,13 @@
  * that should stay put.
  */
 export const SNAP_RADIUS_PX = 48;
+/**
+ * Two catches must be at least this far apart, or the later one is dropped.
+ * Twice the capture radius means the 48px bands touch at the midpoint and never overlap,
+ * so a resting scroll belongs to one stop. A share of the viewport would drop real plates
+ * on a short phone and keep them on a tall window.
+ */
+export const SNAP_MIN_GAP_PX = SNAP_RADIUS_PX * 2;
 /** Already on the stop. Don't start another spring. */
 export const SNAP_SLOP_PX = 8;
 
@@ -18,25 +25,22 @@ export type SnapSettle = {
 };
 
 /**
- * Clamp catches into the scroll range. Stops closer than the capture radius
- * become one stop, so the page top and the main plate (about 20px apart) are
- * a single rubber band instead of two detents.
+ * Stops measured after layout. Anything closer than {@link SNAP_MIN_GAP_PX} to an
+ * already-kept stop is dropped. The page top is kept first and the page bottom
+ * last, so a crowded neighbor loses to those ends.
  */
-export function snapStops(points: readonly number[], maxScroll: number, mergePx = SNAP_RADIUS_PX): number[] {
+export function snapStops(points: readonly number[], maxScroll: number, minGap = SNAP_MIN_GAP_PX): number[] {
   const limit = Math.max(0, maxScroll);
-  const sorted = points
-    .map((point) => Math.min(limit, Math.max(0, point)))
-    .sort((a, b) => a - b);
-  const stops: number[] = [];
+  const sorted = points.map((point) => Math.min(limit, Math.max(0, point))).sort((a, b) => a - b);
+  const stops: number[] = [0];
   for (const point of sorted) {
-    const last = stops[stops.length - 1];
-    if (last === undefined || point - last > mergePx) stops.push(point);
+    if (point <= 0 || point >= limit) continue;
+    const last = stops[stops.length - 1] ?? 0;
+    if (point - last < minGap) continue;
+    if (limit - point < minGap) continue;
+    stops.push(point);
   }
-  if (stops.length === 0 || stops[0] > mergePx) stops.unshift(0);
-  else stops[0] = 0;
-  const end = stops[stops.length - 1];
-  if (end === undefined || limit - end > mergePx) stops.push(limit);
-  else stops[stops.length - 1] = limit;
+  if (limit > 0) stops.push(limit);
   return stops;
 }
 

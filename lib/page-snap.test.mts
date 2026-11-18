@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { SNAP_RADIUS_PX, settleSnap, snapStops } from "@/lib/page-snap";
+import { SNAP_MIN_GAP_PX, SNAP_RADIUS_PX, settleSnap, snapStops } from "@/lib/page-snap";
 
 const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
@@ -16,8 +16,20 @@ const stops = [0, 20, 360, 720, 1100, 1500];
 
 test("the page top and the main plate share one catch", () => {
   assert.equal(SNAP_RADIUS_PX, 48);
+  assert.equal(SNAP_MIN_GAP_PX, SNAP_RADIUS_PX * 2);
   assert.deepEqual(snapStops([20, 360, 1500, 1500, 2000], 1500), [0, 360, 1500]);
   assert.deepEqual(snapStops([], 0), [0]);
+});
+
+test("stops closer than the minimum gap are dropped, and the ends win", () => {
+  assert.deepEqual(snapStops([0, 80, 360], 1500), [0, 360, 1500]);
+  assert.deepEqual(snapStops([0, SNAP_MIN_GAP_PX, 400], 1500), [0, SNAP_MIN_GAP_PX, 400, 1500]);
+  assert.deepEqual(snapStops([0, SNAP_MIN_GAP_PX - 1], 1500), [0, 1500]);
+  const shortPage = snapStops([20, 190, 538, 540, 548], 548);
+  assert.deepEqual(shortPage, [0, 190, 548]);
+  assert.equal(shortPage[0], 0);
+  assert.equal(shortPage[shortPage.length - 1], 548);
+  assert.deepEqual(snapStops([40], 60), [0, 60]);
 });
 
 test("a rest inside the capture radius springs back, and past it the page stays put", () => {

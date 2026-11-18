@@ -72,12 +72,36 @@ export function PageSnap() {
       cancelGlide = () => {};
     };
 
+    let touching = 0;
+    let resizeFrame = 0;
+    const onDown = () => {
+      touching += 1;
+      stop();
+    };
+    const onUp = () => {
+      touching = Math.max(0, touching - 1);
+    };
+    const onLayout = () => {
+      if (touching || gliding) return;
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(finish);
+    };
+    const observer = new ResizeObserver(onLayout);
+    observer.observe(document.body);
     document.addEventListener("scrollend", finish);
-    window.addEventListener("pointerdown", stop);
+    window.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    window.addEventListener("resize", onLayout);
     return () => {
       stop();
+      cancelAnimationFrame(resizeFrame);
+      observer.disconnect();
       document.removeEventListener("scrollend", finish);
-      window.removeEventListener("pointerdown", stop);
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("resize", onLayout);
     };
   }, []);
 
