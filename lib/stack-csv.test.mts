@@ -61,6 +61,8 @@ test("an empty stack is a header and a zero Total, and the button stays disabled
   const rows = csv.slice(1).trim().split("\r\n");
   assert.deepEqual(rows, [[...STACK_CSV_COLUMNS].join(","), "Total,,0,,,,0"]);
   assert.match(table, /aria-label="Download My Stack"/);
+  assert.match(table, /id="stack-gem"/);
+  assert.equal(table.includes('stroke="#40e0d0"'), false);
   assert.match(table, /disabled=\{downloadLines\.length === 0\}/);
   assert.match(table, /stackCsvFilename\(new Date\(\)\)/);
 });
