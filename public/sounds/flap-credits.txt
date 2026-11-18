@@ -19,3 +19,7 @@ License URL: https://creativecommons.org/publicdomain/zero/1.0/
 
 One blast, trimmed to 1.78 seconds, mono mp3. It plays while a My Stack
 card is locked open on the delete button.
+
+Card lock (public/sounds/lock-start.mp3, lock-middle.mp3, lock-end.mp3)
+
+"door bolt 5.wav" by FenrirFangs, https://freesound.org/people/FenrirFangs/sounds/213996/, CC0, split into three parts.

@@ -8,12 +8,21 @@ import {
   playDeleteAhooga,
   stopDeleteAhooga,
 } from "@/lib/delete-alarm";
-import { unlockAppAudio } from "@/lib/sound-preload";
 import { playSwipeTone } from "@/lib/flap-sound";
+import {
+  cardAlarmLive,
+  freshLockDrag,
+  lockDragArmed,
+  lockDragMoved,
+  lockDragSettled,
+  lockOutsideClose,
+  playLockCue,
+  type LockDrag,
+} from "@/lib/lock-sound";
+import { unlockAppAudio } from "@/lib/sound-preload";
 import {
   SWIPE_REVEAL_PX,
   clampSwipe,
-  crossedDetent,
   leverTapDeletes,
   lockSwipeAxis,
   settleSwipe,
@@ -42,6 +51,7 @@ export function SwipeCard({
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [departing, setDeparting] = useState(false);
+  const phase = useRef<LockDrag>(freshLockDrag(0));
   const drag = useRef({
     pointer: -1,
     axis: "undecided" as SwipeAxis,
@@ -59,9 +69,10 @@ export function SwipeCard({
 
   useEffect(() => () => window.clearTimeout(departTimer.current), []);
 
+  const alarmLive = cardAlarmLive(open, dragging, departing);
+
   useEffect(() => {
-    const lockedOpen = open && !dragging && !departing;
-    if (!lockedOpen) return;
+    if (!alarmLive) return;
     let alive = true;
     const blast = () => {
       if (alive) void playDeleteAhooga();
@@ -78,13 +89,15 @@ export function SwipeCard({
       document.removeEventListener("visibilitychange", onHide);
       stopDeleteAhooga();
     };
-  }, [open, dragging, departing]);
+  }, [alarmLive]);
 
   useEffect(() => {
     if (!open) return;
     const close = (event: PointerEvent) => {
       const node = document.querySelector(`[data-swipe-id="${id}"]`);
       if (node && event.target instanceof Node && node.contains(event.target)) return;
+      const cue = lockOutsideClose(true, drag.current.pointer !== -1);
+      if (cue) playLockCue(cue);
       onClose();
     };
     document.addEventListener("pointerdown", close);
@@ -98,6 +111,7 @@ export function SwipeCard({
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     unlockAppAudio();
     if (locked || event.button !== 0) return;
+    phase.current = freshLockDrag(open ? SWIPE_REVEAL_PX : 0);
     drag.current = {
       pointer: event.pointerId,
       axis: "undecided",
@@ -120,6 +134,10 @@ export function SwipeCard({
     if (state.axis === "undecided") {
       state.axis = lockSwipeAxis(dx, dy);
       if (state.axis !== "drag") return;
+      const armed = lockDragArmed(phase.current);
+      phase.current = armed.drag;
+      if (armed.cue) playLockCue(armed.cue);
+      setOffset(phase.current.offset);
       setDragging(true);
       event.currentTarget.setPointerCapture(event.pointerId);
     }
@@ -129,7 +147,9 @@ export function SwipeCard({
     state.lastX = event.clientX;
     state.lastT = event.timeStamp;
     const next = clampSwipe(state.origin + dx);
-    if (!reduced() && crossedDetent(state.offset, next)) playSwipeTone("detent");
+    const moved = lockDragMoved(phase.current, next);
+    phase.current = moved.drag;
+    if (moved.cue) playLockCue(moved.cue);
     state.offset = next;
     setOffset(next);
   }
@@ -146,7 +166,11 @@ export function SwipeCard({
       if (open && axis === "undecided") onClose();
       return;
     }
-    if (settleSwipe(state.offset) === "open") onOpen();
+    const end = settleSwipe(state.offset);
+    const settled = lockDragSettled(phase.current, end);
+    phase.current = settled.drag;
+    if (settled.cue) playLockCue(settled.cue);
+    if (end === "open") onOpen();
     else onClose();
   }
 
