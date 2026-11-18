@@ -135,6 +135,37 @@ body {
   overflow-x: clip;
 }
 
+html {
+  scroll-snap-type: y proximity;
+  overscroll-behavior-y: contain;
+}
+
+.page-snap {
+  height: 1px;
+  margin-bottom: -1px;
+  scroll-snap-align: start;
+  scroll-snap-stop: normal;
+}
+
+.page-snap[data-snap="bottom"] {
+  margin-top: -1px;
+  margin-bottom: 0;
+  scroll-snap-align: end;
+}
+
+.cabinet,
+.melt-plate,
+.playfield,
+.stack-plate,
+.gear-panel {
+  scroll-snap-align: start;
+  scroll-snap-stop: normal;
+}
+
+.gear-panel {
+  scroll-snap-align: start end;
+}
+
 body {
   margin: 0;
   background: #140e0a;
@@ -1524,6 +1555,10 @@ button,
 @media (prefers-reduced-motion: reduce) {
   .flap-leaf {
     animation: none;
+  }
+
+  html {
+    scroll-snap-type: none;
   }
 }
 

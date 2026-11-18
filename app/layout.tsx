@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Big_Shoulders, Cinzel, IBM_Plex_Mono, Source_Serif_4 } from "next/font/google";
 
+import { PageSnap } from "@/components/page-snap";
 import "./globals.css";
 
 const display = Cinzel({
@@ -50,7 +51,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${display.variable} ${reel.variable} ${readout.variable} ${body.variable} h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        <PageSnap />
+        <div className="page-snap" data-snap="top" />
+        {children}
+        <div className="page-snap" data-snap="bottom" />
+      </body>
     </html>
   );
 }

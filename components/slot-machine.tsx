@@ -212,7 +212,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   return (
     <div className="workshop">
       <main className="machine-wrap">
-        <section className="cabinet" aria-label="Bullion slot machine">
+        <section className="cabinet" data-snap="main" aria-label="Bullion slot machine">
           <span className="rivet" data-corner="tl" />
           <span className="rivet" data-corner="tr" />
           <span className="rivet" data-corner="bl" />
@@ -259,7 +259,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             </div>
           </div>
 
-          <div className="playfield">
+          <div className="playfield" data-snap="wheels">
             <div className="window-frame">
               <span className="rivet frame-rivet" data-corner="tl" />
               <span className="rivet frame-rivet" data-corner="tr" />
@@ -370,7 +370,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             </footer>
           )}
         </section>
-        <div className="stack-plate">
+        <div className="stack-plate" data-snap="stack">
           <StackTable
             selection={
               metal
@@ -388,7 +388,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             pullSerial={pullSerial}
           />
         </div>
-        <div className="gear-panel">
+        <div className="gear-panel" data-snap="scrap">
           <span className="rivet" data-corner="tl" />
           <span className="rivet" data-corner="tr" />
           <span className="rivet" data-corner="bl" />
