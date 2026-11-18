@@ -86,7 +86,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
         key: entry.id,
         mark: entry.face,
         detail: entry.detail,
-        tint: "#f0d78c",
+        tint: "var(--melt-digit)",
       })),
     [],
   );
@@ -102,7 +102,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
       key: String(count),
       mark: `×${count}`,
       detail: count === 1 ? "piece" : "pieces",
-      tint: "#f0d78c",
+      tint: "var(--melt-digit)",
       disabled: anyAffordable ? unaffordable[index] : index !== COUNTS.length - 1,
     }));
   }, [countGuardHold, metal, weight.grams]);

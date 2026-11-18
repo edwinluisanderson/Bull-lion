@@ -23,9 +23,9 @@ function HaloDefs({ id }: { id: string }) {
   return (
     <defs>
       <radialGradient id={`${id}-halo`} cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stopColor="#ff9324" stopOpacity="0.55" />
-        <stop offset="55%" stopColor="#ff9324" stopOpacity="0.12" />
-        <stop offset="100%" stopColor="#ff9324" stopOpacity="0" />
+        <stop offset="0%" stopColor="var(--melt-digit)" stopOpacity="0.2" />
+        <stop offset="55%" stopColor="var(--melt-digit)" stopOpacity="0.08" />
+        <stop offset="100%" stopColor="var(--melt-digit)" stopOpacity="0" />
       </radialGradient>
     </defs>
   );

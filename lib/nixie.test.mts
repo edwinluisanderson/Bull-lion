@@ -149,7 +149,12 @@ test("the melt-plate nixie follows the same melt state as the rolling scrap plat
   assert.equal(NIXIE_DIGIT_SCALE, 1.438);
   assert.equal(NIXIE_DIGIT_NARROW, 0.78);
   assert.match(nixie, /transform=\{NIXIE_DIGIT_FRAME\}/);
-  assert.match(css, /\.is-on \.nixie-cathode \{[^}]*stroke:\s*#ff9324/);
+  assert.match(css, /\.is-on \.nixie-cathode \{[^}]*stroke:\s*var\(--melt-digit\)/);
+  assert.match(css, /--melt-digit:\s*#f0d78c/);
+  assert.match(css, /--melt-digit-glow:\s*#f0d78c33/);
+  assert.match(css, /\.is-on \.nixie-cathode \{[^}]*drop-shadow\(0 0 16px var\(--melt-digit-glow\)\)/);
+  assert.equal(css.includes("#ff9324"), false);
+  assert.equal(nixie.includes("#ff9324"), false);
   assert.match(css, /\.is-on \.nixie-cathode \{[^}]*stroke-width:\s*2\.75/);
   assert.equal(css.includes(".nixie-aura"), false);
   assert.equal(nixie.includes("nixie-aura"), false);

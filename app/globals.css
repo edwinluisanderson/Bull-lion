@@ -84,6 +84,9 @@
   --reel-name: 28px;
   --reel-window: 258px;
   --brass-plate: linear-gradient(180deg, #f3e2ad 0%, #c4963e 28%, #7a5a22 62%, #e6cb82 100%);
+  /* Lit melt-wheel digit ink and the 16px shadow those digits already cast. */
+  --melt-digit: #f0d78c;
+  --melt-digit-glow: #f0d78c33;
 }
 
 .dark {
@@ -1731,7 +1734,7 @@ button,
 }
 
 .nixie-glow {
-  stroke: #ff9324;
+  stroke: var(--melt-digit);
   stroke-width: 3.2px;
   opacity: 0;
   transition: opacity 0.62s cubic-bezier(0.16, 0.84, 0.24, 1);
@@ -1739,7 +1742,7 @@ button,
 }
 
 .is-on .nixie-glow {
-  opacity: 0.42;
+  opacity: 0.2;
 }
 
 .nixie-mesh {
@@ -1759,10 +1762,11 @@ button,
 }
 
 .is-on .nixie-cathode {
-  stroke: #ff9324;
+  stroke: var(--melt-digit);
   stroke-width: 2.75;
   stroke-dasharray: none;
   opacity: 1;
+  filter: drop-shadow(0 0 16px var(--melt-digit-glow));
 }
 
 .nixie-halo {
@@ -1782,8 +1786,9 @@ button,
 }
 
 .nixie-dot.is-on {
-  fill: #ff9324;
+  fill: var(--melt-digit);
   opacity: 1;
+  filter: drop-shadow(0 0 16px var(--melt-digit-glow));
 }
 
 .nixie-tubes.is-centered {

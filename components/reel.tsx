@@ -985,11 +985,11 @@ export function Reel({
                     opacity: 1,
                     background: "#1a130e",
                     boxShadow: row.centered
-                      ? "inset 0 0 0 1px rgba(240, 215, 140, 0.95), 0 0 16px rgba(240, 200, 90, 0.45)"
+                      ? "inset 0 0 0 1px color-mix(in srgb, var(--melt-digit) 95%, transparent), 0 0 16px var(--melt-digit-glow)"
                       : "inset 0 0 0 1px rgba(198, 161, 90, 0.38)",
                   }}
                 >
-                  <span className="symbol-mark" style={{ color: row.centered ? "#f0d78c" : "#f0e2c4" }}>
+                  <span className="symbol-mark" style={{ color: row.centered ? "var(--melt-digit)" : "#f0e2c4" }}>
                     {(stretch?.label?.(row.value) ?? countFace(row.value)).mark}
                   </span>
                   <span className="symbol-detail">
@@ -1043,7 +1043,7 @@ export function Reel({
                     smear > 0.4
                       ? `0 ${smearY}px ${smear}px rgba(0, 0, 0, 0.35)`
                       : !symbol.disabled && isActive && symbol.tint
-                        ? `inset 0 0 0 1px ${symbol.tint}, 0 0 16px ${symbol.tint}33`
+                        ? `inset 0 0 0 1px ${symbol.tint}, 0 0 16px color-mix(in srgb, ${symbol.tint} 20%, transparent)`
                         : undefined,
                 }}
               >
