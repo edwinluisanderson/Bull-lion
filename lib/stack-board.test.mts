@@ -189,18 +189,38 @@ test("the melt total label stays put and the value sits on the right of a fixed 
   assert.equal(table.includes("--total-em"), false);
 });
 
-test("the scrap plate grows a split-flap stack and the flaps stay quiet when sound is off", () => {
+test("My Stack sits between the cabinet and the scrap plate", () => {
+  const cabinet = machine.indexOf('className="cabinet"');
+  const stack = machine.indexOf('className="stack-plate"');
+  const panel = machine.indexOf('className="gear-panel"');
+  assert.ok(cabinet > 0 && cabinet < stack && stack < panel);
+  const plate = machine.slice(stack, panel);
+  assert.match(plate, /<StackTable/);
+  assert.equal(plate.includes("scrap-readout"), false);
+  assert.equal(plate.includes("<Gear"), false);
+  const scrap = machine.slice(panel);
+  assert.equal(scrap.includes("<StackTable"), false);
+  assert.match(scrap, /className="scrap-readout"/);
+  assert.match(scrap, /className="scrap-readout-gap"/);
+  assert.match(css, /\.stack-plate \{[^}]*margin-top:\s*20px/);
+  assert.match(css, /\.stack-plate \{[^}]*border-radius:\s*var\(--cabinet-radius\)/);
+  assert.match(css, /\.stack-plate::after \{[^}]*box-shadow:\s*var\(--cabinet-ring\)/);
+  assert.match(css, /\.stack-plate:has\(\.stack-swipe\.is-raised\) \{[^}]*overflow:\s*visible/);
+});
+
+test("the split-flap stack keeps its board and the flaps stay quiet when sound is off", () => {
   assert.match(machine, /<StackTable/);
   assert.match(machine, /className="scrap-readout-gap"/);
-  assert.match(table, /Add to stack/);
-  assert.match(table, /Combine/);
-  assert.match(table, /Keep separate/);
+  assert.equal(table.includes("Add to stack"), false);
+  assert.equal(table.includes("stack-add"), false);
+  assert.equal(table.includes("addCurrent"), false);
+  assert.equal(table.includes("Keep separate"), false);
   assert.match(table, />Total</);
   assert.equal(table.includes("Grand total"), false);
   assert.equal(table.includes("--total-em"), false);
   assert.match(table, /readStack\(window\.localStorage\)/);
   assert.match(table, /writeStack\(window\.localStorage, lines\)/);
-  assert.match(table, /resolveAdd\(existing, pending, choice\)/);
+  assert.equal(table.includes("resolveAdd"), false);
   assert.match(table, /Remove \$\{line\.description\}/);
   assert.match(flap, /prefers-reduced-motion: reduce/);
   assert.match(css, /\.gear-panel \{[^}]*margin-top:\s*20px/);
@@ -210,7 +230,10 @@ test("the scrap plate grows a split-flap stack and the flaps stay quiet when sou
   assert.match(css, /\.stack-card \{[^}]*--flap-font:\s*clamp\(\s*16px,/);
   assert.match(css, /\.stack-card \{[^}]*grid-template-columns:\s*repeat\(var\(--flap-cols/);
   assert.match(css, /\.stack-card \{[^}]*column-gap:\s*2px/);
-  assert.match(css, /\.split-stack-title \{[^}]*font-size:\s*1\.05rem/);
+  assert.match(css, /\.split-stack-title \{[^}]*font-size:\s*1\.25rem/);
+  assert.match(css, /\.split-stack-title \{[^}]*text-align:\s*center/);
+  assert.match(css, /\.split-stack-head \{[^}]*justify-content:\s*center/);
+  assert.match(css, /\.split-total-label \{[^}]*font-size:\s*1\.25rem/);
   assert.match(css, /\.split-total \{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*auto/);
   assert.match(css, /\.split-total \{[^}]*--flap-font:\s*1\.25rem/);
   assert.match(css, /\.split-total-label \{[^}]*text-align:\s*left/);
