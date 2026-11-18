@@ -1134,7 +1134,7 @@ button,
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 60px;
+  min-height: 44px;
   margin-bottom: 6px;
 }
 
@@ -1144,8 +1144,8 @@ button,
   right: 0;
   z-index: 5;
   display: grid;
-  width: 60px;
-  height: 60px;
+  width: 44px;
+  height: 44px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -1158,8 +1158,8 @@ button,
 
 .stack-download svg {
   display: block;
-  width: 60px;
-  height: 60px;
+  width: 44px;
+  height: 44px;
   filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.45));
 }
 
@@ -1197,7 +1197,7 @@ button,
 
 .split-stack-title {
   margin: 0;
-  padding-inline: 64px;
+  padding-inline: 48px;
   color: #f0d78c;
   font-family: var(--font-body), Palatino, serif;
   font-size: 1.5rem;

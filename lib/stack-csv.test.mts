@@ -65,8 +65,8 @@ test("an empty stack is a header and a zero Total, and the button stays disabled
   assert.match(table, /id="stack-gem"/);
   assert.equal(table.includes('stroke="#40e0d0"'), false);
   assert.match(table, /disabled=\{downloadLines\.length === 0\}/);
-  assert.match(css, /\.stack-download \{[^}]*width:\s*60px/);
-  assert.match(css, /\.stack-download svg \{[^}]*width:\s*60px/);
+  assert.match(css, /\.stack-download \{[^}]*width:\s*44px/);
+  assert.match(css, /\.stack-download svg \{[^}]*width:\s*44px/);
   assert.match(css, /\.stack-download:disabled \{[^}]*opacity:\s*0\.4/);
   assert.match(table, /stackCsvFilename\(new Date\(\)\)/);
 });
