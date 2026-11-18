@@ -63,9 +63,6 @@ export function StackGaugeTest({ fraction = 0 }: { fraction?: number }) {
         <line x1="60" y1="78" x2="60" y2="40" stroke="#111" strokeWidth="2.4" strokeLinecap="round" />
       </g>
       <circle cx="60" cy="78" r="5" fill="#1a120c" stroke="#3a2814" strokeWidth="1" />
-      <text x="60" y="94" textAnchor="middle">
-        STACK
-      </text>
     </svg>
   );
 }

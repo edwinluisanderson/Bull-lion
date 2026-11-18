@@ -31,6 +31,16 @@ test("the scrap plate shows a test copy of the STACK gauge", () => {
   assert.match(copy, /url\(#scrap-gauge-ivory\)/);
   assert.match(copy, /url\(#scrap-gauge-brass\)/);
   assert.match(copy, /url\(#scrap-gauge-glass\)/);
-  assert.match(css, /\.scrap-gauge-test \{[^}]*width:\s*min\(148px,/);
+  assert.match(css, /\.scrap-gauge-test \{[^}]*--gauge-w:\s*min\(148px,/);
   assert.match(css, /\.gauge text \{[^}]*fill:\s*#f6e7c8/);
+  assert.match(css, /\.gauge text \{[^}]*font-size:\s*9px/);
+  assert.match(css, /\.gauge text \{[^}]*letter-spacing:\s*0\.16em/);
+  assert.match(css, /\.gauge-nameplate \{[^}]*font-size:\s*calc\(9 \/ 120 \* 100cqw\)/);
+  assert.match(css, /\.gauge-nameplate \{[^}]*letter-spacing:\s*0\.16em/);
+  assert.match(css, /\.gauge-nameplate \{[^}]*#f8e7b8 0%, #d7b56a 28%, #a3783c 62%, #5c3d18 100%/);
+  assert.match(plate, /label="METAL"/);
+  assert.match(plate, /label="STACK"/);
+  assert.match(plate, /label="WEIGHT"/);
+  assert.equal(row.includes("GaugeNamePlate"), false);
+  assert.match(copy, /url\(#scrap-gauge-brass\)/);
 });

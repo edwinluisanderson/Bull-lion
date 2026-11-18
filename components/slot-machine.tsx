@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Gauge } from "@/components/gauge";
+import { GaugeNamePlate } from "@/components/gauge-nameplate";
 import { StackGaugeTest } from "@/components/stack-gauge-test";
 import { WeightDial } from "@/components/weight-dial";
 import { Gear } from "@/components/gear";
@@ -403,6 +404,11 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           <div className="gear-panel-stage" aria-hidden="true">
           <div className="scrap-gauge-test">
             <StackGaugeTest fraction={countIndex / Math.max(1, COUNTS.length - 1)} />
+            <div className="scrap-nameplates">
+              <GaugeNamePlate label="METAL" />
+              <GaugeNamePlate label="STACK" />
+              <GaugeNamePlate label="WEIGHT" />
+            </div>
           </div>
           <div className="gear-panel-lights">
             {Array.from({ length: STEAMPUNK_LIGHT_COUNT }, (_, index) => (
