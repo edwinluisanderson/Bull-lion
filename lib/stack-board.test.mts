@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { FLAP_GAIN, FLAP_MAX_PER_WINDOW, nextFlapSound } from "@/lib/flap-sound";
-import { FLAP_BOARD_COLUMNS, FLAP_DESCRIPTION, FLAP_MELT, FLAP_METAL, FLAP_QTY, FLAP_TOTAL_COLUMNS, FLAP_TOTAL_LABEL_COLUMNS, FLAP_WEIGHT, flapFrames, flapText, padFlap, rightFlap } from "@/lib/split-flap";
+import { FLAP_BOARD_COLUMNS, FLAP_DESCRIPTION, FLAP_MELT, FLAP_METAL, FLAP_QTY, FLAP_TOTAL_COLUMNS, FLAP_TOTAL_LABEL_COLUMNS, FLAP_WEIGHT, fitFlapMoney, flapFrames, flapText, padFlap, rightFlap } from "@/lib/split-flap";
 import {
   STACK_STORAGE_KEY,
   defaultLineDescription,
@@ -170,18 +170,22 @@ test("the stack survives a reload and drops a broken record", () => {
 });
 
 test("the melt total label stays put and the value sits on the right of a fixed field", () => {
-  assert.equal(FLAP_TOTAL_COLUMNS, 8);
-  assert.equal(rightFlap("$999,999", FLAP_TOTAL_COLUMNS), "$999,999");
+  assert.equal(FLAP_TOTAL_COLUMNS, 11);
+  assert.equal(fitFlapMoney("$99,999,999", FLAP_TOTAL_COLUMNS), "$99,999,999");
+  assert.equal(fitFlapMoney("$1,234,567", FLAP_TOTAL_COLUMNS), " $1,234,567");
+  assert.equal(fitFlapMoney("$999,999,999", FLAP_TOTAL_COLUMNS), " $999999999");
+  assert.equal(fitFlapMoney("$99,999,999,999", FLAP_TOTAL_COLUMNS), "$9999999999");
   assert.equal(FLAP_TOTAL_LABEL_COLUMNS + FLAP_TOTAL_COLUMNS, FLAP_BOARD_COLUMNS);
-  const narrow = rightFlap("$30", FLAP_TOTAL_COLUMNS);
-  const wide = rightFlap("$10,000", FLAP_TOTAL_COLUMNS);
+  const narrow = fitFlapMoney("$30", FLAP_TOTAL_COLUMNS);
+  const wide = fitFlapMoney("$10,000", FLAP_TOTAL_COLUMNS);
   assert.equal(narrow.length, wide.length);
   assert.equal(narrow.endsWith("$30"), true);
   assert.equal(wide.endsWith("$10,000"), true);
   assert.equal(narrow.startsWith(" "), true);
-  assert.match(table, /My Stack Melt Total/);
-  assert.match(table, /rightFlap\(flapMoney\(total\), FLAP_TOTAL_COLUMNS\)/);
-  assert.equal(table.includes("FLAP_TOTAL_LABEL_COLUMNS"), false);
+  assert.match(table, />Total</);
+  assert.match(table, /fitFlapMoney\(flapMoney\(total\), FLAP_TOTAL_COLUMNS\)/);
+  assert.equal(table.includes("Melt Total"), false);
+  assert.equal(table.includes("Stack Total"), false);
   assert.equal(table.includes("--total-em"), false);
 });
 
@@ -191,7 +195,7 @@ test("the scrap plate grows a split-flap stack and the flaps stay quiet when sou
   assert.match(table, /Add to stack/);
   assert.match(table, /Combine/);
   assert.match(table, /Keep separate/);
-  assert.match(table, /My Stack Melt Total/);
+  assert.match(table, />Total</);
   assert.equal(table.includes("Grand total"), false);
   assert.equal(table.includes("--total-em"), false);
   assert.match(table, /readStack\(window\.localStorage\)/);

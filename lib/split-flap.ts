@@ -9,8 +9,8 @@ export const FLAP_MELT = 7;
 export const FLAP_BOARD_COLUMNS = FLAP_METAL + FLAP_WEIGHT + FLAP_QTY + FLAP_MELT;
 /** Descriptions stay on row 2. Letters past the grid are cut, not given another row. */
 export const FLAP_DESCRIPTION = FLAP_BOARD_COLUMNS;
-/** Eight cells hold a realistic total such as $999,999. The label takes the columns left over. */
-export const FLAP_TOTAL_COLUMNS = 8;
+/** Eleven cells hold $99,999,999. Wider totals drop commas, then show the largest value that fits. */
+export const FLAP_TOTAL_COLUMNS = 11;
 export const FLAP_TOTAL_LABEL_COLUMNS = FLAP_BOARD_COLUMNS - FLAP_TOTAL_COLUMNS;
 /** Advance width of Cinzel 700, in ems, so a tile can match its glyph. */
 const FLAP_EM: Record<string, number> = {
@@ -82,6 +82,20 @@ export function padFlap(text: string, width: number): string {
 /** Digits sit on the right of a fixed field. Leading blanks keep the field width. */
 export function rightFlap(text: string, width: number): string {
   return flapText(text).slice(-width).padStart(width, " ");
+}
+
+/**
+ * Right-align a money total.
+ * Commas stay when they fit. If not, they drop. If the digits still do not fit,
+ * the field shows the largest amount it can: a dollar sign and nines.
+ */
+export function fitFlapMoney(text: string, width: number): string {
+  const grouped = flapText(text);
+  if (grouped.length <= width) return grouped.padStart(width, " ");
+  const plain = grouped.replaceAll(",", "");
+  if (plain.length <= width) return plain.padStart(width, " ");
+  const digits = Math.max(0, width - 1);
+  return ("$" + "9".repeat(digits)).slice(0, width);
 }
 
 /** The letters painted on the description row. Extra characters are dropped. */

@@ -1507,11 +1507,12 @@ button,
   line-height: 1.05;
   text-align: left;
   text-transform: none;
+  white-space: nowrap;
 }
 
 .split-total-flaps {
   display: grid;
-  grid-template-columns: repeat(8, calc(var(--flap-font) * 0.72));
+  grid-template-columns: repeat(var(--total-flaps, 11), calc(var(--flap-font) * 0.72));
   column-gap: 2px;
 }
 
