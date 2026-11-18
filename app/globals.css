@@ -1077,7 +1077,7 @@ button,
   position: relative;
   z-index: 4;
   margin: 0 0 8px;
-  padding: 6px 14px 8px;
+  padding: 6px 8px 8px;
   border-radius: 10px;
   background:
     linear-gradient(180deg, rgba(36, 24, 16, 0.2), rgba(12, 8, 6, 0.45)),
@@ -1145,15 +1145,8 @@ button,
 
 .stack-card {
   container-type: inline-size;
-  /* About 14px of cap ink at 390, and a little less at 320, never under ~13px. */
-  --flap-font: clamp(
-    18px,
-    min(
-      calc((100cqw - var(--facts-gaps, 60px)) / var(--facts-em, 9) * 0.7),
-      calc((100cqw - var(--desc-gaps, 36px)) / var(--desc-em, 6) * 0.7)
-    ),
-    19.3px
-  );
+  /* Cap ink stays near 14px at 390. The 0.88em divisor keeps an O inside one equal cell. */
+  --flap-font: clamp(16px, calc((100cqw - 18px) / var(--flap-cols, 19) / 0.85), 19.3px);
 }
 
 .split-total {
@@ -1162,8 +1155,13 @@ button,
 }
 
 .stack-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--flap-cols, 19), minmax(0, 1fr));
+  column-gap: 1px;
+  row-gap: 2px;
   min-width: 0;
-  padding: 12px 14px 13px;
+  padding: 10px 8px 11px;
   border-radius: 8px;
   background:
     linear-gradient(165deg, rgba(90, 58, 32, 0.55), rgba(18, 10, 6, 0.72));
@@ -1174,42 +1172,39 @@ button,
     0 2px 0 rgba(0, 0, 0, 0.35);
 }
 
-.stack-card-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 14px;
+.stack-kicker-next {
+  margin-top: 6px;
+}
+
+.stack-span,
+.stack-span > .split-flap,
+.stack-span > .stack-edit,
+.stack-span > .stack-edit > .split-flap {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
   min-width: 0;
+  gap: 0;
+  max-width: none;
 }
 
-.stack-card-row + .stack-card-row {
-  margin-top: 8px;
+.stack-span > .stack-name {
+  grid-column: 1 / -1;
+  width: 100%;
 }
 
-.stack-card-label {
-  align-items: center;
-  margin-bottom: -4px;
-}
-
-.stack-card-label + .stack-card-row {
-  margin-top: 4px;
-}
-
-.stack-field {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.stack-span .flap-tile {
+  width: auto;
   min-width: 0;
-}
-
-.stack-field-melt {
-  margin-left: auto;
 }
 
 .stack-kicker {
+  overflow: hidden;
   color: #e4c98a;
   font-family: var(--font-display), Palatino, serif;
-  font-size: 0.48rem;
-  letter-spacing: 0.12em;
+  font-size: 0.38rem;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
   text-transform: uppercase;
 }
 
@@ -1230,10 +1225,8 @@ button,
   height: calc(var(--flap-font) * 1.12);
   overflow: hidden;
   border-radius: 1px;
-  background: #120e0b;
-  box-shadow:
-    inset 0 0 0 1px rgba(90, 62, 28, 0.85),
-    0 1px 0 rgba(255, 220, 160, 0.12);
+  background: #000;
+  box-shadow: inset 0 -1px 0 rgba(255, 236, 196, 0.08);
   color: #f6e7c1;
   font-family: var(--font-display), Palatino, serif;
   font-size: var(--flap-font);
@@ -1249,7 +1242,7 @@ button,
   left: 0;
   right: 0;
   overflow: hidden;
-  background: linear-gradient(180deg, #3a2c22 0%, #1a140f 100%);
+  background: #000;
 }
 
 .flap-top,
@@ -1261,8 +1254,8 @@ button,
 .flap-bottom {
   bottom: 0;
   height: 50%;
-  border-top: 1px solid rgba(0, 0, 0, 0.72);
-  background: linear-gradient(180deg, #241910 0%, #0e0b09 100%);
+  border-top: 1px solid rgba(246, 231, 193, 0.42);
+  background: #000;
 }
 
 .flap-top span,
@@ -1356,7 +1349,11 @@ button,
 }
 
 .stack-remove {
-  margin-left: auto;
+  position: absolute;
+  z-index: 2;
+  top: 4px;
+  right: 4px;
+  margin-left: 0;
   width: 1.05rem;
   height: 1.05rem;
   padding: 0;
@@ -1393,11 +1390,6 @@ button,
     border: 0;
   }
 
-  .stack-card-row:has(> .stack-remove:only-child) {
-    height: 0;
-    margin: 0;
-    overflow: hidden;
-  }
 }
 
 .stack-swipe {

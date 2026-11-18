@@ -4,9 +4,11 @@ export const FLAP_ALPHABET = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$.,/-+";
 export const FLAP_METAL = 2;
 export const FLAP_WEIGHT = 7;
 export const FLAP_QTY = 3;
-/** Short names stay on the second row. Longer copy drops to a third row. */
-export const FLAP_DESCRIPTION_INLINE = 9;
-export const FLAP_DESCRIPTION_LONG = 12;
+export const FLAP_MELT = 7;
+/** One shared grid. Row 2 uses the same columns as metal, weight, qty, and melt. */
+export const FLAP_BOARD_COLUMNS = FLAP_METAL + FLAP_WEIGHT + FLAP_QTY + FLAP_MELT;
+/** Descriptions stay on row 2. Letters past the grid are cut, not given another row. */
+export const FLAP_DESCRIPTION = FLAP_BOARD_COLUMNS;
 /** Advance width of Cinzel 700, in ems, so a tile can match its glyph. */
 const FLAP_EM: Record<string, number> = {
   " ": 0.25,
@@ -57,7 +59,6 @@ const FLAP_EM: Record<string, number> = {
 export function flapEm(char: string): number {
   return FLAP_EM[char.toUpperCase()] ?? FLAP_EM.W;
 }
-export const FLAP_MELT = 7;
 /** One mechanical step. Long enough to read, short enough for a row. */
 export const FLAP_STEP_MS = 70;
 
@@ -75,9 +76,9 @@ export function padFlap(text: string, width: number): string {
   return flapText(text).slice(0, width).padEnd(width, " ");
 }
 
-/** A description longer than one short row gets a third flap row. */
-export function descriptionNeedsOwnRow(description: string, inline = FLAP_DESCRIPTION_INLINE): boolean {
-  return flapText(description).length > inline;
+/** The letters painted on the description row. Extra characters are dropped. */
+export function flapDescription(description: string, columns = FLAP_DESCRIPTION): string {
+  return padFlap(description, columns);
 }
 
 /** Sum of glyph advances for a padded flap word, in ems. */
