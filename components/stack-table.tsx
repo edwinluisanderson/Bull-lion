@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { SplitFlap } from "@/components/split-flap";
-import { unlockFlapSamples, watchFlapBoard } from "@/lib/flap-sound";
+import { playSwipeTone, unlockFlapSamples, watchFlapBoard } from "@/lib/flap-sound";
 import { emptyPullAdd, finishPullCascade, notePullAdd, type PullAddResult } from "@/lib/pull-stack";
 import { SwipeCard } from "@/components/swipe-card";
 import { unlockReelClick } from "@/lib/reel-click";
@@ -31,6 +31,7 @@ import {
   type StackFace,
   type StackLine,
 } from "@/lib/stack-board";
+import { stackCsvFilename, stackToCsv } from "@/lib/stack-csv";
 
 export type StackSelection = {
   symbol: string;
@@ -156,6 +157,21 @@ export function StackTable({
     applyPull(result);
   }, [pullSerial, ready]);
 
+  const downloadLines = phaseRef.current.cascading ? phaseRef.current.lines : lines;
+
+  function downloadStack() {
+    if (downloadLines.length === 0) return;
+    playSwipeTone("detent");
+    const csv = stackToCsv(downloadLines, quotesRef.current);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = stackCsvFilename(new Date());
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   const shown: StackFace[] = shift ? (shift[shiftStep] ?? shift[0] ?? []) : lines;
   const melts = lines.map((line) => rowMelt(priceFor(quotes, line.symbol), line.grams, line.qty));
   const total = grandTotal(melts);
@@ -164,6 +180,66 @@ export function StackTable({
     <section ref={boardRef} className="split-stack" aria-label="My Stack">
       <div className="split-stack-head">
         <p className="split-stack-title">My Stack</p>
+        <button
+          type="button"
+          className="stack-download"
+          aria-label="Download My Stack"
+          disabled={downloadLines.length === 0}
+          onClick={downloadStack}
+        >
+          <svg viewBox="2.85 2.85 26.3 26.3" aria-hidden="true" focusable="false">
+            <defs>
+              <linearGradient id="stack-gem" x1="10" y1="7" x2="22" y2="23" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stopColor="#f7fffd" />
+                <stop offset="0.18" stopColor="#b6fff4" />
+                <stop offset="0.46" stopColor="#2ee0cf" />
+                <stop offset="0.78" stopColor="#0f9f97" />
+                <stop offset="1" stopColor="#083f4c" />
+              </linearGradient>
+              <linearGradient id="stack-gem-face" x1="12" y1="11" x2="20" y2="16" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stopColor="#ffffff" stopOpacity="0.72" />
+                <stop offset="0.42" stopColor="#9ff7ee" stopOpacity="0.15" />
+                <stop offset="1" stopColor="#042f2e" stopOpacity="0.45" />
+              </linearGradient>
+            </defs>
+            <circle cx="16" cy="16" r="12.2" fill="#2a1c10" stroke="#e6cb82" strokeWidth="1.7" />
+            <circle cx="16" cy="16" r="9.3" fill="none" stroke="#6e5318" strokeWidth="0.9" />
+            <g shapeRendering="geometricPrecision">
+              <path
+                d="M15.15 8.7h1.7v4.9h-1.7zM11.7 11.35 16 15.85 20.3 11.35h-1.85L16 13.9l-2.45-2.55zM10.35 17.25h11.3v4.15h-11.3zM12.15 17.25V19.7h7.7V17.25z"
+                fill="#042f2e"
+                fillRule="evenodd"
+                transform="translate(0.35 0.4)"
+                opacity="0.55"
+              />
+              <path d="M15.15 8.55h1.7v5.05h-1.7z" fill="url(#stack-gem)" stroke="#e7fffb" strokeWidth="0.28" />
+              <path
+                d="M11.55 11.15 16 15.8 20.45 11.15h-2.05L16 13.65l-2.4-2.5z"
+                fill="url(#stack-gem)"
+                stroke="#d9fffa"
+                strokeWidth="0.28"
+                strokeLinejoin="round"
+              />
+              <path d="M11.55 11.15 16 15.8V13.65l-2.4-2.5z" fill="url(#stack-gem-face)" />
+              <path
+                d="M10.2 17.05h11.6V21.5h-11.6zM12.05 17.05v2.5h7.9V17.05z"
+                fill="url(#stack-gem)"
+                fillRule="evenodd"
+              />
+              <path
+                d="M15.3 8.75v4.5M11.9 11.4 15.7 15.15M10.45 17.3v3.85M12.2 19.4h4.2"
+                fill="none"
+                stroke="#f4fffd"
+                strokeWidth="0.42"
+                strokeLinecap="round"
+                opacity="0.8"
+              />
+              <path d="M21.55 17.25v3.95" fill="none" stroke="#083344" strokeWidth="0.4" strokeLinecap="round" opacity="0.8" />
+              <path d="M14.95 8.15 15.7 8.7 15.15 9.35 14.4 8.8z" fill="#ffffff" />
+              <circle cx="11.15" cy="17.35" r="0.38" fill="#ffffff" opacity="0.9" />
+            </g>
+          </svg>
+        </button>
       </div>
       {shown.length === 0 ? <p className="split-empty">The board is clear.</p> : null}
       <ul className="split-rows">
