@@ -521,6 +521,23 @@ button,
   touch-action: none;
 }
 
+/* Invisible grab ring. 12px past the visible ball, never under 48px.
+   The left and bottom of that ring are clipped: they would cover the count reel. */
+.pull-ball::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  width: max(48px, calc(100% + 24px));
+  height: max(48px, calc(100% + 24px));
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: transparent;
+  clip-path: inset(0 0 12px 12px);
+  pointer-events: auto;
+}
+
 .pull-word {
   position: absolute;
   inset: 0;

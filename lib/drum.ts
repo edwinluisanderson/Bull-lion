@@ -26,6 +26,17 @@ export function releaseCommitsSpin(travel: number): boolean {
   return pullStage(travel) === "c";
 }
 
+export type PointerPullEnd = "release" | "cancel";
+
+/**
+ * A finger or mouse button adds a card only when a real drag is released
+ * at stage C. A tap, a click, and a scroll cancel add nothing.
+ */
+export function pointerPullCommits(dragged: boolean, travel: number, end: PointerPullEnd): boolean {
+  if (end !== "release" || !dragged) return false;
+  return releaseCommitsSpin(travel);
+}
+
 /**
  * A parent correction (copper count fallback) is a new token.
  * A flick that only changes the selected index must not jump the reel again.
