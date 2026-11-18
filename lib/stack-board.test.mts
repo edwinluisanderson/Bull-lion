@@ -266,7 +266,7 @@ test("the split-flap stack keeps its board and the flaps stay quiet when sound i
     .find((part) => part.includes(".flap-leaf"));
   assert.match(reduced ?? "", /\.flap-leaf \{[^}]*animation:\s*none/);
   assert.match(sound, /spinSoundEnabled\(\)/);
-  assert.ok(FLAP_GAIN > 0.2 && FLAP_GAIN < 0.3);
+  assert.ok(FLAP_GAIN > 0.07 && FLAP_GAIN < 0.1);
   assert.equal(FLAP_MAX_PER_WINDOW, 2);
   assert.match(sound, /createWaveShaper\(\)/);
   assert.equal(sound.includes("FLAP_SUM_LIMIT"), true);
