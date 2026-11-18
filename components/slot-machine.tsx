@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Gauge } from "@/components/gauge";
 import { WeightDial } from "@/components/weight-dial";
+import { GaugeSurround } from "@/components/gauge-surround";
 import { Gear } from "@/components/gear";
 import { SteampunkLight, SteampunkLightCast } from "@/components/steampunk-light";
 import { WheelLamps } from "@/components/wheel-lamps";
@@ -249,6 +250,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
 
           <div className="between-plates">
             <div className="between-plates-dock" />
+            <GaugeSurround />
             <div className="gauge-row">
               <Gauge
                 label="METAL"
