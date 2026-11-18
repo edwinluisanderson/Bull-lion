@@ -1200,7 +1200,7 @@ button,
   padding-inline: 64px;
   color: #f0d78c;
   font-family: var(--font-body), Palatino, serif;
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   font-weight: 600;
   font-variant: normal;
   font-variant-caps: normal;
@@ -1241,7 +1241,7 @@ button,
 
 .split-total {
   container-type: inline-size;
-  /* Same 1.25rem as the My Stack title and the Total label. */
+  /* The Total label stays at 1.25rem. The My Stack title is 1.5rem. */
   --flap-font: 1.25rem;
 }
 
