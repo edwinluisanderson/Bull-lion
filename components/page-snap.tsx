@@ -2,18 +2,19 @@
 
 import { useEffect } from "react";
 
-import { settleSnap } from "@/lib/page-snap";
+import { ALWAYS_SNAP_NAMES, settleSnap, type SnapMark } from "@/lib/page-snap";
 
 const GLIDE_MS = 280;
 
-function snapPoints(root: Element): { points: number[]; maxScroll: number; top: number } {
+function snapPoints(root: Element): { points: SnapMark[]; maxScroll: number; top: number } {
   const top = root.scrollTop;
   const maxScroll = Math.max(0, root.scrollHeight - root.clientHeight);
-  const points = [...root.ownerDocument.querySelectorAll<HTMLElement>("[data-snap]")].map((node) => {
-    const y = node.getBoundingClientRect().top + top;
-    return Math.min(maxScroll, Math.max(0, y));
-  });
-  points.push(0, maxScroll);
+  const always = new Set<string>(ALWAYS_SNAP_NAMES);
+  const points = [...root.ownerDocument.querySelectorAll<HTMLElement>("[data-snap]")].map((node) => ({
+    at: node.getBoundingClientRect().top + top,
+    always: always.has(node.dataset.snap ?? ""),
+  }));
+  points.push({ at: 0, always: true }, { at: maxScroll, always: true });
   return { points, maxScroll, top };
 }
 

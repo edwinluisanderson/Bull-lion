@@ -212,7 +212,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   return (
     <div className="workshop">
       <main className="machine-wrap">
-        <section className="cabinet" data-snap="main" aria-label="Bullion slot machine">
+        <section className="cabinet" aria-label="Bullion slot machine">
           <span className="rivet" data-corner="tl" />
           <span className="rivet" data-corner="tr" />
           <span className="rivet" data-corner="bl" />
@@ -388,7 +388,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             pullSerial={pullSerial}
           />
         </div>
-        <div className="gear-panel" data-snap="scrap">
+        <div className="gear-panel">
           <span className="rivet" data-corner="tl" />
           <span className="rivet" data-corner="tr" />
           <span className="rivet" data-corner="bl" />

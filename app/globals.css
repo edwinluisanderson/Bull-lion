@@ -154,17 +154,11 @@ html {
   scroll-snap-align: end;
 }
 
-.cabinet,
 .melt-plate,
 .playfield,
-.stack-plate,
-.gear-panel {
+.stack-plate {
   scroll-snap-align: start;
   scroll-snap-stop: normal;
-}
-
-.gear-panel {
-  scroll-snap-align: start end;
 }
 
 body {

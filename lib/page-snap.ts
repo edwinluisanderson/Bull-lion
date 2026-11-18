@@ -7,40 +7,56 @@
  */
 export const SNAP_RADIUS_PX = 48;
 /**
- * Two catches must be at least this far apart, or the later one is dropped.
- * Twice the capture radius means the 48px bands touch at the midpoint and never overlap,
- * so a resting scroll belongs to one stop. A share of the viewport would drop real plates
- * on a short phone and keep them on a tall window.
+ * Optional stops must be at least this far from a stop already kept.
+ * Twice the capture radius means the 48px bands touch at the midpoint and never overlap.
+ * Always-stops are not dropped when they land closer than this.
  */
 export const SNAP_MIN_GAP_PX = SNAP_RADIUS_PX * 2;
 /** Already on the stop. Don't start another spring. */
 export const SNAP_SLOP_PX = 8;
 
+/** Page top, melt plate, wheel window, and page bottom are never removed. */
+export const ALWAYS_SNAP_NAMES = ["top", "melt", "wheels", "bottom"] as const;
+
+export type SnapMark = {
+  at: number;
+  always: boolean;
+};
+
 export type SnapSettle = {
   scrollTop: number;
   maxScroll: number;
-  /** Document offsets that can catch, including the top and the bottom. */
-  points: readonly number[];
+  points: readonly SnapMark[];
   reduced: boolean;
 };
 
 /**
- * Stops measured after layout. Anything closer than {@link SNAP_MIN_GAP_PX} to an
- * already-kept stop is dropped. The page top is kept first and the page bottom
- * last, so a crowded neighbor loses to those ends.
+ * Stops measured after layout.
+ * Always-stops are kept even when they sit closer than {@link SNAP_MIN_GAP_PX}.
+ * If two of them land on the same scroll offset they are one stop.
+ * An optional stop, such as My Stack, is kept only when it clears that gap
+ * from every stop already kept, including the page bottom.
  */
-export function snapStops(points: readonly number[], maxScroll: number, minGap = SNAP_MIN_GAP_PX): number[] {
+export function snapStops(points: readonly SnapMark[], maxScroll: number, minGap = SNAP_MIN_GAP_PX): number[] {
   const limit = Math.max(0, maxScroll);
-  const sorted = points.map((point) => Math.min(limit, Math.max(0, point))).sort((a, b) => a - b);
-  const stops: number[] = [0];
-  for (const point of sorted) {
-    if (point <= 0 || point >= limit) continue;
-    const last = stops[stops.length - 1] ?? 0;
-    if (point - last < minGap) continue;
-    if (limit - point < minGap) continue;
-    stops.push(point);
+  const clamp = (point: number) => Math.min(limit, Math.max(0, point));
+  const always: number[] = [0, limit];
+  const optional: number[] = [];
+  for (const point of points) {
+    const at = clamp(point.at);
+    if (point.always) always.push(at);
+    else optional.push(at);
   }
-  if (limit > 0) stops.push(limit);
+  const stops: number[] = [];
+  for (const at of always.sort((a, b) => a - b)) {
+    const last = stops[stops.length - 1];
+    if (last !== undefined && Math.abs(at - last) <= 0.5) continue;
+    stops.push(at);
+  }
+  for (const at of optional.sort((a, b) => a - b)) {
+    if (stops.every((stop) => Math.abs(stop - at) >= minGap)) stops.push(at);
+  }
+  stops.sort((a, b) => a - b);
   return stops;
 }
 

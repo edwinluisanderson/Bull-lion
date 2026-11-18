@@ -12,47 +12,58 @@ const reel = readFileSync(new URL("../components/reel.tsx", import.meta.url), "u
 const lever = readFileSync(new URL("../components/lever.tsx", import.meta.url), "utf8");
 const swipe = readFileSync(new URL("../components/swipe-card.tsx", import.meta.url), "utf8");
 
-const stops = [0, 20, 360, 720, 1100, 1500];
+const page = [
+  { at: 0, always: true },
+  { at: 190, always: true },
+  { at: 538, always: true },
+  { at: 946, always: false },
+  { at: 1500, always: true },
+];
 
-test("the page top and the main plate share one catch", () => {
+test("always stops stay, and My Stack is kept only when it clears the gap", () => {
   assert.equal(SNAP_RADIUS_PX, 48);
   assert.equal(SNAP_MIN_GAP_PX, SNAP_RADIUS_PX * 2);
-  assert.deepEqual(snapStops([20, 360, 1500, 1500, 2000], 1500), [0, 360, 1500]);
+  assert.deepEqual(
+    snapStops(
+      [
+        { at: 20, always: true },
+        { at: 190, always: true },
+        { at: 538, always: true },
+      ],
+      1500,
+    ),
+    [0, 20, 190, 538, 1500],
+  );
+  assert.deepEqual(snapStops(page, 1500), [0, 190, 538, 946, 1500]);
+  assert.deepEqual(
+    snapStops(
+      [
+        { at: 190, always: true },
+        { at: 538, always: true },
+        { at: 540, always: false },
+        { at: 548, always: false },
+      ],
+      548,
+    ),
+    [0, 190, 538, 548],
+  );
+  assert.deepEqual(snapStops([{ at: 500, always: true }, { at: 500, always: true }], 800), [0, 500, 800]);
   assert.deepEqual(snapStops([], 0), [0]);
 });
 
-test("stops closer than the minimum gap are dropped, and the ends win", () => {
-  assert.deepEqual(snapStops([0, 80, 360], 1500), [0, 360, 1500]);
-  assert.deepEqual(snapStops([0, SNAP_MIN_GAP_PX, 400], 1500), [0, SNAP_MIN_GAP_PX, 400, 1500]);
-  assert.deepEqual(snapStops([0, SNAP_MIN_GAP_PX - 1], 1500), [0, 1500]);
-  const shortPage = snapStops([20, 190, 538, 540, 548], 548);
-  assert.deepEqual(shortPage, [0, 190, 548]);
-  assert.equal(shortPage[0], 0);
-  assert.equal(shortPage[shortPage.length - 1], 548);
-  assert.deepEqual(snapStops([40], 60), [0, 60]);
-});
-
 test("a rest inside the capture radius springs back, and past it the page stays put", () => {
-  const back = settleSnap({ scrollTop: 30, maxScroll: 1500, points: stops, reduced: false });
+  const back = settleSnap({ scrollTop: 30, maxScroll: 1500, points: page, reduced: false });
   assert.equal(back, 0);
-  const free = settleSnap({ scrollTop: 20 + 120, maxScroll: 1500, points: stops, reduced: false });
+  const free = settleSnap({ scrollTop: 120, maxScroll: 1500, points: page, reduced: false });
   assert.equal(free, null);
-  const nearNext = settleSnap({ scrollTop: 360 - 40, maxScroll: 1500, points: stops, reduced: false });
-  assert.equal(nearNext, 360);
-  const mid = settleSnap({
-    scrollTop: 1100 + 400,
-    maxScroll: 2200,
-    points: [0, 1100, 2200],
-    reduced: false,
-  });
+  const nearMelt = settleSnap({ scrollTop: 190 - 40, maxScroll: 1500, points: page, reduced: false });
+  assert.equal(nearMelt, 190);
+  const mid = settleSnap({ scrollTop: 946 + 400, maxScroll: 2200, points: page, reduced: false });
   assert.equal(mid, null);
 });
 
 test("reduced motion does not pull the page", () => {
-  assert.equal(
-    settleSnap({ scrollTop: 30, maxScroll: 1500, points: stops, reduced: true }),
-    null,
-  );
+  assert.equal(settleSnap({ scrollTop: 30, maxScroll: 1500, points: page, reduced: true }), null);
 });
 
 test("the page snaps on the document and the plates are marked", () => {
@@ -62,10 +73,10 @@ test("the page snaps on the document and the plates are marked", () => {
   assert.match(css, /scroll-snap-align:\s*start/);
   assert.match(layout, /data-snap="top"/);
   assert.match(layout, /data-snap="bottom"/);
-  assert.match(machine, /data-snap="main"/);
+  assert.equal(machine.includes('data-snap="main"'), false);
+  assert.equal(machine.includes('data-snap="scrap"'), false);
   assert.match(machine, /data-snap="wheels"/);
   assert.match(machine, /data-snap="stack"/);
-  assert.match(machine, /data-snap="scrap"/);
   assert.match(readout, /data-snap="melt"/);
   assert.match(css, /\.reel-viewport \{[^}]*touch-action:\s*none/);
   assert.match(css, /\.pull-ball \{[^}]*touch-action:\s*none/);
