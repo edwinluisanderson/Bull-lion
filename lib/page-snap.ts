@@ -16,11 +16,18 @@ export const SNAP_MIN_GAP_PX = SNAP_RADIUS_PX * 2;
 /** Already on the stop. Don't start another ease. */
 export const SNAP_SLOP_PX = 8;
 /**
- * How long the ease takes at full strength (right on the stop) and at a
- * strength that has only just cleared zero (the rim of the field).
+ * Natural frequency of the critically damped glide, in radians per second.
+ * Closer rests use a slightly higher frequency. Both are low: the page glides
+ * instead of jumping, even right next to a stop.
  */
-export const GLIDE_MS_NEAR = 280;
-export const GLIDE_MS_FAR = 1200;
+export const SPRING_OMEGA_NEAR = 3.6;
+export const SPRING_OMEGA_FAR = 2.4;
+/**
+ * Initial acceleration of a rest-start glide stays at or under this many
+ * pixels per second squared. A short distance cannot pick a frequency that
+ * would snap.
+ */
+export const GLIDE_MAX_ACCEL = 400;
 
 /** Page top, melt plate, wheel window, and page bottom are never removed. */
 export const ALWAYS_SNAP_NAMES = ["top", "melt", "wheels", "bottom"] as const;
@@ -76,27 +83,48 @@ export function magneticStrength(distancePx: number, radius = SNAP_RADIUS_PX): n
 }
 
 /**
- * Closer rests finish sooner. Strength 1 takes {@link GLIDE_MS_NEAR}.
- * A strength that has only just cleared zero takes {@link GLIDE_MS_FAR}.
- * Strength 0 is not an ease; the page stays put.
+ * Frequency for a critically damped glide. Strength raises it, so a closer
+ * rest finishes sooner, and {@link GLIDE_MAX_ACCEL} lowers it when ω² × distance
+ * would otherwise jump. Distance is the absolute gap to the stop, in pixels.
  */
-export function glideDuration(strength: number): number {
+export function springOmega(strength: number, distancePx: number): number {
   const pull = clamp01(strength);
-  return GLIDE_MS_FAR + (GLIDE_MS_NEAR - GLIDE_MS_FAR) * pull;
+  const wanted = SPRING_OMEGA_FAR + (SPRING_OMEGA_NEAR - SPRING_OMEGA_FAR) * pull;
+  const distance = Math.max(distancePx, 1);
+  const capped = Math.sqrt(GLIDE_MAX_ACCEL / distance);
+  return Math.min(wanted, capped);
 }
 
 /**
- * Strong pull: ease-out with a small overshoot, so a rest near the stop moves
- * immediately. Weak pull: smoothstep, so a rest near the rim drifts in.
- * Strength 0 is pure smoothstep. The mix is 0 at the start and 1 at the end.
+ * Time for a rest-start glide to shed about 92% of its offset.
+ * `(1 + ωt) e^{−ωt} ≈ 0.08` around ωt = 4.8. Strength 0 is not a glide.
  */
-export function magneticEase(progress: number, strength: number): number {
-  const p = clamp01(progress);
-  const pull = clamp01(strength);
-  const c1 = 1.1 * pull;
-  const back = 1 + (c1 + 1) * (p - 1) ** 3 + c1 * (p - 1) ** 2;
-  const smooth = p * p * (3 - 2 * p);
-  return back * pull + smooth * (1 - pull);
+export function glideDuration(strength: number, distancePx = SNAP_RADIUS_PX): number {
+  const omega = springOmega(strength, distancePx);
+  return (4.8 / omega) * 1000;
+}
+
+/**
+ * Critically damped spring, offset from the stop. `velocityPxPerSec` is the
+ * offset's velocity (same sign as scrollTop velocity when offset is
+ * `scrollTop - stop`). With a zero start velocity the first derivative is 0,
+ * so the glide eases in. It does not overshoot when that velocity is 0.
+ */
+export function criticallyDamped(
+  elapsedSec: number,
+  omega: number,
+  offsetPx: number,
+  velocityPxPerSec: number,
+): { offset: number; velocity: number } {
+  const w = Math.max(omega, 0.001);
+  const t = Math.max(0, elapsedSec);
+  const A = offsetPx;
+  const B = velocityPxPerSec + w * A;
+  const decay = Math.exp(-w * t);
+  return {
+    offset: (A + B * t) * decay,
+    velocity: (B - w * (A + B * t)) * decay,
+  };
 }
 
 /**
@@ -105,11 +133,11 @@ export function magneticEase(progress: number, strength: number): number {
  */
 export function magnetCaption(distancePx: number, stopName: string): string {
   const distance = Math.max(0, Math.round(distancePx));
-  let feel = "gentle pull";
+  let feel = "soft glide";
   if (distance >= SNAP_RADIUS_PX) feel = "no pull";
   else if (distance <= SNAP_SLOP_PX) feel = "on stop";
-  else if (distance <= 30) feel = "strong snap";
-  else if (distance <= 70) feel = "medium pull";
+  else if (distance <= 30) feel = "firm glide";
+  else if (distance <= 70) feel = "medium glide";
   return `${distance}px from ${stopName} · ${feel}`;
 }
 

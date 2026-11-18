@@ -136,9 +136,10 @@ body {
 }
 
 html {
-  /* Magnetic pull is applied after the scroll rests. The browser must not glide between stops. */
+  /* The glide runs after scrollend. The document keeps native overscroll so
+     Android Chrome can pull to refresh when the page is at the top. */
   scroll-snap-type: none;
-  overscroll-behavior-y: contain;
+  overscroll-behavior-y: auto;
 }
 
 .page-snap {

@@ -3,16 +3,16 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
-  GLIDE_MS_FAR,
-  GLIDE_MS_NEAR,
+  GLIDE_MAX_ACCEL,
   SNAP_MIN_GAP_PX,
   SNAP_RADIUS_PX,
+  criticallyDamped,
   glideDuration,
   magnetCaption,
-  magneticEase,
   magneticStrength,
   settleSnap,
   snapStops,
+  springOmega,
 } from "@/lib/page-snap";
 
 const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
@@ -125,10 +125,9 @@ test("a closer rest eases faster, and past the radius the page stays put", () =>
   assert.equal(far?.target, 0);
   assert.ok(close && middle && far);
   assert.ok(close.strength > middle.strength && middle.strength > far.strength);
-  assert.ok(glideDuration(close.strength) < glideDuration(middle.strength));
-  assert.ok(glideDuration(middle.strength) < glideDuration(far.strength));
-  assert.equal(glideDuration(1), GLIDE_MS_NEAR);
-  assert.equal(glideDuration(0), GLIDE_MS_FAR);
+  assert.ok(glideDuration(close.strength, 15) < glideDuration(middle.strength, 50));
+  assert.ok(glideDuration(middle.strength, 50) < glideDuration(far.strength, 85));
+  assert.ok(glideDuration(close.strength, 15) > 1000);
   assert.equal(settleSnap({ scrollTop: 100, maxScroll: 1500, points: wide, reduced: false }), null);
   assert.equal(settleSnap({ scrollTop: 110, maxScroll: 1500, points: wide, reduced: false }), null);
   assert.equal(settleSnap({ scrollTop: 8, maxScroll: 1500, points: wide, reduced: false }), null);
@@ -169,20 +168,32 @@ test("always-stops closer than the gap both stay, and the nearer one wins", () =
   assert.equal(overlap?.name, "melt");
 });
 
-test("the ease is immediate when the pull is strong and gentle when it is weak", () => {
-  assert.ok(Math.abs(magneticEase(0, 1)) < 1e-9);
-  assert.ok(Math.abs(magneticEase(1, 1) - 1) < 1e-9);
-  assert.ok(Math.abs(magneticEase(0, 0)) < 1e-9);
-  assert.ok(Math.abs(magneticEase(1, 0) - 1) < 1e-9);
-  assert.ok(magneticEase(0.65, 1) > 1);
-  assert.ok(magneticEase(0.65, 0) < 1);
-  assert.ok(magneticEase(0.2, magneticStrength(15)) > magneticEase(0.2, magneticStrength(85)));
+test("a close pull glides in under the acceleration cap", () => {
+  const closeOmega = springOmega(magneticStrength(15), 15);
+  const farOmega = springOmega(magneticStrength(85), 85);
+  assert.ok(closeOmega > farOmega);
+  assert.ok(closeOmega * closeOmega * 15 <= GLIDE_MAX_ACCEL + 1e-6);
+  assert.ok(farOmega * farOmega * 85 <= GLIDE_MAX_ACCEL + 1e-6);
+  const start = criticallyDamped(0, closeOmega, 15, 0);
+  assert.ok(Math.abs(start.velocity) < 1e-9);
+  assert.ok(Math.abs(start.offset - 15) < 1e-9);
+  const early = criticallyDamped(0.1, closeOmega, 15, 0);
+  assert.ok(15 - early.offset > 0);
+  assert.ok(15 - early.offset < 1.5);
+  const later = criticallyDamped(0.7, closeOmega, 15, 0);
+  assert.ok(later.offset < early.offset);
+  assert.ok(later.offset > 1);
+  for (const t of [0.2, 0.6, 1, 1.6, 2.4]) {
+    const sample = criticallyDamped(t, closeOmega, 15, 0);
+    assert.ok(sample.offset >= -0.001);
+    assert.ok(sample.offset <= 15);
+  }
 });
 
 test("the caption names the four check distances", () => {
-  assert.equal(magnetCaption(15, "melt"), "15px from melt · strong snap");
-  assert.equal(magnetCaption(50, "wheels"), "50px from wheels · medium pull");
-  assert.equal(magnetCaption(85, "wheels"), "85px from wheels · gentle pull");
+  assert.equal(magnetCaption(15, "melt"), "15px from melt · firm glide");
+  assert.equal(magnetCaption(50, "wheels"), "50px from wheels · medium glide");
+  assert.equal(magnetCaption(85, "wheels"), "85px from wheels · soft glide");
   assert.equal(magnetCaption(100, "top"), "100px from top · no pull");
   assert.equal(magnetCaption(110, "top"), "110px from top · no pull");
 });
@@ -193,6 +204,12 @@ test("reduced motion does not pull the page", () => {
 
 test("the page eases after scrollend and the plates are marked", () => {
   assert.match(css, /html \{[^}]*scroll-snap-type:\s*none/);
+  assert.match(css, /html \{[^}]*overscroll-behavior-y:\s*auto/);
+  const htmlBlocks = css.match(/html \{[^}]*\}/g) ?? [];
+  assert.equal(
+    htmlBlocks.some((block) => /overscroll-behavior(?:-y)?:\s*(?:contain|none)/.test(block)),
+    false,
+  );
   assert.equal(css.includes("scroll-snap-type: y proximity"), false);
   assert.equal(css.includes("scroll-snap-type: y mandatory"), false);
   assert.match(css, /scroll-snap-align:\s*start/);
@@ -210,8 +227,10 @@ test("the page eases after scrollend and the plates are marked", () => {
   assert.match(lever, /preventDefault\(\)/);
   assert.match(swipe, /onPointerDown/);
   assert.match(snapSource, /scrollend/);
-  assert.match(snapSource, /glideDuration/);
-  assert.match(snapSource, /magneticEase/);
+  assert.match(snapSource, /springOmega/);
+  assert.match(snapSource, /criticallyDamped/);
+  assert.match(snapSource, /scrollingElement/);
+  assert.equal(snapSource.includes("touchmove"), false);
   assert.match(snapSource, /prefers-reduced-motion: reduce/);
   assert.equal(snapSource.includes("preventDefault"), false);
   assert.match(snapSource, /get\("magnet"\) !== "1"/);
