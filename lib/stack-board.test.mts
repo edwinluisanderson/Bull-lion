@@ -256,6 +256,8 @@ test("the split-flap stack keeps its board and the flaps stay quiet when sound i
   assert.equal(table.includes("descriptionNeedsOwnRow"), false);
   assert.equal(table.includes("data-rows={3}"), false);
   assert.match(table, /width=\{FLAP_DESCRIPTION\}/);
+  assert.match(table, /gridRow: 1 \}\}>\s*Description/);
+  assert.match(table, /gridRow: 3 \}\}>\s*Metal/);
   assert.match(table, /insertCascade\(existing, incoming\)/);
   assert.match(table, /prefers-reduced-motion: reduce/);
   assert.match(css, /\.split-stack \{/);
