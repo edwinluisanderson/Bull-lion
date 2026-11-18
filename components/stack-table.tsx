@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { SplitFlap } from "@/components/split-flap";
-import { watchFlapBoard } from "@/lib/flap-sound";
+import { unlockFlapSamples, watchFlapBoard } from "@/lib/flap-sound";
 import { SwipeCard } from "@/components/swipe-card";
 import { unlockReelClick } from "@/lib/reel-click";
 import {
@@ -13,8 +13,10 @@ import {
   FLAP_MELT,
   FLAP_METAL,
   FLAP_QTY,
+  FLAP_TOTAL_COLUMNS,
   FLAP_WEIGHT,
-  flapAdvance,
+  fitFlapMoney,
+  rightFlap,
 } from "@/lib/split-flap";
 import {
   defaultLineDescription,
@@ -139,6 +141,7 @@ export function StackTable({
     const draft = draftFromSelection();
     if (!draft || shift) return;
     unlockReelClick();
+    unlockFlapSamples();
     const existing = linesRef.current;
     const result = proposeAdd(existing, draft);
     if (result.status === "needs-choice") {
@@ -153,6 +156,7 @@ export function StackTable({
   function choose(choice: "combine" | "separate") {
     if (!pending || shift) return;
     unlockReelClick();
+    unlockFlapSamples();
     const existing = linesRef.current;
     const finalLines = resolveAdd(existing, pending, choice);
     setPending(null);
@@ -315,9 +319,11 @@ export function StackTable({
         })}
       </ul>
       {lines.length > 0 ? (
-        <div className="split-total" style={{ ["--total-em" as string]: flapAdvance(flapMoney(total), FLAP_MELT).toFixed(3) }}>
-          <span className="split-total-label">Grand total</span>
-          <SplitFlap text={flapMoney(total)} width={FLAP_MELT} />
+        <div className="split-total">
+          <span className="split-total-label">Total</span>
+          <span className="split-total-flaps" style={{ ["--total-flaps" as string]: FLAP_TOTAL_COLUMNS }}>
+            <SplitFlap text={fitFlapMoney(flapMoney(total), FLAP_TOTAL_COLUMNS)} width={FLAP_TOTAL_COLUMNS} />
+          </span>
         </div>
       ) : null}
       {prompt}

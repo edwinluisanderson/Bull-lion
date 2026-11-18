@@ -1,4 +1,4 @@
-import { reelAudioContext } from "@/lib/reel-click";
+import { REEL_CLICK_GAIN, reelAudioContext } from "@/lib/reel-click";
 import { spinSoundEnabled } from "@/lib/spin-overlay";
 
 /**
@@ -15,6 +15,56 @@ export const FLAP_WINDOW_MS = 45;
  * Anything louder, including a pile of ticks, clips here.
  */
 export const FLAP_SUM_LIMIT = 0.5;
+
+/**
+ * Recorded ticks cut from "Split Flap Display" by ngruber.
+ * https://freesound.org/people/ngruber/sounds/261244/
+ * License: CC0 1.0 — https://creativecommons.org/publicdomain/zero/1.0/
+ * See public/sounds/flap-credits.txt.
+ */
+export const FLAP_CLIP_URLS = [
+  "/sounds/flap-1.mp3",
+  "/sounds/flap-2.mp3",
+  "/sounds/flap-3.mp3",
+  "/sounds/flap-4.mp3",
+  "/sounds/flap-5.mp3",
+  "/sounds/flap-6.mp3",
+] as const;
+
+/** Loudest 50 ms of the wheel-stop file, the same window the stretch pops use. */
+export const FLAP_CLICK_WINDOW_RMS = 0.2620292306;
+/** Mean of the loudest 50 ms in flap-1.mp3 through flap-6.mp3, before playback gain. */
+export const FLAP_FILE_WINDOW_RMS = 0.1879646975;
+/** About 1 dB under the wheel-stop click. */
+export const FLAP_LEVEL_DB = -1;
+/** Playback rate swings ±5%, inside the ±4–6% range. */
+export const FLAP_PITCH_SPREAD = 0.05;
+
+export function matchedFlapGain(
+  clickRms = FLAP_CLICK_WINDOW_RMS,
+  clickGain = REEL_CLICK_GAIN,
+  flapRms = FLAP_FILE_WINDOW_RMS,
+  db = FLAP_LEVEL_DB,
+): number {
+  if (!(flapRms > 0)) return 0;
+  return (clickRms * clickGain * 10 ** (db / 20)) / flapRms;
+}
+
+export const FLAP_SAMPLE_GAIN = matchedFlapGain();
+
+/** Pick a clip index, never the same one twice in a row when there is a choice. */
+export function pickFlapClip(count: number, previous: number | null, random: () => number = Math.random): number {
+  if (count <= 1) return 0;
+  const avoid = previous !== null && previous >= 0 && previous < count;
+  const span = avoid ? count - 1 : count;
+  const roll = Math.floor(random() * span);
+  if (!avoid) return Math.min(count - 1, Math.max(0, roll));
+  return roll >= (previous as number) ? roll + 1 : roll;
+}
+
+export function flapPlaybackRate(random: () => number = Math.random, spread = FLAP_PITCH_SPREAD): number {
+  return 1 + (random() * 2 - 1) * spread;
+}
 
 export type FlapSoundGate = {
   stamp: number;
@@ -36,6 +86,9 @@ let noise: AudioBuffer | null = null;
 let noiseContext: AudioContext | null = null;
 let sumBus: WaveShaperNode | null = null;
 let sumContext: AudioContext | null = null;
+let clips: Array<AudioBuffer | null> = FLAP_CLIP_URLS.map(() => null);
+let clipLoading: Promise<void> | null = null;
+let lastClip: number | null = null;
 
 function flapCurve(): Float32Array<ArrayBuffer> {
   const length = 1025;
@@ -57,6 +110,40 @@ function flapSum(ctx: AudioContext): AudioNode {
   sumBus = shaper;
   sumContext = ctx;
   return shaper;
+}
+
+function loadClips(ctx: AudioContext): Promise<void> {
+  if (typeof ctx.decodeAudioData !== "function") return Promise.resolve();
+  if (clips.some(Boolean)) return Promise.resolve();
+  if (clipLoading) return clipLoading;
+  clipLoading = (async () => {
+    try {
+      const decoded = await Promise.all(
+        FLAP_CLIP_URLS.map(async (url) => {
+          const response = await fetch(url);
+          if (!response.ok) return null;
+          return ctx.decodeAudioData((await response.arrayBuffer()).slice(0));
+        }),
+      );
+      clips = decoded;
+    } catch {
+      clips = FLAP_CLIP_URLS.map(() => null);
+      clipLoading = null;
+    }
+  })();
+  return clipLoading;
+}
+
+/** Resume audio on a user gesture and start decoding the flap clips. */
+export function unlockFlapSamples(): void {
+  try {
+    const ctx = reelAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") void ctx.resume().catch(() => {});
+    void loadClips(ctx);
+  } catch {
+    /* Audio is optional. */
+  }
 }
 
 function clickBuffer(ctx: AudioContext): AudioBuffer | null {
@@ -174,6 +261,23 @@ export function playFlapSound(now = typeof performance !== "undefined" ? perform
     const ctx = reelAudioContext();
     if (!ctx) return false;
     if (ctx.state === "suspended") void ctx.resume().catch(() => {});
+    const ready = clips.filter((buffer): buffer is AudioBuffer => buffer !== null);
+    if (ready.length === 0) void loadClips(ctx);
+    if (ready.length > 0) {
+      const index = pickFlapClip(ready.length, lastClip);
+      lastClip = index;
+      const buffer = ready[index];
+      if (!buffer) return false;
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.playbackRate.value = flapPlaybackRate();
+      const gain = ctx.createGain();
+      gain.gain.value = FLAP_SAMPLE_GAIN;
+      source.connect(gain);
+      gain.connect(flapSum(ctx));
+      source.start();
+      return true;
+    }
     const buffer = clickBuffer(ctx);
     if (!buffer) return false;
     const source = ctx.createBufferSource();
@@ -201,4 +305,7 @@ export function resetFlapSoundForTests(): void {
   noiseContext = null;
   sumBus = null;
   sumContext = null;
+  clips = FLAP_CLIP_URLS.map(() => null);
+  clipLoading = null;
+  lastClip = null;
 }
