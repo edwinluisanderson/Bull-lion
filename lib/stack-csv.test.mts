@@ -7,6 +7,7 @@ import { TROY_OUNCE_GRAMS } from "@/lib/value";
 import type { StackLine } from "@/lib/stack-board";
 
 const table = readFileSync(new URL("../components/stack-table.tsx", import.meta.url), "utf8");
+const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 
 const gold: StackLine = {
   id: "a",
@@ -64,5 +65,8 @@ test("an empty stack is a header and a zero Total, and the button stays disabled
   assert.match(table, /id="stack-gem"/);
   assert.equal(table.includes('stroke="#40e0d0"'), false);
   assert.match(table, /disabled=\{downloadLines\.length === 0\}/);
+  assert.match(css, /\.stack-download \{[^}]*width:\s*60px/);
+  assert.match(css, /\.stack-download svg \{[^}]*width:\s*60px/);
+  assert.match(css, /\.stack-download:disabled \{[^}]*opacity:\s*0\.4/);
   assert.match(table, /stackCsvFilename\(new Date\(\)\)/);
 });

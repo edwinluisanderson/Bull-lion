@@ -187,7 +187,7 @@ export function StackTable({
           disabled={downloadLines.length === 0}
           onClick={downloadStack}
         >
-          <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+          <svg viewBox="2.85 2.85 26.3 26.3" aria-hidden="true" focusable="false">
             <defs>
               <linearGradient id="stack-gem" x1="10" y1="7" x2="22" y2="23" gradientUnits="userSpaceOnUse">
                 <stop offset="0" stopColor="#f7fffd" />
