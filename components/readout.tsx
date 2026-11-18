@@ -45,7 +45,7 @@ export function Readout({
 
   return (
     <div className="melt-stack">
-      <div className="nameplate melt-plate">
+      <div className="nameplate melt-plate" data-snap="melt">
         <span className="rivet" data-corner="tl" />
         <span className="rivet" data-corner="tr" />
         <span className="rivet" data-corner="bl" />

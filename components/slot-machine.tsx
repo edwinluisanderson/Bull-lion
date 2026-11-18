@@ -259,7 +259,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             </div>
           </div>
 
-          <div className="playfield">
+          <div className="playfield" data-snap="wheels">
             <div className="window-frame">
               <span className="rivet frame-rivet" data-corner="tl" />
               <span className="rivet frame-rivet" data-corner="tr" />
@@ -370,7 +370,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             </footer>
           )}
         </section>
-        <div className="stack-plate">
+        <div className="stack-plate" data-snap="stack">
           <StackTable
             selection={
               metal

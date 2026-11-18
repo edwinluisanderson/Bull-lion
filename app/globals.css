@@ -135,6 +135,32 @@ body {
   overflow-x: clip;
 }
 
+html {
+  /* Catch zones are applied after the scroll rests. The browser must not glide between stops. */
+  scroll-snap-type: none;
+  overscroll-behavior-y: contain;
+}
+
+.page-snap {
+  height: 1px;
+  margin-bottom: -1px;
+  scroll-snap-align: start;
+  scroll-snap-stop: normal;
+}
+
+.page-snap[data-snap="bottom"] {
+  margin-top: -1px;
+  margin-bottom: 0;
+  scroll-snap-align: end;
+}
+
+.melt-plate,
+.playfield,
+.stack-plate {
+  scroll-snap-align: start;
+  scroll-snap-stop: normal;
+}
+
 body {
   margin: 0;
   background: #140e0a;
@@ -1524,6 +1550,10 @@ button,
 @media (prefers-reduced-motion: reduce) {
   .flap-leaf {
     animation: none;
+  }
+
+  html {
+    scroll-snap-type: none;
   }
 }
 
