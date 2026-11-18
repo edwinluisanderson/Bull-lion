@@ -6,13 +6,15 @@ import {
   GLIDE_MAX_ACCEL,
   SNAP_MIN_GAP_PX,
   SNAP_RADIUS_PX,
-  criticallyDamped,
+  SOFT_CLOSE_CUSHION_SEC,
+  SOFT_CLOSE_SPEED,
+  collectStops,
   glideDuration,
   magnetCaption,
   magneticStrength,
   settleSnap,
   snapStops,
-  springOmega,
+  softCloseAt,
 } from "@/lib/page-snap";
 
 const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
@@ -32,12 +34,7 @@ const page = [
   { at: 1500, always: true, name: "bottom" },
 ];
 
-const smoothstep = (distance: number) => {
-  const t = distance / SNAP_RADIUS_PX;
-  return 1 - t * t * (3 - 2 * t);
-};
-
-test("always stops stay, and My Stack is kept only when it clears the gap", () => {
+test("always stops stay, and a non-stack optional stop still clears the gap", () => {
   assert.equal(SNAP_RADIUS_PX, 100);
   assert.equal(SNAP_MIN_GAP_PX, 200);
   assert.equal(SNAP_MIN_GAP_PX, SNAP_RADIUS_PX * 2);
@@ -89,28 +86,53 @@ test("always stops stay, and My Stack is kept only when it clears the gap", () =
   assert.deepEqual(snapStops([], 0), [0]);
 });
 
-test("magnetic strength is a smoothstep from a hard pull to nothing at 100px", () => {
-  assert.equal(magneticStrength(0), 1);
-  assert.equal(magneticStrength(SNAP_RADIUS_PX), 0);
-  assert.equal(magneticStrength(110), 0);
-  for (const distance of [15, 50, 85]) {
-    assert.ok(Math.abs(magneticStrength(distance) - smoothstep(distance)) < 1e-12);
-  }
-  const close = magneticStrength(15);
-  const middle = magneticStrength(50);
-  const far = magneticStrength(85);
-  assert.ok(close > 0.9);
-  assert.ok(middle > 0.45 && middle < 0.55);
-  assert.ok(far > 0 && far < 0.12);
-  assert.ok(close > middle && middle > far);
-  const edge = magneticStrength(0) - magneticStrength(1);
-  const mid = magneticStrength(49) - magneticStrength(51);
-  const rim = magneticStrength(99) - magneticStrength(100);
-  assert.ok(edge < mid / 5);
-  assert.ok(rim < mid / 5);
+test("My Stack is a stop when its top can reach the top of the screen", () => {
+  const wheels = { at: 400, always: true, name: "wheels" };
+  const exact = collectStops([wheels, { at: 1000, always: false, name: "stack" }], 1000);
+  assert.deepEqual(
+    exact.map((stop) => stop.at),
+    [0, 400, 1000],
+  );
+  assert.equal(exact.filter((stop) => Math.abs(stop.at - 1000) <= 0.5).length, 1);
+
+  const before = collectStops([wheels, { at: 950, always: false, name: "stack" }], 1000);
+  assert.deepEqual(
+    before.map((stop) => stop.at),
+    [0, 400, 950, 1000],
+  );
+  assert.equal(before.find((stop) => stop.at === 950)?.name, "stack");
+
+  const past = collectStops([wheels, { at: 1000.6, always: false, name: "stack" }], 1000);
+  assert.deepEqual(
+    past.map((stop) => stop.at),
+    [0, 400, 1000],
+  );
+  assert.equal(past.some((stop) => stop.name === "stack"), false);
+
+  const nearWheels = collectStops([wheels, { at: 450, always: false, name: "stack" }], 1000);
+  assert.deepEqual(
+    nearWheels.map((stop) => stop.at),
+    [0, 400, 450, 1000],
+  );
+  const tie = settleSnap({ scrollTop: 975, maxScroll: 1000, points: [wheels, { at: 950, always: false, name: "stack" }], reduced: false });
+  assert.equal(tie?.target, 950);
+  assert.equal(tie?.name, "stack");
 });
 
-test("a closer rest eases faster, and past the radius the page stays put", () => {
+test("the field engages evenly and fades only at the outer rim", () => {
+  assert.equal(magneticStrength(SNAP_RADIUS_PX), 0);
+  assert.equal(magneticStrength(110), 0);
+  assert.equal(magneticStrength(0), magneticStrength(15));
+  assert.equal(magneticStrength(15), magneticStrength(50));
+  assert.equal(magneticStrength(50), magneticStrength(85));
+  assert.ok(magneticStrength(15) > 0 && magneticStrength(15) < 0.6);
+  assert.ok(magneticStrength(95) > 0);
+  assert.ok(magneticStrength(95) < magneticStrength(85));
+  assert.ok(magneticStrength(99) > 0);
+  assert.ok(magneticStrength(99) < magneticStrength(95));
+});
+
+test("a closer rest is not grabbier, and past the radius the page stays put", () => {
   const wide = [
     { at: 0, always: true, name: "top" },
     { at: 400, always: true, name: "melt" },
@@ -124,10 +146,15 @@ test("a closer rest eases faster, and past the radius the page stays put", () =>
   assert.equal(middle?.target, 0);
   assert.equal(far?.target, 0);
   assert.ok(close && middle && far);
-  assert.ok(close.strength > middle.strength && middle.strength > far.strength);
-  assert.ok(glideDuration(close.strength, 15) < glideDuration(middle.strength, 50));
-  assert.ok(glideDuration(middle.strength, 50) < glideDuration(far.strength, 85));
-  assert.ok(glideDuration(close.strength, 15) > 1000);
+  assert.equal(close.strength, middle.strength);
+  assert.equal(middle.strength, far.strength);
+  const at15 = glideDuration(15);
+  const at50 = glideDuration(50);
+  const at95 = glideDuration(95);
+  assert.equal(at15, SOFT_CLOSE_CUSHION_SEC * 1000);
+  assert.ok(at15 < at50 && at50 < at95);
+  assert.ok(15 / (at15 / 1000) < 50 / (at50 / 1000));
+  assert.ok(50 / (at50 / 1000) <= SOFT_CLOSE_SPEED + 0.01);
   assert.equal(settleSnap({ scrollTop: 100, maxScroll: 1500, points: wide, reduced: false }), null);
   assert.equal(settleSnap({ scrollTop: 110, maxScroll: 1500, points: wide, reduced: false }), null);
   assert.equal(settleSnap({ scrollTop: 8, maxScroll: 1500, points: wide, reduced: false }), null);
@@ -168,32 +195,39 @@ test("always-stops closer than the gap both stay, and the nearer one wins", () =
   assert.equal(overlap?.name, "melt");
 });
 
-test("a close pull glides in under the acceleration cap", () => {
-  const closeOmega = springOmega(magneticStrength(15), 15);
-  const farOmega = springOmega(magneticStrength(85), 85);
-  assert.ok(closeOmega > farOmega);
-  assert.ok(closeOmega * closeOmega * 15 <= GLIDE_MAX_ACCEL + 1e-6);
-  assert.ok(farOmega * farOmega * 85 <= GLIDE_MAX_ACCEL + 1e-6);
-  const start = criticallyDamped(0, closeOmega, 15, 0);
-  assert.ok(Math.abs(start.velocity) < 1e-9);
-  assert.ok(Math.abs(start.offset - 15) < 1e-9);
-  const early = criticallyDamped(0.1, closeOmega, 15, 0);
-  assert.ok(15 - early.offset > 0);
-  assert.ok(15 - early.offset < 1.5);
-  const later = criticallyDamped(0.7, closeOmega, 15, 0);
-  assert.ok(later.offset < early.offset);
-  assert.ok(later.offset > 1);
-  for (const t of [0.2, 0.6, 1, 1.6, 2.4]) {
-    const sample = criticallyDamped(t, closeOmega, 15, 0);
-    assert.ok(sample.offset >= -0.001);
-    assert.ok(sample.offset <= 15);
+test("a soft-close cruises, then cushions to a stop under the acceleration cap", () => {
+  for (const distance of [15, 30, 90]) {
+    const start = softCloseAt(0, distance);
+    assert.ok(Math.abs(start.offset - distance) < 1e-6);
+    assert.ok(start.velocity < 0);
+    assert.ok(Math.abs(start.velocity) <= SOFT_CLOSE_SPEED + 1e-6);
+    const done = softCloseAt(glideDuration(distance) / 1000, distance);
+    assert.ok(Math.abs(done.offset) < 1e-6);
+    assert.ok(Math.abs(done.velocity) < 1e-6);
+    let previous = distance;
+    let peakAccel = 0;
+    let previousVelocity = start.velocity;
+    for (let step = 1; step <= 40; step += 1) {
+      const sample = softCloseAt((glideDuration(distance) / 1000) * (step / 40), distance);
+      assert.ok(sample.offset >= -0.001);
+      assert.ok(sample.offset <= previous + 0.001);
+      peakAccel = Math.max(peakAccel, Math.abs(sample.velocity - previousVelocity) / (glideDuration(distance) / 1000 / 40));
+      previous = sample.offset;
+      previousVelocity = sample.velocity;
+    }
+    assert.ok(peakAccel <= GLIDE_MAX_ACCEL);
   }
+  const cruise = softCloseAt(0.2, 90);
+  assert.ok(Math.abs(cruise.velocity + SOFT_CLOSE_SPEED) < 1e-6);
+  assert.ok(Math.abs(90 - cruise.offset - SOFT_CLOSE_SPEED * 0.2) < 1e-6);
+  const cushion = softCloseAt(glideDuration(30) / 1000 - 0.05, 30);
+  assert.ok(Math.abs(cushion.velocity) < SOFT_CLOSE_SPEED * 0.25);
 });
 
 test("the caption names the four check distances", () => {
-  assert.equal(magnetCaption(15, "melt"), "15px from melt · firm glide");
-  assert.equal(magnetCaption(50, "wheels"), "50px from wheels · medium glide");
-  assert.equal(magnetCaption(85, "wheels"), "85px from wheels · soft glide");
+  assert.equal(magnetCaption(15, "melt"), "15px from melt · cushion");
+  assert.equal(magnetCaption(50, "wheels"), "50px from wheels · soft close");
+  assert.equal(magnetCaption(85, "wheels"), "85px from wheels · soft close");
   assert.equal(magnetCaption(100, "top"), "100px from top · no pull");
   assert.equal(magnetCaption(110, "top"), "110px from top · no pull");
 });
@@ -227,8 +261,7 @@ test("the page eases after scrollend and the plates are marked", () => {
   assert.match(lever, /preventDefault\(\)/);
   assert.match(swipe, /onPointerDown/);
   assert.match(snapSource, /scrollend/);
-  assert.match(snapSource, /springOmega/);
-  assert.match(snapSource, /criticallyDamped/);
+  assert.match(snapSource, /softCloseAt/);
   assert.match(snapSource, /scrollingElement/);
   assert.equal(snapSource.includes("touchmove"), false);
   assert.match(snapSource, /prefers-reduced-motion: reduce/);

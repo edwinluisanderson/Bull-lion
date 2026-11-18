@@ -67,19 +67,63 @@ function clampScroll(point: number, limit: number): number {
 }
 
 /**
- * Smoothstep falloff. `t` is distance / radius, and strength is `1 - (3t² - 2t³)`.
- * The slope is zero at the stop, so a hard pull does not give way in the first
- * few pixels, and zero again at the radius, so the field fades out with no kink
- * and matches the no-pull region past it. A plain `(1 - t)²` curve is steepest
- * at the stop, and `1 - t²` stays strong and then ends in a corner at the rim.
- * Strength is 1 on the stop and 0 at the radius and beyond.
+ * Whether a rest is inside the field. The value is a gentle even engagement,
+ * not a magnet that is strongest on the stop. It stays flat through the field
+ * and fades to zero across the outer 15 percent, so a rest near 100px still
+ * starts a close and the field meets the no-pull region without a corner.
  */
 export function magneticStrength(distancePx: number, radius = SNAP_RADIUS_PX): number {
   if (!Number.isFinite(distancePx) || !Number.isFinite(radius) || radius <= 0) return 0;
-  if (distancePx <= 0) return 1;
   if (distancePx >= radius) return 0;
-  const t = distancePx / radius;
-  return 1 - t * t * (3 - 2 * t);
+  const t = Math.max(0, distancePx) / radius;
+  const fadeStart = 0.85;
+  const engagement = 0.45;
+  if (t <= fadeStart) return engagement;
+  const u = (t - fadeStart) / (1 - fadeStart);
+  const smooth = u * u * (3 - 2 * u);
+  return engagement * (1 - smooth);
+}
+
+/** Cruise speed of a soft-close, in pixels per second. The same for every stop. */
+export const SOFT_CLOSE_SPEED = 56;
+/**
+ * How long the cushion lasts. A gap shorter than {@link SOFT_CLOSE_CUSHION_PX}
+ * uses this same time, so a close rest is slower instead of grabbier.
+ */
+export const SOFT_CLOSE_CUSHION_SEC = 1.05;
+/** Distance covered while the cushion bleeds the cruise speed down to zero. */
+export const SOFT_CLOSE_CUSHION_PX = (SOFT_CLOSE_SPEED * SOFT_CLOSE_CUSHION_SEC) / 2;
+
+export function glideDuration(distancePx: number): number {
+  const distance = Math.max(0, Math.abs(distancePx));
+  const cushionPx = Math.min(SOFT_CLOSE_CUSHION_PX, distance);
+  const cruiseSec = (distance - cushionPx) / SOFT_CLOSE_SPEED;
+  return (cruiseSec + SOFT_CLOSE_CUSHION_SEC) * 1000;
+}
+
+/**
+ * Soft-close drawer. Offset is the signed gap still left to the stop.
+ * A long gap cruises at {@link SOFT_CLOSE_SPEED}, then a cosine taper brings
+ * the speed to zero. A short gap uses only the taper, at a lower entry speed,
+ * over the same cushion time. The offset stays on its starting side of the stop.
+ */
+export function softCloseAt(elapsedSec: number, distancePx: number): { offset: number; velocity: number } {
+  const distance = Math.abs(distancePx);
+  const sign = distancePx < 0 ? -1 : 1;
+  if (distance === 0) return { offset: 0, velocity: 0 };
+  const cushionPx = Math.min(SOFT_CLOSE_CUSHION_PX, distance);
+  const cruiseSec = (distance - cushionPx) / SOFT_CLOSE_SPEED;
+  const entry = (2 * cushionPx) / SOFT_CLOSE_CUSHION_SEC;
+  const t = Math.max(0, elapsedSec);
+  if (t >= cruiseSec + SOFT_CLOSE_CUSHION_SEC) return { offset: 0, velocity: 0 };
+  if (cruiseSec > 0 && t <= cruiseSec) {
+    return { offset: sign * (distance - SOFT_CLOSE_SPEED * t), velocity: -sign * SOFT_CLOSE_SPEED };
+  }
+  const u = (t - cruiseSec) / SOFT_CLOSE_CUSHION_SEC;
+  const covered = (entry / 2) * (t - cruiseSec + (SOFT_CLOSE_CUSHION_SEC / Math.PI) * Math.sin(Math.PI * u));
+  const offset = Math.max(0, cushionPx - covered);
+  const velocity = -entry * (1 + Math.cos(Math.PI * u)) / 2;
+  return { offset: sign * offset, velocity: sign * velocity };
 }
 
 /**
@@ -93,15 +137,6 @@ export function springOmega(strength: number, distancePx: number): number {
   const distance = Math.max(distancePx, 1);
   const capped = Math.sqrt(GLIDE_MAX_ACCEL / distance);
   return Math.min(wanted, capped);
-}
-
-/**
- * Time for a rest-start glide to shed about 92% of its offset.
- * `(1 + ωt) e^{−ωt} ≈ 0.08` around ωt = 4.8. Strength 0 is not a glide.
- */
-export function glideDuration(strength: number, distancePx = SNAP_RADIUS_PX): number {
-  const omega = springOmega(strength, distancePx);
-  return (4.8 / omega) * 1000;
 }
 
 /**
@@ -128,25 +163,27 @@ export function criticallyDamped(
 }
 
 /**
- * Words for the optional `?magnet=1` caption. The pull itself is the smoothstep
+ * Words for the optional `?magnet=1` caption. The close itself is the drawer
  * curve, not these bands. The bands only name what a viewer is seeing.
  */
 export function magnetCaption(distancePx: number, stopName: string): string {
   const distance = Math.max(0, Math.round(distancePx));
-  let feel = "soft glide";
+  let feel = "soft close";
   if (distance >= SNAP_RADIUS_PX) feel = "no pull";
   else if (distance <= SNAP_SLOP_PX) feel = "on stop";
-  else if (distance <= 30) feel = "firm glide";
-  else if (distance <= 70) feel = "medium glide";
+  else if (distance <= SOFT_CLOSE_CUSHION_PX) feel = "cushion";
   return `${distance}px from ${stopName} · ${feel}`;
 }
 
 /**
  * Stops measured after layout.
  * Always-stops are kept even when they sit closer than {@link SNAP_MIN_GAP_PX}.
- * If two of them land on the same scroll offset they are one stop.
- * An optional stop, such as My Stack, is kept only when it clears that gap
- * from every stop already kept, including the page bottom.
+ * If two stops land within half a pixel they are one stop.
+ * My Stack is kept when its top can be scrolled to the top of the screen,
+ * which is when its unclamped offset is at most `maxScroll`. It is not dropped
+ * for sitting near the wheels or the page bottom. An offset past `maxScroll`
+ * means the page bottoms out first, so that stack is not a stop.
+ * Any other optional stop still has to clear {@link SNAP_MIN_GAP_PX}.
  */
 export function collectStops(points: readonly SnapMark[], maxScroll: number, minGap = SNAP_MIN_GAP_PX): Stop[] {
   const limit = Math.max(0, maxScroll);
@@ -154,24 +191,32 @@ export function collectStops(points: readonly SnapMark[], maxScroll: number, min
     { at: 0, name: "top" },
     { at: limit, name: "bottom" },
   ];
-  const optional: Stop[] = [];
+  const optional: { raw: number; name: string }[] = [];
   for (const point of points) {
-    const at = clampScroll(point.at, limit);
     const name = point.name ?? "";
-    if (point.always) always.push({ at, name });
-    else optional.push({ at, name });
+    if (point.always) always.push({ at: clampScroll(point.at, limit), name });
+    else optional.push({ raw: point.at, name });
   }
   const stops: Stop[] = [];
-  for (const mark of always.sort((a, b) => a.at - b.at)) {
-    const last = stops[stops.length - 1];
-    if (last !== undefined && Math.abs(mark.at - last.at) <= 0.5) {
-      if (!last.name && mark.name) last.name = mark.name;
-      continue;
+  const absorb = (at: number, name: string) => {
+    const twin = stops.find((stop) => Math.abs(stop.at - at) <= 0.5);
+    if (twin) {
+      if (!twin.name && name) twin.name = name;
+      return true;
     }
+    return false;
+  };
+  for (const mark of always.sort((a, b) => a.at - b.at)) {
+    if (absorb(mark.at, mark.name)) continue;
     stops.push({ at: mark.at, name: mark.name });
   }
-  for (const mark of optional.sort((a, b) => a.at - b.at)) {
-    if (stops.every((stop) => Math.abs(stop.at - mark.at) >= minGap)) stops.push({ ...mark });
+  for (const mark of optional.sort((a, b) => a.raw - b.raw)) {
+    if (!(mark.raw <= limit)) continue;
+    const at = clampScroll(mark.raw, limit);
+    if (absorb(at, mark.name)) continue;
+    const stack = mark.name === "stack";
+    if (!stack && stops.some((stop) => Math.abs(stop.at - at) < minGap)) continue;
+    stops.push({ at, name: mark.name });
   }
   stops.sort((a, b) => a.at - b.at);
   return stops;
@@ -204,8 +249,9 @@ export function nearestStop(
 
 /**
  * The stop to ease onto, or null when the page should stay exactly where it landed.
- * Pull strength follows {@link magneticStrength}: full on the stop, zero at
- * {@link SNAP_RADIUS_PX} and beyond. Reduced motion never moves the scroll.
+ * Inside the field the page soft-closes. Strength is even, not strongest at
+ * the stop, and zero at {@link SNAP_RADIUS_PX} and beyond. Reduced motion
+ * never moves the scroll.
  */
 export function settleSnap(input: SnapSettle): MagneticPull | null {
   if (input.reduced) return null;

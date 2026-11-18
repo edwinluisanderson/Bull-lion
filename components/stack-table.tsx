@@ -325,35 +325,35 @@ export function StackTable({
                   {line.mark}, {line.weightLabel}, quantity {line.qty}, {line.description}, melt {flapMoney(melt)}
                 </span>
               )}
-              <span className="stack-kicker" style={{ gridColumn: `1 / span ${FLAP_METAL}`, gridRow: 1 }}>
-                Metal
-              </span>
-              <span className="stack-kicker" style={{ gridColumn: `${weightStart} / span ${FLAP_WEIGHT}`, gridRow: 1 }}>
-                Weight
-              </span>
-              <span className="stack-kicker" style={{ gridColumn: `${qtyStart} / span ${FLAP_QTY}`, gridRow: 1 }}>
-                Qty
-              </span>
-              <span className="stack-kicker" style={{ gridColumn: `${meltStart} / span ${FLAP_MELT}`, gridRow: 1 }}>
-                Melt
-              </span>
-              <span className="stack-span" style={{ gridColumn: `1 / span ${FLAP_METAL}`, gridRow: 2 }}>
-                <SplitFlap text={mark} width={FLAP_METAL} />
-              </span>
-              <span className="stack-span" style={{ gridColumn: `${weightStart} / span ${FLAP_WEIGHT}`, gridRow: 2 }}>
-                <SplitFlap text={weightLabel} width={FLAP_WEIGHT} />
-              </span>
-              <span className="stack-span" style={{ gridColumn: `${qtyStart} / span ${FLAP_QTY}`, gridRow: 2 }}>
-                <SplitFlap text={qtyLabel} width={FLAP_QTY} />
-              </span>
-              <span className="stack-span" style={{ gridColumn: `${meltStart} / span ${FLAP_MELT}`, gridRow: 2 }}>
-                <SplitFlap text={blank ? "" : flapMoney(melt)} width={FLAP_MELT} />
-              </span>
-              <span className="stack-kicker stack-kicker-next" style={{ gridColumn: "1 / -1", gridRow: 3 }}>
+              <span className="stack-kicker" style={{ gridColumn: "1 / -1", gridRow: 1 }}>
                 Description
               </span>
-              <span className="stack-span" style={{ gridColumn: "1 / -1", gridRow: 4 }}>
+              <span className="stack-span" style={{ gridColumn: "1 / -1", gridRow: 2 }}>
                 {description}
+              </span>
+              <span className="stack-kicker stack-kicker-next" style={{ gridColumn: `1 / span ${FLAP_METAL}`, gridRow: 3 }}>
+                Metal
+              </span>
+              <span className="stack-kicker stack-kicker-next" style={{ gridColumn: `${weightStart} / span ${FLAP_WEIGHT}`, gridRow: 3 }}>
+                Weight
+              </span>
+              <span className="stack-kicker stack-kicker-next" style={{ gridColumn: `${qtyStart} / span ${FLAP_QTY}`, gridRow: 3 }}>
+                Qty
+              </span>
+              <span className="stack-kicker stack-kicker-next" style={{ gridColumn: `${meltStart} / span ${FLAP_MELT}`, gridRow: 3 }}>
+                Melt
+              </span>
+              <span className="stack-span" style={{ gridColumn: `1 / span ${FLAP_METAL}`, gridRow: 4 }}>
+                <SplitFlap text={mark} width={FLAP_METAL} />
+              </span>
+              <span className="stack-span" style={{ gridColumn: `${weightStart} / span ${FLAP_WEIGHT}`, gridRow: 4 }}>
+                <SplitFlap text={weightLabel} width={FLAP_WEIGHT} />
+              </span>
+              <span className="stack-span" style={{ gridColumn: `${qtyStart} / span ${FLAP_QTY}`, gridRow: 4 }}>
+                <SplitFlap text={qtyLabel} width={FLAP_QTY} />
+              </span>
+              <span className="stack-span" style={{ gridColumn: `${meltStart} / span ${FLAP_MELT}`, gridRow: 4 }}>
+                <SplitFlap text={blank ? "" : flapMoney(melt)} width={FLAP_MELT} />
               </span>
               {remove}
             </div>
