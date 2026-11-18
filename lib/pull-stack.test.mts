@@ -13,7 +13,7 @@ import {
   PULL_REPEAT_MS,
   type ShownSelection,
 } from "@/lib/pull-stack";
-import { proposeAdd, rowMelt } from "@/lib/stack-board";
+import { rowMelt } from "@/lib/stack-board";
 import { TROY_OUNCE_GRAMS } from "@/lib/value";
 
 const machine = readFileSync(new URL("../components/slot-machine.tsx", import.meta.url), "utf8");
@@ -115,24 +115,15 @@ test("a later full pull of the same metal and weight still adds its own line", (
   assert.equal(again.phase.lines[0]?.id === again.phase.lines[1]?.id, false);
 });
 
-test("the Add button still asks before combining, and a pull does not", () => {
+test("a pull adds its own line, and the board has no Add button", () => {
   const first = acceptPull(emptyPullAdd(), gold, 1_000, 1, 2300, FLAP_DESCRIPTION);
   const idle = finishPullCascade(first.phase);
-  const button = proposeAdd(idle.phase.lines, {
-    symbol: gold.symbol,
-    mark: gold.mark,
-    weightLabel: gold.weightLabel,
-    grams: gold.grams,
-    qty: 4,
-    description: "Gold 1 oz",
-  });
-  assert.equal(button.status, "needs-choice");
-  assert.match(table, /function addCurrent\(\) \{[\s\S]*proposeAdd\(existing, draft\)/);
-  assert.match(table, /setPending\(draft\)/);
-  assert.match(table, /notePullAdd\(/);
-  assert.equal(table.includes("setPending(draftFromShown"), false);
   const pullAgain = notePullAdd(idle.phase, gold, 2300, FLAP_DESCRIPTION);
   assert.equal(pullAgain.phase.lines.length, idle.phase.lines.length + 1);
+  assert.match(table, /notePullAdd\(/);
+  assert.equal(table.includes("Add to stack"), false);
+  assert.equal(table.includes("addCurrent"), false);
+  assert.equal(table.includes("setPending"), false);
 });
 
 test("the handle still only commits at the bottom, and the spin snapshots before the token", () => {

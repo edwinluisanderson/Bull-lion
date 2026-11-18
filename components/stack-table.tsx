@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 
 import { SplitFlap } from "@/components/split-flap";
 import { unlockFlapSamples, watchFlapBoard } from "@/lib/flap-sound";
-import { draftFromShown, emptyPullAdd, finishPullCascade, notePullAdd, type PullAddResult } from "@/lib/pull-stack";
+import { emptyPullAdd, finishPullCascade, notePullAdd, type PullAddResult } from "@/lib/pull-stack";
 import { SwipeCard } from "@/components/swipe-card";
 import { unlockReelClick } from "@/lib/reel-click";
 import {
@@ -23,15 +22,12 @@ import {
   flapMoney,
   grandTotal,
   insertCascade,
-  proposeAdd,
   readStack,
   removeLine,
   renameLine,
-  resolveAdd,
   rowMelt,
   STACK_CASCADE_MS,
   writeStack,
-  type StackDraft,
   type StackFace,
   type StackLine,
 } from "@/lib/stack-board";
@@ -67,7 +63,6 @@ export function StackTable({
 }) {
   const [lines, setLines] = useState<StackLine[]>([]);
   const [ready, setReady] = useState(false);
-  const [pending, setPending] = useState<StackDraft | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [shift, setShift] = useState<StackFace[][] | null>(null);
@@ -100,10 +95,6 @@ export function StackTable({
     if (!ready) return;
     writeStack(window.localStorage, lines);
   }, [lines, ready]);
-
-  function draftFromSelection(): StackDraft | null {
-    return draftFromShown(selection, FLAP_DESCRIPTION);
-  }
 
   useEffect(() => {
     if (!shift) return;
@@ -165,75 +156,14 @@ export function StackTable({
     applyPull(result);
   }, [pullSerial, ready]);
 
-  function addCurrent() {
-    const draft = draftFromSelection();
-    if (!draft || shift) return;
-    unlockReelClick();
-    unlockFlapSamples();
-    const existing = phaseRef.current.lines;
-    const result = proposeAdd(existing, draft);
-    if (result.status === "needs-choice") {
-      setPending(draft);
-      return;
-    }
-    const incoming = result.lines[0];
-    if (!incoming) return;
-    landNewest(existing, incoming, result.lines);
-  }
-
-  function choose(choice: "combine" | "separate") {
-    if (!pending || shift) return;
-    unlockReelClick();
-    unlockFlapSamples();
-    const existing = phaseRef.current.lines;
-    const finalLines = resolveAdd(existing, pending, choice);
-    setPending(null);
-    if (choice === "combine") {
-      phaseRef.current = { ...phaseRef.current, lines: finalLines };
-      setLines(finalLines);
-      return;
-    }
-    const incoming = finalLines[0];
-    if (!incoming) return;
-    landNewest(existing, incoming, finalLines);
-  }
-
   const shown: StackFace[] = shift ? (shift[shiftStep] ?? shift[0] ?? []) : lines;
   const melts = lines.map((line) => rowMelt(priceFor(quotes, line.symbol), line.grams, line.qty));
   const total = grandTotal(melts);
-
-  const prompt =
-    pending && typeof document !== "undefined"
-      ? createPortal(
-          <div className="stack-prompt-back" role="presentation">
-            <div className="stack-prompt" role="dialog" aria-modal="true" aria-labelledby="stack-prompt-title">
-              <p className="stack-prompt-kicker">Stack</p>
-              <h2 id="stack-prompt-title">Same metal and weight</h2>
-              <p>
-                {pending.description} is already on a line. Combine the quantity onto that line, or keep this one
-                separate?
-              </p>
-              <div className="stack-prompt-actions">
-                <button type="button" className="stack-choice" onClick={() => choose("combine")}>
-                  Combine
-                </button>
-                <button type="button" className="stack-choice is-quiet" onClick={() => choose("separate")}>
-                  Keep separate
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )
-      : null;
 
   return (
     <section ref={boardRef} className="split-stack" aria-label="My Stack">
       <div className="split-stack-head">
         <p className="split-stack-title">My Stack</p>
-        <button type="button" className="stack-add" onClick={addCurrent} disabled={!selection || shift !== null}>
-          Add to stack
-        </button>
       </div>
       {shown.length === 0 ? <p className="split-empty">The board is clear.</p> : null}
       <ul className="split-rows">
@@ -363,7 +293,6 @@ export function StackTable({
           </span>
         </div>
       ) : null}
-      {prompt}
     </section>
   );
 }

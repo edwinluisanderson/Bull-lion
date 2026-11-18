@@ -370,6 +370,24 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
             </footer>
           )}
         </section>
+        <div className="stack-plate">
+          <StackTable
+            selection={
+              metal
+                ? {
+                    symbol: metal.symbol,
+                    mark: metal.mark,
+                    name: metal.name,
+                    grams: weight.grams,
+                    weightLabel: weight.face,
+                    qty: pieces,
+                  }
+                : null
+            }
+            quotes={book.metals.map((entry) => ({ symbol: entry.symbol, usdPerTroyOz: entry.usdPerTroyOz }))}
+            pullSerial={pullSerial}
+          />
+        </div>
         <div className="gear-panel">
           <span className="rivet" data-corner="tl" />
           <span className="rivet" data-corner="tr" />
@@ -393,22 +411,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           </div>
           <SteampunkLightCast />
           </div>
-          <StackTable
-            selection={
-              metal
-                ? {
-                    symbol: metal.symbol,
-                    mark: metal.mark,
-                    name: metal.name,
-                    grams: weight.grams,
-                    weightLabel: weight.face,
-                    qty: pieces,
-                  }
-                : null
-            }
-            quotes={book.metals.map((entry) => ({ symbol: entry.symbol, usdPerTroyOz: entry.usdPerTroyOz }))}
-            pullSerial={pullSerial}
-          />
           <div className="scrap-readout-gap" aria-hidden="true" />
           <div className="scrap-readout">
             <section className={spinning ? "readout is-spinning" : "readout"}>

@@ -43,7 +43,7 @@ test("a fast fling only opens the card, and a later lever tap is what deletes", 
 test("the card slides on a vertical-scroll track and the clicks share the flap limiter", () => {
   assert.match(css, /\.stack-swipe \{[^}]*overflow:\s*visible/);
   assert.match(css, /\.stack-swipe \{[^}]*touch-action:\s*pan-y/);
-  assert.match(css, /\.gear-panel:has\(\.stack-swipe\.is-raised\) \{[^}]*overflow:\s*visible/);
+  assert.match(css, /\.stack-plate:has\(\.stack-swipe\.is-raised\) \{[^}]*overflow:\s*visible/);
   assert.match(css, /\.stack-swipe\.is-raised \.stack-card \{[^}]*box-shadow:/);
   assert.match(css, /\.stack-swipe-face\.is-dragging \{[^}]*user-select:\s*none/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.stack-swipe-face \{[^}]*transition:\s*none/);
