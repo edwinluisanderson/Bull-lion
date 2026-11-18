@@ -9,9 +9,9 @@ export const FLAP_MELT = 7;
 export const FLAP_BOARD_COLUMNS = FLAP_METAL + FLAP_WEIGHT + FLAP_QTY + FLAP_MELT;
 /** Descriptions stay on row 2. Letters past the grid are cut, not given another row. */
 export const FLAP_DESCRIPTION = FLAP_BOARD_COLUMNS;
-/** The melt-total label occupies the left of the same grid. The rest is the value. */
-export const FLAP_TOTAL_LABEL_COLUMNS = 8;
-export const FLAP_TOTAL_COLUMNS = FLAP_BOARD_COLUMNS - FLAP_TOTAL_LABEL_COLUMNS;
+/** Eight cells hold a realistic total such as $999,999. The label takes the columns left over. */
+export const FLAP_TOTAL_COLUMNS = 8;
+export const FLAP_TOTAL_LABEL_COLUMNS = FLAP_BOARD_COLUMNS - FLAP_TOTAL_COLUMNS;
 /** Advance width of Cinzel 700, in ems, so a tile can match its glyph. */
 const FLAP_EM: Record<string, number> = {
   " ": 0.25,

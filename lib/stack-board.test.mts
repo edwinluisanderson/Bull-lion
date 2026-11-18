@@ -170,6 +170,8 @@ test("the stack survives a reload and drops a broken record", () => {
 });
 
 test("the melt total label stays put and the value sits on the right of a fixed field", () => {
+  assert.equal(FLAP_TOTAL_COLUMNS, 8);
+  assert.equal(rightFlap("$999,999", FLAP_TOTAL_COLUMNS), "$999,999");
   assert.equal(FLAP_TOTAL_LABEL_COLUMNS + FLAP_TOTAL_COLUMNS, FLAP_BOARD_COLUMNS);
   const narrow = rightFlap("$30", FLAP_TOTAL_COLUMNS);
   const wide = rightFlap("$10,000", FLAP_TOTAL_COLUMNS);
@@ -206,6 +208,7 @@ test("the scrap plate grows a split-flap stack and the flaps stay quiet when sou
   assert.match(css, /\.stack-card \{[^}]*column-gap:\s*2px/);
   assert.match(css, /\.split-total \{[^}]*grid-template-columns:\s*repeat\(var\(--flap-cols/);
   assert.match(css, /\.split-total-label \{[^}]*text-align:\s*left/);
+  assert.match(css, /\.split-total-label \{[^}]*font-size:\s*clamp\(\s*0\.85rem/);
   assert.match(css, /\.flap-tile \{[^}]*background:\s*#000/);
   assert.match(css, /\.flap-top,\s*\.flap-bottom,\s*\.flap-leaf \{[^}]*background:\s*#000/);
   assert.match(css, /\.flap-bottom \{[^}]*border-top:\s*1px solid #1f1f1f/);

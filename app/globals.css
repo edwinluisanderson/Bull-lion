@@ -1494,12 +1494,13 @@ button,
 }
 
 .split-total-label {
-  justify-self: start;
-  overflow: hidden;
-  font-size: 0.56rem;
-  letter-spacing: 0.04em;
+  justify-self: stretch;
+  align-self: center;
+  margin-right: 8px;
+  font-size: clamp(0.85rem, 4.4cqw, 1.05rem);
+  letter-spacing: 0.02em;
+  line-height: 1.05;
   text-align: left;
-  white-space: nowrap;
 }
 
 .stack-prompt-back {
