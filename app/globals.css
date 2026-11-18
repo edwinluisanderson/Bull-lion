@@ -136,7 +136,7 @@ body {
 }
 
 html {
-  /* Catch zones are applied after the scroll rests. The browser must not glide between stops. */
+  /* Magnetic pull is applied after the scroll rests. The browser must not glide between stops. */
   scroll-snap-type: none;
   overscroll-behavior-y: contain;
 }
