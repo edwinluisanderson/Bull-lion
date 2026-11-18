@@ -256,6 +256,8 @@ test("the split-flap stack keeps its board and the flaps stay quiet when sound i
   assert.equal(table.includes("descriptionNeedsOwnRow"), false);
   assert.equal(table.includes("data-rows={3}"), false);
   assert.match(table, /width=\{FLAP_DESCRIPTION\}/);
+  assert.match(table, /gridRow: 1 \}\}>\s*Description/);
+  assert.match(table, /gridRow: 3 \}\}>\s*Metal/);
   assert.match(table, /insertCascade\(existing, incoming\)/);
   assert.match(table, /prefers-reduced-motion: reduce/);
   assert.match(css, /\.split-stack \{/);
@@ -266,7 +268,7 @@ test("the split-flap stack keeps its board and the flaps stay quiet when sound i
     .find((part) => part.includes(".flap-leaf"));
   assert.match(reduced ?? "", /\.flap-leaf \{[^}]*animation:\s*none/);
   assert.match(sound, /spinSoundEnabled\(\)/);
-  assert.ok(FLAP_GAIN > 0.2 && FLAP_GAIN < 0.3);
+  assert.ok(FLAP_GAIN > 0.07 && FLAP_GAIN < 0.1);
   assert.equal(FLAP_MAX_PER_WINDOW, 2);
   assert.match(sound, /createWaveShaper\(\)/);
   assert.equal(sound.includes("FLAP_SUM_LIMIT"), true);

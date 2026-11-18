@@ -2,11 +2,11 @@ import { REEL_CLICK_GAIN, reelAudioContext } from "@/lib/reel-click";
 import { spinSoundEnabled } from "@/lib/spin-overlay";
 
 /**
- * One flap tick, just under the wheel-stop click.
- * The filtered burst peaks near the click sample, so this gain lands the tick
- * about 1 dB below a stop on the peak. The wheel-stop gain itself is unchanged.
+ * Fallback tick used only before the recorded clips decode.
+ * Same 10 dB cut as the clips, so a missing file is not louder than a burst.
+ * The wheel-stop gain itself is unchanged.
  */
-export const FLAP_GAIN = 0.26;
+export const FLAP_GAIN = 0.082;
 /** How many flap ticks may start inside one window. */
 export const FLAP_MAX_PER_WINDOW = 2;
 export const FLAP_WINDOW_MS = 45;
@@ -35,8 +35,13 @@ export const FLAP_CLIP_URLS = [
 export const FLAP_CLICK_WINDOW_RMS = 0.2620292306;
 /** Mean of the loudest 50 ms in flap-1.mp3 through flap-6.mp3, before playback gain. */
 export const FLAP_FILE_WINDOW_RMS = 0.1879646975;
-/** About 1 dB under the wheel-stop click. */
-export const FLAP_LEVEL_DB = -1;
+/**
+ * Single-flap window versus the wheel-stop click.
+ * Two flaps may start inside one throttle window. At this offset their combined
+ * window sits about 1.8 dB under the coin pour, the quietest of the wheel click,
+ * the stretch pops, and the coins. The wheel-stop gain itself is unchanged.
+ */
+export const FLAP_LEVEL_DB = -11;
 /** Playback rate swings ±5%, inside the ±4–6% range. */
 export const FLAP_PITCH_SPREAD = 0.05;
 

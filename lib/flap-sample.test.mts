@@ -18,9 +18,9 @@ import { REEL_CLICK_GAIN } from "@/lib/reel-click";
 const sound = readFileSync(new URL("./flap-sound.ts", import.meta.url), "utf8");
 const credits = readFileSync(new URL("../public/sounds/flap-credits.txt", import.meta.url), "utf8");
 
-test("recorded flap clips sit about 1 dB under the wheel stop", () => {
+test("recorded flap clips sit 11 dB under the wheel stop", () => {
   assert.equal(FLAP_CLIP_URLS.length, 6);
-  assert.equal(FLAP_LEVEL_DB, -1);
+  assert.equal(FLAP_LEVEL_DB, -11);
   assert.equal(FLAP_PITCH_SPREAD, 0.05);
   const gain = matchedFlapGain();
   assert.equal(FLAP_SAMPLE_GAIN, gain);
