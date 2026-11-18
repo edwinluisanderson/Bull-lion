@@ -208,6 +208,7 @@ test("the scrap plate grows a split-flap stack and the flaps stay quiet when sou
   assert.match(css, /\.split-total-label \{[^}]*text-align:\s*left/);
   assert.match(css, /\.flap-tile \{[^}]*background:\s*#000/);
   assert.match(css, /\.flap-top,\s*\.flap-bottom,\s*\.flap-leaf \{[^}]*background:\s*#000/);
+  assert.match(css, /\.flap-bottom \{[^}]*border-top:\s*1px solid #1f1f1f/);
   assert.match(css, /\.stack-card \{[^}]*box-shadow:[^}]*#c4963e/);
   assert.match(table, /data-rows=\{2\}/);
   assert.equal(table.includes("descriptionNeedsOwnRow"), false);

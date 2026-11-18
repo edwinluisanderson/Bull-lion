@@ -1253,7 +1253,7 @@ button,
 .flap-bottom {
   bottom: 0;
   height: 50%;
-  border-top: 1px solid rgba(246, 231, 193, 0.42);
+  border-top: 1px solid #1f1f1f;
   background: #000;
 }
 
