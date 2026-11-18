@@ -1,5 +1,6 @@
 import { DELETE_AHOOGA_URL, loadDeleteAhooga } from "@/lib/delete-alarm";
 import { FLAP_CLIP_URLS, loadFlapSamples } from "@/lib/flap-sound";
+import { LOCK_SOUND_URLS, loadLockSounds } from "@/lib/lock-sound";
 import { REEL_CLICK_URL, loadReelClick, reelAudioContext } from "@/lib/reel-click";
 import { COINS_FALL_URL, loadCoinsFall } from "@/lib/spin-overlay";
 import { STRETCH_POP_URLS, loadStretchPops } from "@/lib/stretch-pop";
@@ -11,9 +12,10 @@ export const APP_SOUND_URLS = [
   ...FLAP_CLIP_URLS,
   COINS_FALL_URL,
   DELETE_AHOOGA_URL,
+  ...LOCK_SOUND_URLS,
 ] as const;
 
-const loads = [loadReelClick, loadStretchPops, loadFlapSamples, loadCoinsFall, loadDeleteAhooga];
+const loads = [loadReelClick, loadStretchPops, loadFlapSamples, loadCoinsFall, loadDeleteAhooga, loadLockSounds];
 
 /**
  * Fetch and decode every clip after the first paint.

@@ -16,7 +16,7 @@ test("app open decodes every sound without touching the flap level", () => {
     .map((name) => `/sounds/${name}`)
     .sort();
   assert.deepEqual([...APP_SOUND_URLS].sort(), files);
-  assert.equal(APP_SOUND_URLS.length, 15);
+  assert.equal(APP_SOUND_URLS.length, 18);
   assert.equal(FLAP_LEVEL_DB, -11);
   assert.match(machine, /preloadAppSounds\(\)/);
   assert.match(machine, /installAppAudioUnlock\(\)/);
