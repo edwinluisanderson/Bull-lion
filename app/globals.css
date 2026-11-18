@@ -1122,9 +1122,9 @@ button,
 
 .split-total {
   display: grid;
-  grid-template-columns: repeat(var(--flap-cols, 19), minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  column-gap: 2px;
+  column-gap: 10px;
 }
 
 .split-empty {
@@ -1151,7 +1151,8 @@ button,
 
 .split-total {
   container-type: inline-size;
-  --flap-font: clamp(16px, calc((100cqw - 36px) / var(--flap-cols, 19) / 0.85), 19.3px);
+  /* One step above the 1.05rem My Stack title. */
+  --flap-font: 1.25rem;
 }
 
 .stack-card {
@@ -1496,16 +1497,35 @@ button,
 .split-total-label {
   justify-self: stretch;
   align-self: center;
-  margin-right: 8px;
+  min-width: 0;
   font-family: var(--font-body), Palatino, serif;
   font-weight: 600;
-  font-size: clamp(0.85rem, 4.4cqw, 1.05rem);
+  font-size: 1.25rem;
   font-variant: normal;
   font-variant-caps: normal;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   line-height: 1.05;
   text-align: left;
   text-transform: none;
+}
+
+.split-total-flaps {
+  display: grid;
+  grid-template-columns: repeat(8, calc(var(--flap-font) * 0.72));
+  column-gap: 2px;
+}
+
+.split-total-flaps > .split-flap {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  min-width: 0;
+  max-width: none;
+}
+
+.split-total-flaps .flap-tile {
+  width: auto;
+  min-width: 0;
 }
 
 .stack-prompt-back {

@@ -181,7 +181,7 @@ test("the melt total label stays put and the value sits on the right of a fixed 
   assert.equal(narrow.startsWith(" "), true);
   assert.match(table, /My Stack Melt Total/);
   assert.match(table, /rightFlap\(flapMoney\(total\), FLAP_TOTAL_COLUMNS\)/);
-  assert.match(table, /1 \/ span \$\{FLAP_TOTAL_LABEL_COLUMNS\}/);
+  assert.equal(table.includes("FLAP_TOTAL_LABEL_COLUMNS"), false);
   assert.equal(table.includes("--total-em"), false);
 });
 
@@ -206,12 +206,14 @@ test("the scrap plate grows a split-flap stack and the flaps stay quiet when sou
   assert.match(css, /\.stack-card \{[^}]*--flap-font:\s*clamp\(\s*16px,/);
   assert.match(css, /\.stack-card \{[^}]*grid-template-columns:\s*repeat\(var\(--flap-cols/);
   assert.match(css, /\.stack-card \{[^}]*column-gap:\s*2px/);
-  assert.match(css, /\.split-total \{[^}]*grid-template-columns:\s*repeat\(var\(--flap-cols/);
+  assert.match(css, /\.split-stack-title \{[^}]*font-size:\s*1\.05rem/);
+  assert.match(css, /\.split-total \{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*auto/);
+  assert.match(css, /\.split-total \{[^}]*--flap-font:\s*1\.25rem/);
   assert.match(css, /\.split-total-label \{[^}]*text-align:\s*left/);
   assert.match(css, /\.split-total-label \{[^}]*text-transform:\s*none/);
   assert.match(css, /\.split-total-label \{[^}]*font-family:\s*var\(--font-body\)/);
   assert.match(css, /\.split-total-label \{[^}]*font-variant:\s*normal/);
-  assert.match(css, /\.split-total-label \{[^}]*font-size:\s*clamp\(\s*0\.85rem/);
+  assert.match(css, /\.split-total-label \{[^}]*font-size:\s*1\.25rem/);
   assert.match(css, /\.flap-tile \{[^}]*background:\s*#000/);
   assert.match(css, /\.flap-top,\s*\.flap-bottom,\s*\.flap-leaf \{[^}]*background:\s*#000/);
   assert.match(css, /\.flap-bottom \{[^}]*border-top:\s*1px solid #1f1f1f/);
