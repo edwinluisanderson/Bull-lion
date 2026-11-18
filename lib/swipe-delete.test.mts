@@ -49,6 +49,15 @@ test("the card slides on a vertical-scroll track and the clicks share the flap l
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.stack-swipe-face \{[^}]*transition:\s*none/);
   assert.match(css, /@media \(hover: none\), \(pointer: coarse\) \{[^}]*\.stack-remove \{[^}]*clip:/);
   assert.match(card, /Delete/);
+  assert.match(card, /aria-label=\{`Delete \$\{label\}`\}/);
+  assert.match(card, /stack-swipe-push/);
+  assert.equal(card.includes("stack-swipe-lever"), false);
+  assert.match(card, /leverTapDeletes/);
+  assert.match(card, /playSwipeTone\("clunk"\)/);
+  assert.match(css, /\.stack-swipe-plate \{[^}]*repeating-linear-gradient\(-45deg/);
+  assert.match(css, /\.stack-swipe-push \{[^}]*border-radius:\s*50%/);
+  assert.match(css, /\.stack-swipe-push \{[^}]*0 0 0 4px #111/);
+  assert.match(css, /\.stack-swipe:not\(\.is-raised\) \.stack-swipe-delete \{[^}]*visibility:\s*hidden/);
   assert.match(card, /onOpen/);
   assert.match(sound, /function playSwipeTone/);
   assert.match(sound, /flapSum\(ctx\)/);

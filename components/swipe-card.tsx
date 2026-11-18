@@ -144,8 +144,9 @@ export function SwipeCard({
         }}
         onClick={onLeverClick}
       >
-        <span className="stack-swipe-lever" aria-hidden="true" />
-        Delete
+        <span className="stack-swipe-plate" aria-hidden="true">
+          <span className="stack-swipe-push" />
+        </span>
       </button>
       <div
         className={dragging ? "stack-swipe-face is-dragging" : "stack-swipe-face"}
