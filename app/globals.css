@@ -1093,7 +1093,7 @@ button,
   z-index: 2;
   top: 18px;
   left: 50%;
-  width: min(148px, 46%);
+  width: min(148px, calc((100% - (0.75rem + 14px) * 2) / 3));
   aspect-ratio: 120 / 96;
   transform: translateX(-50%);
   pointer-events: none;
