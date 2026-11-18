@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { SplitFlap } from "@/components/split-flap";
-import { unlockFlapSamples, watchFlapBoard } from "@/lib/flap-sound";
+import { playSwipeTone, unlockFlapSamples, watchFlapBoard } from "@/lib/flap-sound";
 import { emptyPullAdd, finishPullCascade, notePullAdd, type PullAddResult } from "@/lib/pull-stack";
 import { SwipeCard } from "@/components/swipe-card";
 import { unlockReelClick } from "@/lib/reel-click";
@@ -31,6 +31,7 @@ import {
   type StackFace,
   type StackLine,
 } from "@/lib/stack-board";
+import { stackCsvFilename, stackToCsv } from "@/lib/stack-csv";
 
 export type StackSelection = {
   symbol: string;
@@ -156,6 +157,21 @@ export function StackTable({
     applyPull(result);
   }, [pullSerial, ready]);
 
+  const downloadLines = phaseRef.current.cascading ? phaseRef.current.lines : lines;
+
+  function downloadStack() {
+    if (downloadLines.length === 0) return;
+    playSwipeTone("detent");
+    const csv = stackToCsv(downloadLines, quotesRef.current);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = stackCsvFilename(new Date());
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   const shown: StackFace[] = shift ? (shift[shiftStep] ?? shift[0] ?? []) : lines;
   const melts = lines.map((line) => rowMelt(priceFor(quotes, line.symbol), line.grams, line.qty));
   const total = grandTotal(melts);
@@ -164,6 +180,21 @@ export function StackTable({
     <section ref={boardRef} className="split-stack" aria-label="My Stack">
       <div className="split-stack-head">
         <p className="split-stack-title">My Stack</p>
+        <button
+          type="button"
+          className="stack-download"
+          aria-label="Download My Stack"
+          disabled={downloadLines.length === 0}
+          onClick={downloadStack}
+        >
+          <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+            <circle cx="16" cy="16" r="12.2" fill="#2a1c10" stroke="#e6cb82" strokeWidth="1.7" />
+            <circle cx="16" cy="16" r="9.3" fill="none" stroke="#6e5318" strokeWidth="0.9" />
+            <path d="M16 8.2v6.2" fill="none" stroke="#40e0d0" strokeWidth="1.8" strokeLinecap="round" />
+            <path d="M12.8 11.6 16 14.9l3.2-3.3" fill="none" stroke="#40e0d0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M10.6 17.5v3.5h10.8v-3.5" fill="none" stroke="#40e0d0" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
       </div>
       {shown.length === 0 ? <p className="split-empty">The board is clear.</p> : null}
       <ul className="split-rows">
