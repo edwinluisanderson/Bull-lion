@@ -70,13 +70,24 @@ function load(ctx: AudioContext): Promise<void> {
 
 if (typeof window !== "undefined") void loadBytes();
 
+/** Decode the pour without resuming the context. */
+export function loadCoinsFall(): Promise<void> {
+  try {
+    const ctx = reelAudioContext();
+    if (!ctx) return Promise.resolve();
+    return load(ctx);
+  } catch {
+    return Promise.resolve();
+  }
+}
+
 /** Decode ahead of the pull, on the same gesture that unlocks the reel click. */
 export function armSpinOverlay(): void {
   try {
     const ctx = reelAudioContext();
     if (!ctx) return;
     if (ctx.state === "suspended") void ctx.resume().catch(() => {});
-    void load(ctx);
+    void loadCoinsFall();
   } catch {
     /* Audio is optional. */
   }

@@ -32,6 +32,7 @@ import {
 import { LIVE_SPOT_NOTE, parsePriceBook, type PriceBook } from "@/lib/price-book";
 import { settleReels } from "@/lib/haptics";
 import { pullStartsSpin } from "@/lib/pull-stack";
+import { installAppAudioUnlock, preloadAppSounds } from "@/lib/sound-preload";
 import { playSpinOverlay, spinOverlayFor } from "@/lib/spin-overlay";
 import { meltValue } from "@/lib/value";
 import { LAMP_FULL, LAMP_LOW, LAMP_MEDIUM, LAMP_OFF, STEAMPUNK_LIGHT_COUNT } from "@/lib/steampunk-light";
@@ -136,6 +137,11 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
     : metal
       ? `${formatUsd(total)} melt value for ${pieces} ${noun} of ${weight.face} ${metal.name}`
       : "";
+
+  useEffect(() => {
+    preloadAppSounds();
+    installAppAudioUnlock();
+  }, []);
 
   useEffect(() => {
     const raw = new URLSearchParams(window.location.search).get("lamps");

@@ -1,3 +1,4 @@
+import { decodeSoundClip } from "@/lib/decode-clip";
 import { REEL_CLICK_GAIN, reelAudioContext } from "@/lib/reel-click";
 import { spinSoundEnabled } from "@/lib/spin-overlay";
 
@@ -118,25 +119,28 @@ function flapSum(ctx: AudioContext): AudioNode {
 }
 
 function loadClips(ctx: AudioContext): Promise<void> {
-  if (typeof ctx.decodeAudioData !== "function") return Promise.resolve();
   if (clips.some(Boolean)) return Promise.resolve();
   if (clipLoading) return clipLoading;
   clipLoading = (async () => {
-    try {
-      const decoded = await Promise.all(
-        FLAP_CLIP_URLS.map(async (url) => {
-          const response = await fetch(url);
-          if (!response.ok) return null;
-          return ctx.decodeAudioData((await response.arrayBuffer()).slice(0));
-        }),
-      );
-      clips = decoded;
-    } catch {
-      clips = FLAP_CLIP_URLS.map(() => null);
-      clipLoading = null;
-    }
+    await Promise.all(
+      FLAP_CLIP_URLS.map(async (url, index) => {
+        clips[index] = await decodeSoundClip(ctx, url);
+      }),
+    );
+    if (!clips.some(Boolean)) clipLoading = null;
   })();
   return clipLoading;
+}
+
+/** Decode the ticks without resuming the context. */
+export function loadFlapSamples(): Promise<void> {
+  try {
+    const ctx = reelAudioContext();
+    if (!ctx) return Promise.resolve();
+    return loadClips(ctx);
+  } catch {
+    return Promise.resolve();
+  }
 }
 
 /** Resume audio on a user gesture and start decoding the flap clips. */
@@ -145,7 +149,7 @@ export function unlockFlapSamples(): void {
     const ctx = reelAudioContext();
     if (!ctx) return;
     if (ctx.state === "suspended") void ctx.resume().catch(() => {});
-    void loadClips(ctx);
+    void loadFlapSamples();
   } catch {
     /* Audio is optional. */
   }

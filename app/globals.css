@@ -1473,6 +1473,8 @@ button,
 
 .stack-swipe-delete {
   position: absolute;
+  z-index: 0;
+  isolation: isolate;
   top: 0;
   bottom: 0;
   left: 0;
@@ -1483,7 +1485,7 @@ button,
   padding: 0;
   border: 0;
   background: transparent;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .stack-swipe:not(.is-raised) .stack-swipe-delete {
@@ -1491,6 +1493,7 @@ button,
 }
 
 .stack-swipe-plate {
+  position: relative;
   display: grid;
   place-items: center;
   width: min(76px, calc(100% - 8px));
@@ -1502,21 +1505,141 @@ button,
     0 1px 0 rgba(0, 0, 0, 0.45);
 }
 
+.delete-amber {
+  position: absolute;
+  z-index: 1;
+  inset: 4%;
+  border-radius: 50%;
+  background: #140c08;
+  box-shadow: inset 0 0 0 2px #111;
+  mask-image: radial-gradient(circle, transparent 0 46%, #000 54%);
+  pointer-events: none;
+}
+
+.delete-beam {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  left: 50%;
+  width: 880px;
+  height: 880px;
+  margin-top: -440px;
+  margin-left: -440px;
+  background:
+    conic-gradient(
+      from -8deg,
+      transparent 0deg 346deg,
+      rgba(255, 196, 96, 0) 349deg,
+      rgba(255, 210, 120, 0.62) 354deg,
+      rgba(255, 236, 190, 0.2) 357deg,
+      transparent 360deg
+    ),
+    conic-gradient(
+      from 172deg,
+      transparent 0deg 346deg,
+      rgba(255, 196, 96, 0) 349deg,
+      rgba(255, 210, 120, 0.62) 354deg,
+      rgba(255, 236, 190, 0.2) 357deg,
+      transparent 360deg
+    );
+  mask-image: radial-gradient(circle, transparent 0 2.3%, #000 3.8%, rgba(0, 0, 0, 0.72) 34%, transparent 68%);
+  transform-origin: center;
+  opacity: 0;
+  visibility: hidden;
+  animation: none;
+  pointer-events: none;
+}
+
+.stack-swipe[data-alarm="drag"] .delete-beam {
+  opacity: 0;
+  visibility: hidden;
+  animation: none;
+}
+
+.stack-swipe[data-alarm="open"] .delete-beam {
+  opacity: 1;
+  visibility: visible;
+  animation: lighthouse-sweep 5s linear infinite;
+}
+
+.stack-swipe[data-alarm="open"] .stack-swipe-push {
+  background:
+    radial-gradient(ellipse at 34% 24%, rgba(255, 255, 255, 0.7) 0 7%, transparent 18%),
+    radial-gradient(circle at 50% 48%, #fff6f6 0 4%, #ffd4d4 14%, #ff4d4d 38%, #e10600 64%, #7a0000 100%);
+  box-shadow:
+    0 0 0 4px #111,
+    0 0 16px 4px rgba(255, 36, 36, 0.5),
+    inset 0 0 18px 2px rgba(255, 70, 70, 0.72),
+    inset 0 -8px 12px rgba(90, 0, 0, 0.35);
+}
+
+.delete-alarm-glow {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 50% 42%,
+    rgba(255, 48, 40, 0.34),
+    rgba(140, 0, 0, 0.2) 38%,
+    rgba(40, 0, 0, 0.08) 68%,
+    transparent 80%
+  );
+  animation: delete-alarm-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes delete-alarm-pulse {
+  0%,
+  100% {
+    opacity: 0.42;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.stack-swipe.is-departing .stack-swipe-face {
+  transition: transform 460ms cubic-bezier(0.3, 0, 1, 1);
+  transform: translateX(120vw);
+}
+
+.stack-swipe.is-departing .stack-swipe-delete {
+  animation: delete-linger 860ms ease forwards;
+}
+
+@keyframes delete-linger {
+  0%,
+  58% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
 .stack-swipe-push {
+  position: relative;
+  z-index: 2;
   width: 68%;
   aspect-ratio: 1;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 34% 28%, #ffe1e1 0 8%, #ff4d4d 22%, #e10600 48%, #8d0000 76%, #3a0000 100%);
+    radial-gradient(ellipse at 32% 24%, rgba(255, 214, 214, 0.45) 0 8%, rgba(255, 160, 160, 0.05) 18%, transparent 26%),
+    radial-gradient(circle at 50% 54%, rgba(92, 14, 14, 0.82) 0 46%, rgba(48, 6, 6, 0.94) 100%);
   box-shadow:
     0 0 0 4px #111,
-    inset 0 5px 6px rgba(255, 255, 255, 0.45),
-    inset 0 -7px 8px rgba(0, 0, 0, 0.45);
+    inset 0 1px 0 rgba(255, 210, 210, 0.32),
+    inset 0 -7px 8px rgba(0, 0, 0, 0.28);
+  transition: background 320ms ease, box-shadow 320ms ease;
 }
 
 .stack-swipe-face {
   position: relative;
-  z-index: 1;
+  z-index: 2;
+  border-radius: 8px;
+  background: #1a100c;
   touch-action: pan-y;
   user-select: none;
   transform: translateX(var(--swipe, 0px));
@@ -1544,6 +1667,16 @@ button,
 @media (prefers-reduced-motion: reduce) {
   .stack-swipe-face {
     transition: none;
+  }
+
+  .delete-beam,
+  .stack-swipe[data-alarm="open"] .delete-beam,
+  .delete-alarm-glow {
+    animation: none;
+  }
+
+  .delete-alarm-glow {
+    opacity: 0.7;
   }
 }
 

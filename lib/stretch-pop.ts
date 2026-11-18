@@ -1,4 +1,5 @@
-import { REEL_CLICK_GAIN } from "@/lib/reel-click";
+import { decodeSoundClip } from "@/lib/decode-clip";
+import { REEL_CLICK_GAIN, reelAudioContext } from "@/lib/reel-click";
 import { STRETCH_ECHO_HIGHPASS_HZ, STRETCH_ECHO_TAPS, stretchEchoTailMs } from "@/lib/stretch-echo";
 import { pickStretchPop } from "@/lib/stretch-pops";
 
@@ -31,62 +32,42 @@ export function matchedStretchPopGain(
 
 export const STRETCH_POP_GAIN = matchedStretchPopGain();
 
-let context: AudioContext | null = null;
 let buffers: Array<AudioBuffer | null> = STRETCH_POP_URLS.map(() => null);
 let loading: Promise<void> | null = null;
 let lastIndex: number | null = null;
-
-function audioCtor(): (new () => AudioContext) | null {
-  if (typeof window === "undefined") return null;
-  const host = window as Window & { webkitAudioContext?: new () => AudioContext };
-  return window.AudioContext ?? host.webkitAudioContext ?? null;
-}
-
-function getContext(): AudioContext | null {
-  const Ctor = audioCtor();
-  if (!Ctor) return null;
-  if (!context || context.state === "closed") {
-    try {
-      context = new Ctor();
-    } catch {
-      return null;
-    }
-  }
-  return context;
-}
 
 function load(ctx: AudioContext): Promise<void> {
   if (buffers.some(Boolean)) return Promise.resolve();
   if (loading) return loading;
   loading = (async () => {
-    try {
-      const decoded = await Promise.all(
-        STRETCH_POP_URLS.map(async (url) => {
-          const response = await fetch(url);
-          if (!response.ok) return null;
-          return ctx.decodeAudioData((await response.arrayBuffer()).slice(0));
-        }),
-      );
-      buffers = decoded;
-    } catch {
-      buffers = STRETCH_POP_URLS.map(() => null);
-      loading = null;
-    }
+    await Promise.all(
+      STRETCH_POP_URLS.map(async (url, index) => {
+        buffers[index] = await decodeSoundClip(ctx, url);
+      }),
+    );
+    if (!buffers.some(Boolean)) loading = null;
   })();
   return loading;
 }
 
-if (typeof window !== "undefined") {
-  /* Fetch starts on the first gesture via playStretchPop / the reel unlock. */
+/** Decode the pops on the shared reel context. Does not resume it. */
+export function loadStretchPops(): Promise<void> {
+  try {
+    const ctx = reelAudioContext();
+    if (!ctx) return Promise.resolve();
+    return load(ctx);
+  } catch {
+    return Promise.resolve();
+  }
 }
 
 /** Resume audio on a user gesture and start decoding the pops. */
 export function unlockStretchPops(): void {
   try {
-    const ctx = getContext();
+    const ctx = reelAudioContext();
     if (!ctx) return;
     if (ctx.state === "suspended") void ctx.resume().catch(() => {});
-    void load(ctx);
+    void loadStretchPops();
   } catch {
     /* Audio is optional. */
   }
@@ -155,7 +136,7 @@ function playEcho(ctx: AudioContext, buffer: AudioBuffer): boolean {
 /** One random pop. Silent until the clips have decoded. */
 export function playStretchPop(): void {
   try {
-    const ctx = getContext();
+    const ctx = reelAudioContext();
     if (!ctx) return;
     const ready = buffers.filter((buffer): buffer is AudioBuffer => buffer !== null);
     if (ready.length === 0) {
@@ -174,7 +155,6 @@ export function playStretchPop(): void {
 }
 
 export function resetStretchPopForTests(): void {
-  context = null;
   buffers = STRETCH_POP_URLS.map(() => null);
   loading = null;
   lastIndex = null;

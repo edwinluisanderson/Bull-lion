@@ -9,3 +9,13 @@ The Freesound page labels this recording Creative Commons 0: it may be
 copied, modified, and used, including commercially, without permission.
 These six clips are short trims of the Freesound HQ preview of that
 CC0 recording, with a short fade at each end.
+
+Delete alarm (public/sounds/delete-ahooga.mp3)
+
+Source: Ahooga by craigsmith
+URL: https://freesound.org/people/craigsmith/sounds/480002/
+License: CC0 1.0 Universal
+License URL: https://creativecommons.org/publicdomain/zero/1.0/
+
+One blast, trimmed to 1.78 seconds, mono mp3. It plays while a My Stack
+card is locked open on the delete button.
