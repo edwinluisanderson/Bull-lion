@@ -1,6 +1,7 @@
 "use client";
 import { useId } from "react";
 import { GaugeNamePlate } from "@/components/gauge-nameplate";
+import { needlePivotStyle } from "@/lib/gauge-needle";
 
 /* Steampunk restyle parts: brass bezel, ivory face, glass, black lance needle. */
 
@@ -71,17 +72,13 @@ function Needle({ cx, cy, len, angle, s, tail = 6 }: { cx: number; cy: number; l
     ` L ${cx + 1.9 * s} ${cy} L ${cx} ${cy + tail * s} L ${cx - 1.9 * s} ${cy} L ${cx - 1.15 * s} ${tip + 13.5 * s}` +
     ` L ${cx - 2.6 * s} ${tip + 11.5 * s} L ${cx - 1.0 * s} ${tip + 9 * s} Z`;
   return (
-    <>
+    <g className="gauge-needle" style={needlePivotStyle(angle, cx, cy)}>
       <g transform={`translate(${1.1 * s} ${1.6 * s})`} opacity="0.28">
-        <g className="gauge-needle" transform={`rotate(${angle} ${cx} ${cy})`}>
-          <path d={d} fill="#2b1a08" />
-        </g>
+        <path d={d} fill="#2b1a08" />
       </g>
-      <g className="gauge-needle" transform={`rotate(${angle} ${cx} ${cy})`}>
-        <path d={d} fill="#0d0b09" />
-        <circle cx={cx} cy={cy + (tail - 1) * s} r={(tail > 5 ? 2.1 : 1.5) * s} fill="#0d0b09" />
-      </g>
-    </>
+      <path d={d} fill="#0d0b09" />
+      <circle cx={cx} cy={cy} r={(tail > 5 ? 2.1 : 1.5) * s} fill="#0d0b09" />
+    </g>
   );
 }
 
