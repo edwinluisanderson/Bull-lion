@@ -47,7 +47,13 @@ test("a locked card spins amber lamps, glows, and a tap shoots the card off", ()
   assert.match(css, /\.delete-beam \{[^}]*conic-gradient\(/);
   assert.match(css, /\.delete-beam \{[^}]*mask-image:\s*radial-gradient\(circle, transparent 0 2\.3%/);
   assert.match(css, /\.delete-beam \{[^}]*pointer-events:\s*none/);
+  assert.match(css, /\.delete-beam \{[^}]*opacity:\s*0/);
+  assert.match(css, /\.delete-beam \{[^}]*visibility:\s*hidden/);
+  assert.match(css, /\.stack-swipe\[data-alarm="drag"\] \.delete-beam \{[^}]*opacity:\s*0/);
+  assert.match(css, /\.stack-swipe\[data-alarm="open"\] \.delete-beam \{[^}]*opacity:\s*1/);
+  assert.match(css, /\.stack-swipe\[data-alarm="open"\] \.delete-beam \{[^}]*visibility:\s*visible/);
   assert.match(css, /\.stack-swipe\[data-alarm="open"\] \.delete-beam \{[^}]*lighthouse-sweep 5s linear infinite/);
+  assert.match(css, /\.stack-swipe\[data-alarm="open"\] \.stack-swipe-push \{[^}]*#fff6f6/);
   assert.match(css, /\.stack-swipe\[data-alarm="drag"\] \.delete-beam \{[^}]*animation:\s*none/);
   assert.equal(css.includes("brightness(0.42)"), false);
   assert.match(css, /\.stack-swipe-push \{[^}]*rgba\(92, 14, 14/);
@@ -65,5 +71,5 @@ test("a locked card spins amber lamps, glows, and a tap shoots the card off", ()
     .slice(1)
     .find((part) => part.includes(".delete-beam"));
   assert.ok(reduced);
-  assert.match(reduced ?? "", /\.delete-beam,\s*\.delete-alarm-glow \{[^}]*animation:\s*none/);
+  assert.match(reduced ?? "", /\.stack-swipe\[data-alarm="open"\] \.delete-beam,[\s\S]*animation:\s*none/);
 });

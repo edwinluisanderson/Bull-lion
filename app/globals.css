@@ -1544,15 +1544,21 @@ button,
     );
   mask-image: radial-gradient(circle, transparent 0 2.3%, #000 3.8%, rgba(0, 0, 0, 0.72) 34%, transparent 68%);
   transform-origin: center;
+  opacity: 0;
+  visibility: hidden;
   animation: none;
   pointer-events: none;
 }
 
 .stack-swipe[data-alarm="drag"] .delete-beam {
+  opacity: 0;
+  visibility: hidden;
   animation: none;
 }
 
 .stack-swipe[data-alarm="open"] .delete-beam {
+  opacity: 1;
+  visibility: visible;
   animation: lighthouse-sweep 5s linear infinite;
 }
 
@@ -1664,6 +1670,7 @@ button,
   }
 
   .delete-beam,
+  .stack-swipe[data-alarm="open"] .delete-beam,
   .delete-alarm-glow {
     animation: none;
   }
