@@ -30,6 +30,8 @@ export function nextFlapSound(gate: FlapSoundGate, now: number): { play: boolean
 }
 
 let gate: FlapSoundGate = { stamp: 0, count: 0 };
+/** True only after the My Stack board reports that some of it intersects the viewport. */
+let boardInView = false;
 let noise: AudioBuffer | null = null;
 let noiseContext: AudioContext | null = null;
 let sumBus: WaveShaperNode | null = null;
@@ -75,6 +77,69 @@ function clickBuffer(ctx: AudioContext): AudioBuffer | null {
   }
 }
 
+/** Any painted part of the board counts as on screen. */
+export const FLAP_BOARD_THRESHOLD = 0;
+
+/**
+ * Flap ticks are the only sounds tied to the board.
+ * Wheel clicks, coins, and the swipe detent stay independent of this.
+ */
+export function flapSoundAllowed(boardInView: boolean, visibilityState: string): boolean {
+  return boardInView && visibilityState === "visible";
+}
+
+/**
+ * Offscreen and hidden ticks do not play and do not spend the throttle window.
+ * A later tick, once the board is back, still gets a fresh window.
+ */
+export function shouldPlayFlapTick(
+  inView: boolean,
+  visibilityState: string,
+  current: FlapSoundGate,
+  now: number,
+  soundOn: boolean,
+): { play: boolean; gate: FlapSoundGate } {
+  if (!soundOn || !flapSoundAllowed(inView, visibilityState)) return { play: false, gate: current };
+  return nextFlapSound(current, now);
+}
+
+export function setFlapBoardInView(inView: boolean): void {
+  boardInView = inView;
+}
+
+function intersectsViewport(board: Element): boolean {
+  const view = board.ownerDocument?.defaultView;
+  if (!view) return false;
+  const rect = board.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return false;
+  return rect.bottom > 0 && rect.right > 0 && rect.top < view.innerHeight && rect.left < view.innerWidth;
+}
+
+/** Follow the board. The first sample is synchronous so the opening tick is not a race. */
+export function watchFlapBoard(board: Element): () => void {
+  setFlapBoardInView(intersectsViewport(board));
+  let observer: IntersectionObserver | null = null;
+  if (typeof IntersectionObserver !== "undefined") {
+    observer = new IntersectionObserver(
+      (entries) => {
+        const latest = entries[entries.length - 1];
+        setFlapBoardInView(Boolean(latest?.isIntersecting));
+      },
+      { threshold: FLAP_BOARD_THRESHOLD },
+    );
+    observer.observe(board);
+  }
+  return () => {
+    observer?.disconnect();
+    setFlapBoardInView(false);
+  };
+}
+
+function pageVisibility(): string {
+  if (typeof document === "undefined") return "hidden";
+  return document.visibilityState;
+}
+
 /** Brass tick as the card crosses the track detent, or the heavier delete clunk. */
 export function playSwipeTone(kind: "detent" | "clunk"): void {
   if (!spinSoundEnabled()) return;
@@ -100,10 +165,9 @@ export function playSwipeTone(kind: "detent" | "clunk"): void {
   }
 }
 
-/** One mechanical tick on the shared reel context. Silent when sound is off, and throttled. */
+/** One mechanical tick on the shared reel context. Silent offscreen, in a hidden tab, when sound is off, and when throttled. */
 export function playFlapSound(now = typeof performance !== "undefined" ? performance.now() : Date.now()): boolean {
-  if (!spinSoundEnabled()) return false;
-  const decision = nextFlapSound(gate, now);
+  const decision = shouldPlayFlapTick(boardInView, pageVisibility(), gate, now, spinSoundEnabled());
   gate = decision.gate;
   if (!decision.play) return false;
   try {
@@ -132,6 +196,7 @@ export function playFlapSound(now = typeof performance !== "undefined" ? perform
 
 export function resetFlapSoundForTests(): void {
   gate = { stamp: 0, count: 0 };
+  boardInView = false;
   noise = null;
   noiseContext = null;
   sumBus = null;
