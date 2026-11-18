@@ -31,6 +31,7 @@ import {
 } from "@/lib/metals";
 import { LIVE_SPOT_NOTE, parsePriceBook, type PriceBook } from "@/lib/price-book";
 import { settleReels } from "@/lib/haptics";
+import { pullStartsSpin } from "@/lib/pull-stack";
 import { playSpinOverlay, spinOverlayFor } from "@/lib/spin-overlay";
 import { meltValue } from "@/lib/value";
 import { LAMP_FULL, LAMP_LOW, LAMP_MEDIUM, LAMP_OFF, STEAMPUNK_LIGHT_COUNT } from "@/lib/steampunk-light";
@@ -48,6 +49,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const [customPieces, setCustomPieces] = useState<number | null>(null);
   const [customGrams, setCustomGrams] = useState<number | null>(null);
   const [spinToken, setSpinToken] = useState(0);
+  const [pullSerial, setPullSerial] = useState(0);
   const [bendDegrees, setBendDegrees] = useState(0);
   const [motion, setMotion] = useState([false, false, false]);
   const motionRef = useRef(motion);
@@ -175,8 +177,9 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
 
   function pull() {
     const now = performance.now();
-    if (now - lastPull.current < 450) return;
+    if (!pullStartsSpin(now, lastPull.current)) return;
     lastPull.current = now;
+    setPullSerial((serial) => serial + 1);
     pullHold.current = holdForPull(pullHold.current);
     setCountGuardHold(true);
     setBendDegrees(0);
@@ -404,6 +407,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                 : null
             }
             quotes={book.metals.map((entry) => ({ symbol: entry.symbol, usdPerTroyOz: entry.usdPerTroyOz }))}
+            pullSerial={pullSerial}
           />
           <div className="scrap-readout-gap" aria-hidden="true" />
           <div className="scrap-readout">
