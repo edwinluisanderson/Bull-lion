@@ -208,6 +208,9 @@ test("the scrap plate grows a split-flap stack and the flaps stay quiet when sou
   assert.match(css, /\.stack-card \{[^}]*column-gap:\s*2px/);
   assert.match(css, /\.split-total \{[^}]*grid-template-columns:\s*repeat\(var\(--flap-cols/);
   assert.match(css, /\.split-total-label \{[^}]*text-align:\s*left/);
+  assert.match(css, /\.split-total-label \{[^}]*text-transform:\s*none/);
+  assert.match(css, /\.split-total-label \{[^}]*font-family:\s*var\(--font-body\)/);
+  assert.match(css, /\.split-total-label \{[^}]*font-variant:\s*normal/);
   assert.match(css, /\.split-total-label \{[^}]*font-size:\s*clamp\(\s*0\.85rem/);
   assert.match(css, /\.flap-tile \{[^}]*background:\s*#000/);
   assert.match(css, /\.flap-top,\s*\.flap-bottom,\s*\.flap-leaf \{[^}]*background:\s*#000/);

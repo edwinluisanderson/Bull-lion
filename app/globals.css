@@ -1497,10 +1497,15 @@ button,
   justify-self: stretch;
   align-self: center;
   margin-right: 8px;
+  font-family: var(--font-body), Palatino, serif;
+  font-weight: 600;
   font-size: clamp(0.85rem, 4.4cqw, 1.05rem);
+  font-variant: normal;
+  font-variant-caps: normal;
   letter-spacing: 0.02em;
   line-height: 1.05;
   text-align: left;
+  text-transform: none;
 }
 
 .stack-prompt-back {

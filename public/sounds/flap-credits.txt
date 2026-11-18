@@ -1,0 +1,11 @@
+Split-flap ticks (public/sounds/flap-1.mp3 through flap-6.mp3)
+
+Source: Split Flap Display by ngruber
+URL: https://freesound.org/people/ngruber/sounds/261244/
+License: CC0 1.0 Universal
+License URL: https://creativecommons.org/publicdomain/zero/1.0/
+
+The Freesound page labels this recording Creative Commons 0: it may be
+copied, modified, and used, including commercially, without permission.
+These six clips are short trims of the Freesound HQ preview of that
+CC0 recording, with a short fade at each end.
