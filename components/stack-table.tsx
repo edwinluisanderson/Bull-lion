@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 
 import { SplitFlap } from "@/components/split-flap";
 import { unlockFlapSamples, watchFlapBoard } from "@/lib/flap-sound";
+import { draftFromShown, emptyPullAdd, finishPullCascade, notePullAdd, type PullAddResult } from "@/lib/pull-stack";
 import { SwipeCard } from "@/components/swipe-card";
 import { unlockReelClick } from "@/lib/reel-click";
 import {
@@ -19,7 +20,6 @@ import {
   rightFlap,
 } from "@/lib/split-flap";
 import {
-  defaultLineDescription,
   flapMoney,
   grandTotal,
   insertCascade,
@@ -58,9 +58,12 @@ function priceFor(quotes: readonly StackQuote[], symbol: string): number | null 
 export function StackTable({
   selection,
   quotes,
+  pullSerial = 0,
 }: {
   selection: StackSelection | null;
   quotes: readonly StackQuote[];
+  /** Increments once each time a full pull starts a spin. */
+  pullSerial?: number;
 }) {
   const [lines, setLines] = useState<StackLine[]>([]);
   const [ready, setReady] = useState(false);
@@ -71,8 +74,14 @@ export function StackTable({
   const [shiftStep, setShiftStep] = useState(0);
   const finalRef = useRef<StackLine[] | null>(null);
   const linesRef = useRef(lines);
+  const phaseRef = useRef(emptyPullAdd());
+  const seenPull = useRef(0);
+  const selectionRef = useRef(selection);
+  const quotesRef = useRef(quotes);
   const boardRef = useRef<HTMLElement>(null);
   linesRef.current = lines;
+  selectionRef.current = selection;
+  quotesRef.current = quotes;
 
   useLayoutEffect(() => {
     const board = boardRef.current;
@@ -81,7 +90,9 @@ export function StackTable({
   }, []);
 
   useEffect(() => {
-    setLines(readStack(window.localStorage));
+    const stored = readStack(window.localStorage);
+    phaseRef.current = { ...phaseRef.current, lines: stored };
+    setLines(stored);
     setReady(true);
   }, []);
 
@@ -91,15 +102,7 @@ export function StackTable({
   }, [lines, ready]);
 
   function draftFromSelection(): StackDraft | null {
-    if (!selection || !(selection.qty > 0) || !(selection.grams > 0)) return null;
-    return {
-      symbol: selection.symbol,
-      mark: selection.mark,
-      weightLabel: selection.weightLabel,
-      grams: selection.grams,
-      qty: selection.qty,
-      description: defaultLineDescription(selection.name, selection.weightLabel, FLAP_DESCRIPTION),
-    };
+    return draftFromShown(selection, FLAP_DESCRIPTION);
   }
 
   useEffect(() => {
@@ -113,6 +116,8 @@ export function StackTable({
       if (done) {
         setShift(null);
         setShiftStep(0);
+        phaseRef.current = { ...phaseRef.current, cascading: false };
+        applyPull(finishPullCascade(phaseRef.current));
         return;
       }
       setShiftStep((step) => step + 1);
@@ -125,11 +130,13 @@ export function StackTable({
   }
 
   function landNewest(existing: readonly StackLine[], incoming: StackLine, finalLines: StackLine[]) {
+    phaseRef.current = { ...phaseRef.current, lines: finalLines, cascading: !motionReduced() };
     if (motionReduced()) {
       setShift(null);
       setShiftStep(0);
       finalRef.current = null;
       setLines(finalLines);
+      applyPull(finishPullCascade(phaseRef.current));
       return;
     }
     finalRef.current = finalLines;
@@ -137,12 +144,33 @@ export function StackTable({
     setShift(insertCascade(existing, incoming));
   }
 
+  function applyPull(result: PullAddResult) {
+    phaseRef.current = result.phase;
+    if (!result.playNow || !result.draft) return;
+    const incoming = result.phase.lines[0];
+    if (!incoming) return;
+    unlockReelClick();
+    unlockFlapSamples();
+    landNewest(result.from, incoming, result.phase.lines);
+  }
+
+  useEffect(() => {
+    if (!ready) return;
+    if (pullSerial === seenPull.current) return;
+    seenPull.current = pullSerial;
+    if (pullSerial === 0) return;
+    const shown = selectionRef.current;
+    const price = shown ? priceFor(quotesRef.current, shown.symbol) : null;
+    const result = notePullAdd(phaseRef.current, shown, price, FLAP_DESCRIPTION);
+    applyPull(result);
+  }, [pullSerial, ready]);
+
   function addCurrent() {
     const draft = draftFromSelection();
     if (!draft || shift) return;
     unlockReelClick();
     unlockFlapSamples();
-    const existing = linesRef.current;
+    const existing = phaseRef.current.lines;
     const result = proposeAdd(existing, draft);
     if (result.status === "needs-choice") {
       setPending(draft);
@@ -157,10 +185,11 @@ export function StackTable({
     if (!pending || shift) return;
     unlockReelClick();
     unlockFlapSamples();
-    const existing = linesRef.current;
+    const existing = phaseRef.current.lines;
     const finalLines = resolveAdd(existing, pending, choice);
     setPending(null);
     if (choice === "combine") {
+      phaseRef.current = { ...phaseRef.current, lines: finalLines };
       setLines(finalLines);
       return;
     }
@@ -227,7 +256,9 @@ export function StackTable({
               defaultValue={line.description}
               autoFocus
               onBlur={(event) => {
-                setLines(renameLine(lines, line.id, event.target.value));
+                const next = renameLine(lines, line.id, event.target.value);
+                phaseRef.current = { ...phaseRef.current, lines: next };
+                setLines(next);
                 setEditing(null);
               }}
               onKeyDown={(event) => {
@@ -251,7 +282,11 @@ export function StackTable({
               className="stack-remove"
               aria-label={`Remove ${line.description}`}
               disabled={shift !== null}
-              onClick={() => setLines(removeLine(lines, line.id))}
+              onClick={() => {
+                const next = removeLine(lines, line.id);
+                phaseRef.current = { ...phaseRef.current, lines: next };
+                setLines(next);
+              }}
             >
               ×
             </button>
@@ -273,7 +308,9 @@ export function StackTable({
               onDelete={() => {
                 if (!line || shift) return;
                 setOpenId((current) => (current === line.id ? null : current));
-                setLines(removeLine(lines, line.id));
+                const next = removeLine(lines, line.id);
+                phaseRef.current = { ...phaseRef.current, lines: next };
+                setLines(next);
               }}
             >
             <div className="stack-card" data-rows={2} style={{ ["--flap-cols" as string]: FLAP_BOARD_COLUMNS }}>
