@@ -32,6 +32,7 @@ export function SwipeCard({
   cover = "row",
   coverShift = 0,
   shell = null,
+  leaving = false,
   onOpen,
   onClose,
   onDelete,
@@ -47,6 +48,8 @@ export function SwipeCard({
   coverShift?: number;
   /** Last-card collapse: an explicit height that then eases to zero. */
   shell?: { height: number; marginTop: number } | null;
+  /** The parent has accepted this row's delete, so the face shoots off. */
+  leaving?: boolean;
   onOpen: () => void;
   onClose: () => void;
   onDelete: () => void;
@@ -55,7 +58,6 @@ export function SwipeCard({
 }) {
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
-  const [departing, setDeparting] = useState(false);
   const phase = useRef<LockDrag>(freshLockDrag(0));
   const drag = useRef({
     pointer: -1,
@@ -69,9 +71,15 @@ export function SwipeCard({
     offset: 0,
     endedAt: Number.NEGATIVE_INFINITY,
   });
-  const shown = dragging || departing ? offset : open ? SWIPE_REVEAL_PX : 0;
+  const shown = dragging || leaving ? offset : open ? SWIPE_REVEAL_PX : 0;
 
-  const alarmLive = cardAlarmLive(open, dragging, departing);
+  const alarmLive = cardAlarmLive(open, dragging, leaving);
+
+  useEffect(() => {
+    if (!leaving) return;
+    stopDeleteAhooga();
+    playSwipeTone("clunk");
+  }, [leaving]);
 
   useEffect(() => {
     if (!alarmLive) return;
@@ -96,7 +104,7 @@ export function SwipeCard({
   useEffect(() => {
     if (!open) return;
     const close = (event: PointerEvent) => {
-      const node = document.querySelector(`[data-swipe-id="${id}"]`);
+      const node = document.querySelector(`[data-swipe-id="${CSS.escape(id)}"]`);
       if (node && event.target instanceof Node && node.contains(event.target)) return;
       const cue = lockOutsideClose(true, drag.current.pointer !== -1);
       if (cue) playLockCue(cue);
@@ -177,14 +185,13 @@ export function SwipeCard({
   }
 
   function depart() {
-    if (departing) return;
-    stopDeleteAhooga();
-    playSwipeTone("clunk");
+    if (leaving) return;
     if (reduced()) {
+      stopDeleteAhooga();
+      playSwipeTone("clunk");
       onDelete();
       return;
     }
-    setDeparting(true);
     onDepart();
   }
 
@@ -193,11 +200,11 @@ export function SwipeCard({
     depart();
   }
 
-  const alarm = departing ? "off" : dragging && offset > 0 ? "drag" : open && !dragging ? "open" : "off";
+  const alarm = leaving ? "off" : dragging && offset > 0 ? "drag" : open && !dragging ? "open" : "off";
 
   return (
     <li
-      className={`stack-swipe${shown > 0 || departing ? " is-raised" : ""}${departing ? " is-departing" : ""}${cover === "arm" || cover === "over" || shell ? " is-remnant" : ""}${cover === "arm" || cover === "over" ? " is-cover-ready" : ""}${cover === "over" ? " is-covering" : ""}${cover === "front" ? " is-cover-front" : ""}${shell ? " is-collapsing" : ""}`}
+      className={`stack-swipe${shown > 0 || leaving ? " is-raised" : ""}${leaving ? " is-departing" : ""}${cover === "arm" || cover === "over" || shell ? " is-remnant" : ""}${cover === "arm" || cover === "over" ? " is-cover-ready" : ""}${cover === "over" ? " is-covering" : ""}${cover === "front" ? " is-cover-front" : ""}${shell ? " is-collapsing" : ""}`}
       data-swipe-id={id}
       data-open={open ? "true" : "false"}
       data-alarm={alarm}
@@ -217,7 +224,6 @@ export function SwipeCard({
         onPointerUp={(event) => {
           if (leverTapDeletes(performance.now() - drag.current.endedAt)) return;
           event.preventDefault();
-          event.stopPropagation();
         }}
         onClick={onLeverClick}
       >

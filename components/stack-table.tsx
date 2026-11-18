@@ -10,6 +10,8 @@ import {
   advanceDeleteCover,
   beginDeleteCover,
   collapseInset,
+  deleteRowLocked,
+  queuedCoverId,
   type DeleteCover,
 } from "@/lib/delete-cover";
 import { playSwipeTone, unlockFlapSamples, watchFlapBoard } from "@/lib/flap-sound";
@@ -109,9 +111,17 @@ export function StackTable({
   const quotesRef = useRef(quotes);
   const boardRef = useRef<HTMLElement>(null);
   const slackMark = useRef<string | null>(null);
+  const queuedDelete = useRef<string | null>(null);
+  const queueFrame = useRef(0);
+  const coverRef = useRef<DeleteCover | null>(null);
+  const shiftRef = useRef<StackFace[][] | null>(null);
   linesRef.current = lines;
+  coverRef.current = cover;
+  shiftRef.current = shift;
   selectionRef.current = selection;
   quotesRef.current = quotes;
+
+  useEffect(() => () => window.cancelAnimationFrame(queueFrame.current), []);
 
   useLayoutEffect(() => {
     const board = boardRef.current;
@@ -148,6 +158,42 @@ export function StackTable({
     return () => document.removeEventListener("scroll", release);
   }, [cover]);
 
+  function measureRow(lineId: string): { rowHeight: number; totalHeight: number } {
+    const node = document.querySelector(`[data-swipe-id="${CSS.escape(lineId)}"]`);
+    const rowHeight = node instanceof HTMLElement ? node.offsetHeight : 0;
+    const totalNode = boardRef.current?.querySelector(".split-total");
+    const totalHeight = totalNode instanceof HTMLElement ? totalNode.offsetHeight : 0;
+    return { rowHeight, totalHeight };
+  }
+
+  function armCover(lineId: string, rows: readonly StackLine[]) {
+    const index = rows.findIndex((entry) => entry.id === lineId);
+    if (index < 0) return;
+    const { rowHeight, totalHeight } = measureRow(lineId);
+    setOpenId((current) => (current === lineId ? null : current));
+    setCoverLive(false);
+    setCover(beginDeleteCover(lineId, index, rows.length, rowHeight, totalHeight));
+  }
+
+  function requestDelete(lineId: string) {
+    if (shiftRef.current) return;
+    const rows = linesRef.current;
+    if (!rows.some((entry) => entry.id === lineId)) return;
+    const active = coverRef.current;
+    if (active) {
+      if (active.id !== lineId) queuedDelete.current = lineId;
+      return;
+    }
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const next = removeLine(rows, lineId);
+      phaseRef.current = { ...phaseRef.current, lines: next };
+      setOpenId((current) => (current === lineId ? null : current));
+      setLines(next);
+      return;
+    }
+    armCover(lineId, rows);
+  }
+
   useEffect(() => {
     if (!cover) return;
     if (cover.phase === "shoot") {
@@ -164,11 +210,27 @@ export function StackTable({
     const timer = window.setTimeout(() => {
       const id = cover.id;
       if (advanceDeleteCover(cover) !== "remove") return;
-      setCover((current) => (current && current.id === id ? null : current));
-      setCoverLive(false);
       const kept = removeLine(linesRef.current, id);
+      const queued = queuedCoverId(id, queuedDelete.current);
+      queuedDelete.current = null;
       phaseRef.current = { ...phaseRef.current, lines: kept };
+      setCover(null);
+      setCoverLive(false);
       setLines(kept);
+      if (!queued || !kept.some((line) => line.id === queued)) return;
+      const nextId = queued;
+      queueFrame.current = window.requestAnimationFrame(() => {
+        if (coverRef.current) return;
+        if (!linesRef.current.some((line) => line.id === nextId)) return;
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          const quieter = removeLine(linesRef.current, nextId);
+          phaseRef.current = { ...phaseRef.current, lines: quieter };
+          setOpenId((current) => (current === nextId ? null : current));
+          setLines(quieter);
+          return;
+        }
+        armCover(nextId, linesRef.current);
+      });
     }, COVER_SLIDE_MS + COVER_FRAME_MS);
     return () => {
       window.cancelAnimationFrame(frame);
@@ -388,10 +450,11 @@ export function StackTable({
           return (
             <SwipeCard
               key={line ? line.id : `blank-${index}`}
-              id={line ? `${line.id}-${index}` : `blank-${index}`}
+              id={line ? line.id : `blank-${index}`}
               label={line?.description ?? "entry"}
               open={line != null && openId === line.id}
-              locked={shift !== null || blank || cover !== null}
+              locked={deleteRowLocked(shift !== null, blank, cover?.id ?? null, line?.id ?? null)}
+              leaving={line != null && cover?.id === line.id}
               cover={coverRole}
               coverShift={sliding ? cover.distance : 0}
               shell={shell}
@@ -403,20 +466,10 @@ export function StackTable({
                 setOpenId((current) => (current === line.id ? null : current));
               }}
               onDelete={() => {
-                if (!line || shift || cover) return;
-                setOpenId((current) => (current === line.id ? null : current));
-                const next = removeLine(lines, line.id);
-                phaseRef.current = { ...phaseRef.current, lines: next };
-                setLines(next);
+                if (line) requestDelete(line.id);
               }}
               onDepart={() => {
-                if (!line || shift || cover) return;
-                const node = document.querySelector(`[data-swipe-id="${CSS.escape(`${line.id}-${index}`)}"]`);
-                const rowHeight = node instanceof HTMLElement ? node.offsetHeight : 0;
-                const totalNode = boardRef.current?.querySelector(".split-total");
-                const totalHeight = totalNode instanceof HTMLElement ? totalNode.offsetHeight : 0;
-                setOpenId((current) => (current === line.id ? null : current));
-                setCover(beginDeleteCover(line.id, index, lines.length, rowHeight, totalHeight));
+                if (line) requestDelete(line.id);
               }}
             >
             <div className="stack-card" data-rows={2} style={{ ["--flap-cols" as string]: FLAP_BOARD_COLUMNS }}>

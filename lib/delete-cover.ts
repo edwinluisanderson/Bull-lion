@@ -92,3 +92,23 @@ export function collapseInset(tail: boolean, index: number, gap = STACK_ROW_GAP_
   if (!tail || index <= 0) return 0;
   return gap;
 }
+
+/**
+ * Only the row that is already shooting ignores a new swipe.
+ * The cards below stay openable while that row is being covered.
+ */
+export function deleteRowLocked(
+  shifting: boolean,
+  blank: boolean,
+  coverId: string | null,
+  lineId: string | null,
+): boolean {
+  if (shifting || blank) return true;
+  return coverId != null && lineId != null && coverId === lineId;
+}
+
+/** One waiting delete. It starts after the active row is actually removed. */
+export function queuedCoverId(activeId: string, queuedId: string | null): string | null {
+  if (!queuedId || queuedId === activeId) return null;
+  return queuedId;
+}

@@ -82,7 +82,7 @@ test("the alarm stops as soon as a locked card starts to close", () => {
   assert.equal(cardAlarmLive(true, true, false), false);
   assert.equal(cardAlarmLive(true, false, true), false);
   assert.equal(cardAlarmLive(false, false, false), false);
-  assert.match(card, /cardAlarmLive\(open, dragging, departing\)/);
+  assert.match(card, /cardAlarmLive\(open, dragging, leaving\)/);
   assert.match(card, /lockDragArmed/);
   assert.match(card, /lockDragMoved/);
   assert.match(card, /lockDragSettled/);
