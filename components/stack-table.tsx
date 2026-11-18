@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { SplitFlap } from "@/components/split-flap";
+import { watchFlapBoard } from "@/lib/flap-sound";
 import { SwipeCard } from "@/components/swipe-card";
 import { unlockReelClick } from "@/lib/reel-click";
 import {
@@ -69,7 +70,14 @@ export function StackTable({
   const [shiftStep, setShiftStep] = useState(0);
   const finalRef = useRef<StackLine[] | null>(null);
   const linesRef = useRef(lines);
+  const boardRef = useRef<HTMLElement>(null);
   linesRef.current = lines;
+
+  useLayoutEffect(() => {
+    const board = boardRef.current;
+    if (!board) return;
+    return watchFlapBoard(board);
+  }, []);
 
   useEffect(() => {
     setLines(readStack(window.localStorage));
@@ -188,7 +196,7 @@ export function StackTable({
       : null;
 
   return (
-    <section className="split-stack" aria-label="My Stack">
+    <section ref={boardRef} className="split-stack" aria-label="My Stack">
       <div className="split-stack-head">
         <p className="split-stack-title">My Stack</p>
         <button type="button" className="stack-add" onClick={addCurrent} disabled={!selection || shift !== null}>
