@@ -2,12 +2,7 @@
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 
-import {
-  DELETE_AHOOGA_EVERY_MS,
-  DELETE_LINGER_MS,
-  playDeleteAhooga,
-  stopDeleteAhooga,
-} from "@/lib/delete-alarm";
+import { DELETE_AHOOGA_EVERY_MS, playDeleteAhooga, stopDeleteAhooga } from "@/lib/delete-alarm";
 import { playSwipeTone } from "@/lib/flap-sound";
 import {
   cardAlarmLive,
@@ -34,18 +29,28 @@ export function SwipeCard({
   label,
   open,
   locked = false,
+  cover = "row",
+  coverShift = 0,
+  shell = null,
   onOpen,
   onClose,
   onDelete,
+  onDepart,
   children,
 }: {
   id: string;
   label: string;
   open: boolean;
   locked?: boolean;
+  /** "arm" readies the slot, "over" pulls the rows up across it, "front" paints a row above it. */
+  cover?: "row" | "arm" | "over" | "front";
+  coverShift?: number;
+  /** Last-card collapse: an explicit height that then eases to zero. */
+  shell?: { height: number; marginTop: number } | null;
   onOpen: () => void;
   onClose: () => void;
   onDelete: () => void;
+  onDepart: () => void;
   children: ReactNode;
 }) {
   const [offset, setOffset] = useState(0);
@@ -64,10 +69,7 @@ export function SwipeCard({
     offset: 0,
     endedAt: Number.NEGATIVE_INFINITY,
   });
-  const departTimer = useRef(0);
   const shown = dragging || departing ? offset : open ? SWIPE_REVEAL_PX : 0;
-
-  useEffect(() => () => window.clearTimeout(departTimer.current), []);
 
   const alarmLive = cardAlarmLive(open, dragging, departing);
 
@@ -183,7 +185,7 @@ export function SwipeCard({
       return;
     }
     setDeparting(true);
-    departTimer.current = window.setTimeout(() => onDelete(), DELETE_LINGER_MS);
+    onDepart();
   }
 
   function onLeverClick() {
@@ -195,11 +197,17 @@ export function SwipeCard({
 
   return (
     <li
-      className={`stack-swipe${shown > 0 || departing ? " is-raised" : ""}${departing ? " is-departing" : ""}`}
+      className={`stack-swipe${shown > 0 || departing ? " is-raised" : ""}${departing ? " is-departing" : ""}${cover === "arm" || cover === "over" || shell ? " is-remnant" : ""}${cover === "arm" || cover === "over" ? " is-cover-ready" : ""}${cover === "over" ? " is-covering" : ""}${cover === "front" ? " is-cover-front" : ""}${shell ? " is-collapsing" : ""}`}
       data-swipe-id={id}
       data-open={open ? "true" : "false"}
       data-alarm={alarm}
-      style={{ ["--reveal" as string]: `${SWIPE_REVEAL_PX}px`, ["--swipe" as string]: `${shown}px` }}
+      style={{
+        ["--reveal" as string]: `${SWIPE_REVEAL_PX}px`,
+        ["--swipe" as string]: `${shown}px`,
+        ["--cover" as string]: cover === "arm" || cover === "over" ? `${coverShift}px` : undefined,
+        height: shell ? `${shell.height}px` : undefined,
+        marginTop: shell ? `${shell.marginTop}px` : undefined,
+      }}
     >
       {alarm === "open" ? <div className="delete-alarm-glow" aria-hidden="true" /> : null}
       <button

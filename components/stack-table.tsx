@@ -3,6 +3,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { SplitFlap } from "@/components/split-flap";
+import { DELETE_SHOOT_MS } from "@/lib/delete-alarm";
+import {
+  COVER_FRAME_MS,
+  COVER_SLIDE_MS,
+  advanceDeleteCover,
+  beginDeleteCover,
+  collapseInset,
+  type DeleteCover,
+} from "@/lib/delete-cover";
 import { playSwipeTone, unlockFlapSamples, watchFlapBoard } from "@/lib/flap-sound";
 import { emptyPullAdd, finishPullCascade, notePullAdd, type PullAddResult } from "@/lib/pull-stack";
 import { SwipeCard } from "@/components/swipe-card";
@@ -47,6 +56,28 @@ export type StackQuote = {
   usdPerTroyOz: number;
 };
 
+function coverSlack(): HTMLDivElement {
+  const existing = document.querySelector<HTMLDivElement>("[data-cover-slack]");
+  if (existing) return existing;
+  const spacer = document.createElement("div");
+  spacer.dataset.coverSlack = "";
+  spacer.style.pointerEvents = "none";
+  document.body.appendChild(spacer);
+  return spacer;
+}
+
+/** Drop slack that sits below the viewport. Slack still on screen stays, or the rows snap back. */
+function releaseCoverSlack(): void {
+  const spacer = document.querySelector<HTMLDivElement>("[data-cover-slack]");
+  const root = document.scrollingElement;
+  if (!spacer || !root) return;
+  const spare = root.scrollHeight - root.clientHeight - root.scrollTop;
+  const next = Math.max(0, spacer.offsetHeight - Math.floor(spare));
+  if (next === spacer.offsetHeight) return;
+  spacer.style.height = `${next}px`;
+  if (next === 0) spacer.remove();
+}
+
 function priceFor(quotes: readonly StackQuote[], symbol: string): number | null {
   const quote = quotes.find((entry) => entry.symbol === symbol);
   return quote && Number.isFinite(quote.usdPerTroyOz) ? quote.usdPerTroyOz : null;
@@ -66,6 +97,8 @@ export function StackTable({
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [cover, setCover] = useState<DeleteCover | null>(null);
+  const [coverLive, setCoverLive] = useState(false);
   const [shift, setShift] = useState<StackFace[][] | null>(null);
   const [shiftStep, setShiftStep] = useState(0);
   const finalRef = useRef<StackLine[] | null>(null);
@@ -75,6 +108,7 @@ export function StackTable({
   const selectionRef = useRef(selection);
   const quotesRef = useRef(quotes);
   const boardRef = useRef<HTMLElement>(null);
+  const slackMark = useRef<string | null>(null);
   linesRef.current = lines;
   selectionRef.current = selection;
   quotesRef.current = quotes;
@@ -96,6 +130,51 @@ export function StackTable({
     if (!ready) return;
     writeStack(window.localStorage, lines);
   }, [lines, ready]);
+
+  useLayoutEffect(() => {
+    if (!cover || cover.tail) return;
+    const marker = `${cover.id}:${cover.distance}`;
+    if (slackMark.current === marker) return;
+    slackMark.current = marker;
+    const spacer = coverSlack();
+    spacer.style.height = `${spacer.offsetHeight + cover.distance}px`;
+  }, [cover]);
+
+  useEffect(() => {
+    if (cover) return;
+    const release = () => releaseCoverSlack();
+    release();
+    document.addEventListener("scroll", release, { passive: true });
+    return () => document.removeEventListener("scroll", release);
+  }, [cover]);
+
+  useEffect(() => {
+    if (!cover) return;
+    if (cover.phase === "shoot") {
+      const timer = window.setTimeout(() => {
+        setCover((current) => {
+          if (!current || current.id !== cover.id || current.phase !== "shoot") return current;
+          const next = advanceDeleteCover(current);
+          return next === "remove" ? current : next;
+        });
+      }, DELETE_SHOOT_MS);
+      return () => window.clearTimeout(timer);
+    }
+    const frame = window.requestAnimationFrame(() => setCoverLive(true));
+    const timer = window.setTimeout(() => {
+      const id = cover.id;
+      if (advanceDeleteCover(cover) !== "remove") return;
+      setCover((current) => (current && current.id === id ? null : current));
+      setCoverLive(false);
+      const kept = removeLine(linesRef.current, id);
+      phaseRef.current = { ...phaseRef.current, lines: kept };
+      setLines(kept);
+    }, COVER_SLIDE_MS + COVER_FRAME_MS);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [cover]);
 
   useEffect(() => {
     if (!shift) return;
@@ -282,12 +361,21 @@ export function StackTable({
               <SplitFlap text={line.description} width={FLAP_DESCRIPTION} />
             </button>
           );
+          const sliding = cover != null && line != null && line.id === cover.id && cover.phase === "slide" && !cover.tail;
+          const following = cover != null && cover.phase === "slide" && !cover.tail && index > cover.index;
+          const coverRole = sliding ? (coverLive ? "over" : "arm") : following ? "front" : "row";
+          const shell = cover != null && line != null && line.id === cover.id && cover.phase === "slide" && cover.tail
+            ? {
+                height: coverLive ? 0 : cover.rowHeight,
+                marginTop: coverLive ? -collapseInset(true, cover.index) : 0,
+              }
+            : null;
           const remove = blank ? null : (
             <button
               type="button"
               className="stack-remove"
               aria-label={`Remove ${line.description}`}
-              disabled={shift !== null}
+              disabled={shift !== null || cover !== null}
               onClick={() => {
                 const next = removeLine(lines, line.id);
                 phaseRef.current = { ...phaseRef.current, lines: next };
@@ -299,11 +387,14 @@ export function StackTable({
           );
           return (
             <SwipeCard
-              key={index}
+              key={line ? line.id : `blank-${index}`}
               id={line ? `${line.id}-${index}` : `blank-${index}`}
               label={line?.description ?? "entry"}
               open={line != null && openId === line.id}
-              locked={shift !== null || blank}
+              locked={shift !== null || blank || cover !== null}
+              cover={coverRole}
+              coverShift={sliding ? cover.distance : 0}
+              shell={shell}
               onOpen={() => {
                 if (line) setOpenId(line.id);
               }}
@@ -312,11 +403,20 @@ export function StackTable({
                 setOpenId((current) => (current === line.id ? null : current));
               }}
               onDelete={() => {
-                if (!line || shift) return;
+                if (!line || shift || cover) return;
                 setOpenId((current) => (current === line.id ? null : current));
                 const next = removeLine(lines, line.id);
                 phaseRef.current = { ...phaseRef.current, lines: next };
                 setLines(next);
+              }}
+              onDepart={() => {
+                if (!line || shift || cover) return;
+                const node = document.querySelector(`[data-swipe-id="${CSS.escape(`${line.id}-${index}`)}"]`);
+                const rowHeight = node instanceof HTMLElement ? node.offsetHeight : 0;
+                const totalNode = boardRef.current?.querySelector(".split-total");
+                const totalHeight = totalNode instanceof HTMLElement ? totalNode.offsetHeight : 0;
+                setOpenId((current) => (current === line.id ? null : current));
+                setCover(beginDeleteCover(line.id, index, lines.length, rowHeight, totalHeight));
               }}
             >
             <div className="stack-card" data-rows={2} style={{ ["--flap-cols" as string]: FLAP_BOARD_COLUMNS }}>
@@ -362,7 +462,14 @@ export function StackTable({
         })}
       </ul>
       {lines.length > 0 ? (
-        <div className="split-total">
+        <div
+          className={`split-total${cover?.phase === "slide" && !cover.tail ? " is-cover-front" : ""}${cover?.phase === "slide" && cover.tail ? " is-rise" : ""}${cover?.phase === "slide" && cover.solo ? " is-collapsing" : ""}`}
+          style={
+            cover?.phase === "slide" && cover.solo
+              ? { height: coverLive ? 0 : cover.totalHeight, marginTop: coverLive ? 0 : undefined }
+              : undefined
+          }
+        >
           <span className="split-total-label">Total</span>
           <span className="split-total-flaps" style={{ ["--total-flaps" as string]: FLAP_TOTAL_COLUMNS }}>
             <SplitFlap text={fitFlapMoney(flapMoney(total), FLAP_TOTAL_COLUMNS)} width={FLAP_TOTAL_COLUMNS} />

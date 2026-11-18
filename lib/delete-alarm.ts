@@ -13,9 +13,8 @@ export const DELETE_AHOOGA_URL = "/sounds/delete-ahooga.mp3";
 /** Repeat while the card stays locked open. A few seconds between blasts. */
 export const DELETE_AHOOGA_EVERY_MS = 4500;
 export const DELETE_AHOOGA_GAIN = 0.42;
-/** Card face travel, then the button lingers before the row is removed. */
+/** Card face travel. The shell stays until the rows below cover it. */
 export const DELETE_SHOOT_MS = 460;
-export const DELETE_LINGER_MS = 860;
 
 export function deleteAlarmAllowed(visibilityState: string, soundOn: boolean): boolean {
   return soundOn && visibilityState === "visible";
