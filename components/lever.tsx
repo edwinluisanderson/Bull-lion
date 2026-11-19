@@ -2,10 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { pointerPullCommits, pullStage, stageBendDegrees, type PullStage } from "@/lib/drum";
+import { pullStage, stageBendDegrees, type PullStage } from "@/lib/drum";
 import {
-  LEVER_CLUNK_AT,
-  LEVER_CLUNK_HOLD_MS,
   LEVER_PULL_MS,
   LEVER_RETURN_MS,
   armPose,
@@ -13,7 +11,7 @@ import {
   leverReturnCurve,
   ratchetTooth,
 } from "@/lib/lever-motion";
-import { leverClunk, leverTick } from "@/lib/lever-sound";
+import { leverTick } from "@/lib/lever-sound";
 import { PULL_WORD_PATH } from "@/lib/pull-word";
 import { unlockReelClick, reelSnap } from "@/lib/reel-click";
 import { armSpinOverlay } from "@/lib/spin-overlay";
@@ -31,7 +29,6 @@ export function PullBall({
   const [midlineGap, setMidlineGap] = useState(0);
   const [motion, setMotion] = useState<"rest" | "drag" | "return">("rest");
   const [stageAttr, setStageAttr] = useState<PullStage>("a");
-  const [clunks, setClunks] = useState(0);
   const ballRef = useRef<HTMLButtonElement>(null);
   const throwRef = useRef(1);
   const originY = useRef<number | null>(null);
@@ -41,7 +38,6 @@ export function PullBall({
   const dragged = useRef(false);
   const frame = useRef(0);
   const toothRef = useRef(0);
-  const clunkedRef = useRef(false);
 
   function reduced() {
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -87,11 +83,6 @@ export function PullBall({
     const tooth = ratchetTooth(travel);
     if (tooth > toothRef.current) leverTick();
     toothRef.current = Math.max(toothRef.current, tooth);
-    if (travel >= LEVER_CLUNK_AT && !clunkedRef.current) {
-      clunkedRef.current = true;
-      leverClunk();
-      setClunks((count) => count + 1);
-    }
   }
 
   function noteStage(stage: PullStage) {
@@ -100,6 +91,7 @@ export function PullBall({
     if (previous === "a" && (stage === "b" || stage === "c")) reelSnap();
     stageRef.current = stage;
     setStageAttr(stage);
+    if (stage === "c" && dragged.current) commitSpin();
   }
 
   function commitSpin() {
@@ -119,7 +111,6 @@ export function PullBall({
     setStageAttr("a");
     committed.current = false;
     toothRef.current = 0;
-    clunkedRef.current = false;
     setMotion("rest");
   }
 
@@ -157,6 +148,7 @@ export function PullBall({
     unlockReelClick();
     armSpinOverlay();
     if (committed.current) return;
+    dragged.current = false;
     measureThrow();
     if (reduced()) {
       commitSpin();
@@ -169,16 +161,10 @@ export function PullBall({
     stopFrame();
     setMotion("drag");
     const start = performance.now();
-    let bottomAt = 0;
     const step = (now: number) => {
       const t = Math.min(1, (now - start) / LEVER_PULL_MS);
       dragTo(t);
       if (t >= 1) {
-        if (!bottomAt) bottomAt = now;
-        if (now - bottomAt < LEVER_CLUNK_HOLD_MS) {
-          frame.current = requestAnimationFrame(step);
-          return;
-        }
         commitSpin();
         glideHome(true);
         return;
@@ -203,11 +189,7 @@ export function PullBall({
           <i data-rivet="t" />
           <i data-rivet="b" />
         </span>
-        <span
-          key={clunks}
-          className={`pull-drum${clunks ? " is-clunk" : ""}`}
-          style={{ ["--rib-shift" as string]: `${arm.ribShift.toFixed(2)}px` }}
-        />
+        <span className="pull-drum" style={{ ["--rib-shift" as string]: `${arm.ribShift.toFixed(2)}px` }} />
         <span className="pull-arm" style={{ transform: `translateX(-50%) scaleY(${arm.scaleY.toFixed(4)})` }}>
           <span className="pull-arm-glint" style={{ opacity: 0.55 + 0.45 * arm.toward }} />
         </span>
@@ -225,7 +207,7 @@ export function PullBall({
         <button
           ref={ballRef}
           type="button"
-          className={`pull-ball is-${motion}${clunks && motion !== "rest" ? " is-clunk" : ""}`}
+          className={`pull-ball is-${motion}`}
           aria-label="Pull the ball to spin all three reels"
           data-stage={stageAttr}
           data-throw={Math.round(throwPx)}
@@ -253,10 +235,7 @@ export function PullBall({
               window.removeEventListener("pointerup", onUp);
               window.removeEventListener("pointercancel", onUp);
               originY.current = null;
-              const end = up.type === "pointercancel" ? "cancel" : "release";
-              const commit = pointerPullCommits(dragged.current, travelRef.current, end);
-              if (commit) commitSpin();
-              if (travelRef.current > 0) glideHome(commit);
+              if (travelRef.current > 0) glideHome(committed.current);
               else setMotion("rest");
             };
             window.addEventListener("pointermove", onMove);

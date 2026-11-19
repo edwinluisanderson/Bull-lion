@@ -2,13 +2,10 @@ import { reelAudioContext } from "@/lib/reel-click";
 
 /**
  * Synthesized lever sounds, no new audio files. Shares the reel-click AudioContext.
- * Ratchet tick: 14ms band-passed noise at 3.2kHz, gain 0.10.
- * Clunk: 70ms noise thump low-passed at 900Hz, plus a 110Hz to 48Hz sine drop over 140ms, gain 0.35.
+ * Ratchet tick: 14ms band-passed noise at 3.2kHz, gain 0.10, with a 6ms buzz.
  */
 export const LEVER_TICK_GAIN = 0.1;
-export const LEVER_CLUNK_GAIN = 0.35;
 export const LEVER_TICK_VIBRATE_MS = 6;
-export const LEVER_CATCH_VIBRATE: number[] = [32, 40, 14];
 
 function noise(ctx: AudioContext, seconds: number): AudioBuffer {
   const length = Math.max(1, Math.floor(ctx.sampleRate * seconds));
@@ -18,7 +15,7 @@ function noise(ctx: AudioContext, seconds: number): AudioBuffer {
   return data;
 }
 
-function vibrate(pattern: number | number[]): void {
+function vibrate(pattern: number): void {
   try {
     if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
     navigator.vibrate(pattern);
@@ -42,36 +39,6 @@ export function leverTick(): void {
     gain.gain.value = LEVER_TICK_GAIN;
     source.connect(band).connect(gain).connect(ctx.destination);
     source.start();
-  } catch {
-    /* Audio is optional. */
-  }
-}
-
-export function leverClunk(): void {
-  vibrate(LEVER_CATCH_VIBRATE);
-  try {
-    const ctx = reelAudioContext();
-    if (!ctx || ctx.state !== "running") return;
-    const now = ctx.currentTime;
-    const thump = ctx.createBufferSource();
-    thump.buffer = noise(ctx, 0.07);
-    const low = ctx.createBiquadFilter();
-    low.type = "lowpass";
-    low.frequency.value = 900;
-    const tg = ctx.createGain();
-    tg.gain.value = LEVER_CLUNK_GAIN;
-    thump.connect(low).connect(tg).connect(ctx.destination);
-    thump.start(now);
-    const osc = ctx.createOscillator();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(110, now);
-    osc.frequency.exponentialRampToValueAtTime(48, now + 0.14);
-    const og = ctx.createGain();
-    og.gain.setValueAtTime(LEVER_CLUNK_GAIN, now);
-    og.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
-    osc.connect(og).connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.17);
   } catch {
     /* Audio is optional. */
   }

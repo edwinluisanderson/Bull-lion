@@ -126,10 +126,11 @@ test("a pull adds its own line, and the board has no Add button", () => {
   assert.equal(table.includes("setPending"), false);
 });
 
-test("the handle still only commits at the bottom, and the spin snapshots before the token", () => {
-  assert.match(lever, /pointerPullCommits\(dragged\.current, travelRef\.current, end\)/);
-  assert.match(lever, /if \(commit\) commitSpin\(\)/);
+test("a drag launches at stage C, and the spin snapshots before the token", () => {
+  assert.match(lever, /if \(stage === "c" && dragged\.current\) commitSpin\(\)/);
+  assert.match(lever, /if \(travelRef\.current > 0\) glideHome\(committed\.current\)/);
   assert.match(lever, /function commitSpin\(\) \{\s*if \(committed\.current\) return;/);
+  assert.equal(lever.includes("leverClunk"), false);
   assert.match(lever, /onKeyDown=\{[\s\S]*fullPull\(\)/);
   assert.equal(lever.includes("onClick"), false);
   assert.match(lever, /onCommit\(\)/);

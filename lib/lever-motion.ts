@@ -7,18 +7,14 @@
  * midline, hanging down past it. The arm is drawn at its rest length and scaled.
  */
 
-/** Pull animation for a tap or Enter. Unchanged from the ball-and-bar lever. */
+/** Pull animation for Enter or Space. */
 export const LEVER_PULL_MS = 420;
-/** Pause at the bottom so the clunk reads before the return. */
-export const LEVER_CLUNK_HOLD_MS = 90;
 /** Return to rest, including the single overshoot bounce. */
 export const LEVER_RETURN_MS = 520;
 /** Overshoot above rest, as a fraction of the throw (about 8px on a 272px throw). */
 export const LEVER_OVERSHOOT = 0.03;
 /** Ratchet teeth across stage A (0 to 75% travel). */
 export const LEVER_TEETH = 8;
-/** Travel at which the arm hits the stop and clunks. */
-export const LEVER_CLUNK_AT = 0.985;
 /** Drum radius used to scroll the ribs with the arm angle. */
 export const DRUM_RIB_RADIUS_PX = 18;
 /** How far the ball rolls forward at the bottom. 80 degrees leaves a sliver of PULL at the lower edge. */

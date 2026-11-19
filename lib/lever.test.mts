@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
-  LEVER_CLUNK_AT,
   LEVER_OVERSHOOT,
   LEVER_PULL_MS,
   LEVER_RETURN_MS,
@@ -25,12 +24,23 @@ import {
 const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 const lever = readFileSync(new URL("../components/lever.tsx", import.meta.url), "utf8");
 
-test("the pull keeps its timing and a drag commits only when it is released", () => {
+test("a real drag launches at stage C and release does not launch again", () => {
   assert.equal(LEVER_PULL_MS, 420);
   assert.equal(LEVER_RETURN_MS, 520);
-  assert.match(lever, /pointerPullCommits\(dragged\.current, travelRef\.current, end\)/);
-  assert.match(lever, /if \(commit\) commitSpin\(\)/);
-  assert.equal(lever.includes('if (stage === "c" && !committed.current)'), false);
+  assert.match(lever, /if \(stage === "c" && dragged\.current\) commitSpin\(\)/);
+  assert.match(lever, /function commitSpin\(\) \{\s*if \(committed\.current\) return;/);
+  assert.match(lever, /if \(travelRef\.current > 0\) glideHome\(committed\.current\)/);
+  assert.equal(lever.includes("pointerPullCommits"), false);
+  assert.equal(lever.includes("onClick"), false);
+  assert.equal(lever.includes("leverClunk"), false);
+  assert.equal(lever.includes("LEVER_CLUNK"), false);
+  assert.equal(lever.includes("is-clunk"), false);
+  const release = lever.slice(lever.indexOf("const onUp"), lever.indexOf("window.addEventListener(\"pointermove\""));
+  assert.equal(release.includes("commitSpin"), false);
+  assert.match(lever, /onKeyDown=\{[\s\S]*?fullPull\(\)/);
+  const keyboard = lever.slice(lever.indexOf("function fullPull"), lever.indexOf("const drop"));
+  assert.match(keyboard, /commitSpin\(\)/);
+  assert.match(keyboard, /dragged\.current = false/);
 });
 
 test("the return overshoots once and stops cleanly at rest", () => {
@@ -70,11 +80,13 @@ test("the legend rolls down the ball with the pull", () => {
   assert.match(lever, /clipPath="url\(#pull-legend-clip\)"/);
 });
 
-test("ratchet teeth stop before the kicker and the clunk is at the bottom", () => {
+test("ratchet teeth stop before the kicker and a full travel has no lever clunk", () => {
   assert.equal(ratchetTooth(0), 0);
   assert.equal(ratchetTooth(0.74), 7);
   assert.equal(ratchetTooth(1), 7);
-  assert.ok(LEVER_CLUNK_AT > 0.95 && LEVER_CLUNK_AT < 1);
+  assert.equal(lever.includes("leverClunk"), false);
+  assert.equal(css.includes("pull-ball-clunk"), false);
+  assert.equal(css.includes("pull-drum-jolt"), false);
 });
 
 test("the lever stays in the 48px column above the cabinet ring", () => {

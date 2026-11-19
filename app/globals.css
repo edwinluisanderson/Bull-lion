@@ -539,16 +539,6 @@ button,
     0 3px 5px rgba(0, 0, 0, 0.6);
 }
 
-.pull-drum.is-clunk {
-  animation: pull-drum-jolt 140ms ease-out;
-}
-
-@keyframes pull-drum-jolt {
-  0% { transform: translateX(-50%) translateY(0); }
-  35% { transform: translateX(-50%) translateY(1.5px); }
-  100% { transform: translateX(-50%) translateY(0); }
-}
-
 /* Polished chrome rod, 14px at the hub tapering to 9px at the ball. Pivots on the hub axis. */
 .pull-arm {
   position: absolute;
@@ -656,16 +646,6 @@ button,
       0 0 0 1.5px rgba(255, 181, 71, 0.7),
       0 0 7px 1px rgba(255, 122, 26, 0.6);
   }
-}
-
-.pull-ball.is-clunk {
-  animation: pull-ball-clunk 140ms ease-out;
-}
-
-@keyframes pull-ball-clunk {
-  0% { transform: scale(1, 1); }
-  40% { transform: scale(1, 0.93) translateY(1.5px); }
-  100% { transform: scale(1, 1); }
 }
 
 /* MOCKUP (round 8, ?ball=...): alternative ball glass. Only the gradient and its matching inner tints
@@ -2663,8 +2643,6 @@ html[data-ball="cobalt"] .pull-ball {
   .lever-arm.yank,
   .pull-ball,
   .pull-ball.is-rest,
-  .pull-ball.is-clunk,
-  .pull-drum.is-clunk,
   .reel-viewport.is-rolling .reel-cylinder,
   .digit-reel-strip,
   .gauge-needle,
