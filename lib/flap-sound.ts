@@ -237,17 +237,89 @@ function pageVisibility(): string {
 }
 
 /**
- * Delete clunk. About twice the old 0.34, and a little deeper and longer.
- * A sine at this gain peaks at 0.68. The flap sum hard-clips at FLAP_SUM_LIMIT
- * (0.5), so the clunk goes straight to the context output. 0.68 stays under
- * full scale. A flap tick is about 0.12, so the two together still sit under 1.
+ * Delete clunk body. The flap sum hard-clips at 0.5, so this goes straight
+ * to the context output. The body is 0.8 rather than 0.92 so the knock can
+ * sit on top and the two peaks still add to 0.94, under 0.95.
  */
-export const CLUNK_GAIN = 0.68;
+export const CLUNK_GAIN = 0.8;
 export const CLUNK_START_HZ = 130;
 export const CLUNK_END_HZ = 50;
 export const CLUNK_SWEEP_S = 0.13;
-export const CLUNK_DECAY_S = 0.18;
-export const CLUNK_STOP_S = 0.19;
+export const CLUNK_DECAY_S = 0.28;
+export const CLUNK_STOP_S = 0.3;
+/** Short triangle blip so a small speaker still has an attack. */
+export const CLUNK_KNOCK_GAIN = 0.14;
+export const CLUNK_KNOCK_HZ = 220;
+export const CLUNK_KNOCK_S = 0.022;
+/** Two quieter copies of the body, low-passed, finished well before 0.6s. */
+export const CLUNK_ECHO_DELAYS_S = [0.11, 0.22] as const;
+export const CLUNK_ECHO_RATIO = 0.4;
+export const CLUNK_ECHO_DECAY_S = 0.2;
+export const CLUNK_ECHO_STOP_S = 0.22;
+export const CLUNK_ECHO_LOWPASS_HZ = 480;
+
+/** Linear peaks of the body and the knock, which start together. */
+export function clunkAttackPeak(body = CLUNK_GAIN, knock = CLUNK_KNOCK_GAIN): number {
+  return body + knock;
+}
+
+/** Gain of echo number `index` (0 is the first repeat). */
+export function clunkEchoGain(index: number, body = CLUNK_GAIN, ratio = CLUNK_ECHO_RATIO): number {
+  return body * ratio ** (index + 1);
+}
+
+/** When the last echo has stopped, in seconds after the hit. */
+export function clunkTailEnd(
+  delays: readonly number[] = CLUNK_ECHO_DELAYS_S,
+  stop = CLUNK_ECHO_STOP_S,
+): number {
+  const last = delays.length === 0 ? 0 : Math.max(...delays);
+  return last + stop;
+}
+
+function playDeleteClunk(ctx: AudioContext, now: number): void {
+  const body = ctx.createOscillator();
+  const bodyGain = ctx.createGain();
+  body.type = "sine";
+  body.frequency.setValueAtTime(CLUNK_START_HZ, now);
+  body.frequency.exponentialRampToValueAtTime(CLUNK_END_HZ, now + CLUNK_SWEEP_S);
+  bodyGain.gain.setValueAtTime(CLUNK_GAIN, now);
+  bodyGain.gain.exponentialRampToValueAtTime(0.001, now + CLUNK_DECAY_S);
+  body.connect(bodyGain);
+  bodyGain.connect(ctx.destination);
+  body.start(now);
+  body.stop(now + CLUNK_STOP_S);
+
+  const knock = ctx.createOscillator();
+  const knockGain = ctx.createGain();
+  knock.type = "triangle";
+  knock.frequency.setValueAtTime(CLUNK_KNOCK_HZ, now);
+  knockGain.gain.setValueAtTime(CLUNK_KNOCK_GAIN, now);
+  knockGain.gain.exponentialRampToValueAtTime(0.001, now + CLUNK_KNOCK_S);
+  knock.connect(knockGain);
+  knockGain.connect(ctx.destination);
+  knock.start(now);
+  knock.stop(now + CLUNK_KNOCK_S);
+
+  CLUNK_ECHO_DELAYS_S.forEach((delay, index) => {
+    const when = now + delay;
+    const echo = ctx.createOscillator();
+    const echoGain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(CLUNK_ECHO_LOWPASS_HZ, when);
+    echo.type = "sine";
+    echo.frequency.setValueAtTime(CLUNK_START_HZ, when);
+    echo.frequency.exponentialRampToValueAtTime(CLUNK_END_HZ, when + CLUNK_SWEEP_S);
+    echoGain.gain.setValueAtTime(clunkEchoGain(index), when);
+    echoGain.gain.exponentialRampToValueAtTime(0.001, when + CLUNK_ECHO_DECAY_S);
+    echo.connect(filter);
+    filter.connect(echoGain);
+    echoGain.connect(ctx.destination);
+    echo.start(when);
+    echo.stop(when + CLUNK_ECHO_STOP_S);
+  });
+}
 
 /** Brass tick as the card crosses the track detent, or the heavier delete clunk. */
 export function playSwipeTone(kind: "detent" | "clunk"): void {
@@ -257,18 +329,21 @@ export function playSwipeTone(kind: "detent" | "clunk"): void {
     if (!ctx) return;
     if (ctx.state === "suspended") void ctx.resume().catch(() => {});
     const now = ctx.currentTime;
+    if (kind === "clunk") {
+      playDeleteClunk(ctx, now);
+      return;
+    }
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    const clunk = kind === "clunk";
-    osc.type = clunk ? "sine" : "triangle";
-    osc.frequency.setValueAtTime(clunk ? CLUNK_START_HZ : 880, now);
-    osc.frequency.exponentialRampToValueAtTime(clunk ? CLUNK_END_HZ : 420, now + (clunk ? CLUNK_SWEEP_S : 0.04));
-    gain.gain.setValueAtTime(clunk ? CLUNK_GAIN : 0.16, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + (clunk ? CLUNK_DECAY_S : 0.05));
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(880, now);
+    osc.frequency.exponentialRampToValueAtTime(420, now + 0.04);
+    gain.gain.setValueAtTime(0.16, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
     osc.connect(gain);
-    gain.connect(clunk ? ctx.destination : flapSum(ctx));
+    gain.connect(flapSum(ctx));
     osc.start(now);
-    osc.stop(now + (clunk ? CLUNK_STOP_S : 0.06));
+    osc.stop(now + 0.06);
   } catch {
     /* Audio is optional. */
   }

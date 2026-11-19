@@ -4,13 +4,23 @@ import test from "node:test";
 
 import {
   CLUNK_DECAY_S,
+  CLUNK_ECHO_DECAY_S,
+  CLUNK_ECHO_DELAYS_S,
+  CLUNK_ECHO_LOWPASS_HZ,
+  CLUNK_ECHO_RATIO,
+  CLUNK_ECHO_STOP_S,
   CLUNK_END_HZ,
   CLUNK_GAIN,
+  CLUNK_KNOCK_GAIN,
+  CLUNK_KNOCK_HZ,
+  CLUNK_KNOCK_S,
   CLUNK_START_HZ,
   CLUNK_STOP_S,
   CLUNK_SWEEP_S,
   FLAP_BOARD_THRESHOLD,
-  FLAP_SUM_LIMIT,
+  clunkAttackPeak,
+  clunkEchoGain,
+  clunkTailEnd,
   flapSoundAllowed,
   playFlapSound,
   resetFlapSoundForTests,
@@ -148,22 +158,41 @@ test("playFlapSound follows the board and the page, and other clicks do not", ()
   assert.match(flap, /playFlapSound\(\)/);
 });
 
-test("the delete clunk is louder and longer, and it skips the flap clip", () => {
-  assert.equal(CLUNK_GAIN, 0.68);
+test("the delete clunk is a loud low body, a short knock, and a short echo", () => {
+  assert.equal(CLUNK_GAIN, 0.8);
   assert.equal(CLUNK_START_HZ, 130);
   assert.equal(CLUNK_END_HZ, 50);
   assert.equal(CLUNK_SWEEP_S, 0.13);
-  assert.equal(CLUNK_DECAY_S, 0.18);
-  assert.equal(CLUNK_STOP_S, 0.19);
-  assert.ok(CLUNK_GAIN > FLAP_SUM_LIMIT);
-  assert.ok(CLUNK_GAIN < 1);
-  const swipe = sound.slice(sound.indexOf("export function playSwipeTone"), sound.indexOf("export function playFlapSound"));
-  assert.match(swipe, /if \(!spinSoundEnabled\(\)\) return/);
-  assert.match(swipe, /clunk \? ctx\.destination : flapSum\(ctx\)/);
-  assert.match(swipe, /clunk \? CLUNK_GAIN : 0\.16/);
-  assert.match(swipe, /clunk \? CLUNK_START_HZ : 880/);
-  assert.match(swipe, /clunk \? CLUNK_END_HZ : 420/);
-  assert.match(swipe, /clunk \? CLUNK_SWEEP_S : 0\.04/);
-  assert.match(swipe, /clunk \? CLUNK_DECAY_S : 0\.05/);
-  assert.match(swipe, /clunk \? CLUNK_STOP_S : 0\.06/);
+  assert.equal(CLUNK_DECAY_S, 0.28);
+  assert.equal(CLUNK_STOP_S, 0.3);
+  assert.equal(CLUNK_KNOCK_HZ, 220);
+  assert.equal(CLUNK_KNOCK_GAIN, 0.14);
+  assert.ok(CLUNK_KNOCK_GAIN < CLUNK_GAIN);
+  assert.ok(CLUNK_KNOCK_S >= 0.015 && CLUNK_KNOCK_S <= 0.03);
+  assert.ok(clunkAttackPeak() <= 0.95);
+  assert.ok(clunkAttackPeak() < 1);
+  assert.deepEqual([...CLUNK_ECHO_DELAYS_S], [0.11, 0.22]);
+  assert.equal(CLUNK_ECHO_RATIO, 0.4);
+  assert.ok(CLUNK_ECHO_DELAYS_S[0] >= 0.09 && CLUNK_ECHO_DELAYS_S[0] <= 0.14);
+  assert.ok(CLUNK_ECHO_DELAYS_S[1] - CLUNK_ECHO_DELAYS_S[0] >= 0.09);
+  assert.ok(Math.abs(clunkEchoGain(0) - 0.32) < 1e-12);
+  assert.ok(Math.abs(clunkEchoGain(1) - 0.128) < 1e-12);
+  assert.ok(clunkEchoGain(0) < CLUNK_GAIN * 0.45 && clunkEchoGain(0) > CLUNK_GAIN * 0.35);
+  assert.equal(CLUNK_ECHO_LOWPASS_HZ, 480);
+  assert.equal(CLUNK_ECHO_DECAY_S, 0.2);
+  assert.equal(CLUNK_ECHO_STOP_S, 0.22);
+  assert.ok(clunkTailEnd() <= 0.6);
+  assert.equal(clunkTailEnd(), 0.44);
+  const tone = sound.slice(sound.indexOf("export function playSwipeTone"), sound.indexOf("export function playFlapSound"));
+  assert.match(tone, /if \(!spinSoundEnabled\(\)\) return/);
+  assert.match(tone, /playDeleteClunk\(ctx, now\)/);
+  assert.match(tone, /gain\.connect\(flapSum\(ctx\)\)/);
+  assert.match(tone, /setValueAtTime\(0\.16, now\)/);
+  assert.match(tone, /setValueAtTime\(880, now\)/);
+  const clunk = sound.slice(sound.indexOf("function playDeleteClunk"), sound.indexOf("export function playSwipeTone"));
+  assert.match(clunk, /bodyGain\.connect\(ctx\.destination\)/);
+  assert.match(clunk, /knockGain\.connect\(ctx\.destination\)/);
+  assert.match(clunk, /echoGain\.connect\(ctx\.destination\)/);
+  assert.match(clunk, /type = "lowpass"/);
+  assert.equal(clunk.includes("flapSum"), false);
 });
