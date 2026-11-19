@@ -185,7 +185,7 @@ test("the melt-plate nixie follows the same melt state as the rolling scrap plat
   assert.equal(nixiePlateWidth(1440), nixiePlateWidth(390));
   assert.equal(nixieGap(1440), nixieGap(390));
   assert.match(readout, /const total = meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)/);
-  assert.match(readout, /<NixieReadout spinning=\{spinning\} value=\{formatWholeDollars\(total\)\} \/>/);
+  assert.match(readout, /<WheelReadout value=\{meltWheelLabel\(total\)\} \/>/);
   assert.equal(readout.includes("RollingPrice"), false);
   assert.match(readout, /Live wire/);
   assert.equal(NIXIE_IGNITE_MS, 620);
