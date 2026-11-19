@@ -37,10 +37,32 @@ test("a real drag launches at stage C and release does not launch again", () => 
   assert.equal(lever.includes("is-clunk"), false);
   const release = lever.slice(lever.indexOf("const onUp"), lever.indexOf("window.addEventListener(\"pointermove\""));
   assert.equal(release.includes("commitSpin"), false);
+  assert.equal(release.includes("leverRelease"), false);
   assert.match(lever, /onKeyDown=\{[\s\S]*?fullPull\(\)/);
   const keyboard = lever.slice(lever.indexOf("function fullPull"), lever.indexOf("const drop"));
   assert.match(keyboard, /commitSpin\(\)/);
   assert.match(keyboard, /dragged\.current = false/);
+});
+
+test("the release thunk plays once inside the commit, not on the way home", () => {
+  const sound = readFileSync(new URL("../lib/lever-sound.ts", import.meta.url), "utf8");
+  assert.match(lever, /function commitSpin\(\) \{[\s\S]*?leverRelease\(\);[\s\S]*?onCommit\(\)/);
+  assert.equal(lever.split("leverRelease()").length - 1, 1);
+  assert.equal(lever.includes("leverClunk"), false);
+  assert.match(sound, /export function leverRelease\(\)/);
+  assert.match(sound, /RELEASE_START_HZ = 140/);
+  assert.match(sound, /RELEASE_END_HZ = 70/);
+  assert.match(sound, /RELEASE_SWEEP_S = 0\.06/);
+  assert.match(sound, /RELEASE_GAIN = 0\.18/);
+  assert.match(sound, /RELEASE_DECAY_S = 0\.09/);
+  assert.match(sound, /RELEASE_FLOOR = 0\.001/);
+  assert.match(sound, /RELEASE_NOISE_HZ = 800/);
+  assert.match(sound, /RELEASE_NOISE_S = 0\.015/);
+  assert.match(sound, /RELEASE_NOISE_GAIN = 0\.06/);
+  assert.match(sound, /osc\.connect\(tone\)\.connect\(ctx\.destination\)/);
+  assert.match(sound, /tap\.connect\(low\)\.connect\(tapGain\)\.connect\(ctx\.destination\)/);
+  assert.equal(sound.includes("flapSum"), false);
+  assert.equal(sound.includes("leverClunk"), false);
 });
 
 test("the return overshoots once and stops cleanly at rest", () => {

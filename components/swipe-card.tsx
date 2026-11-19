@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 
 import { DELETE_AHOOGA_EVERY_MS, playDeleteAhooga, stopDeleteAhooga } from "@/lib/delete-alarm";
+import { reusedSlotMustSnap } from "@/lib/delete-cover";
 import { playSwipeTone } from "@/lib/flap-sound";
 import {
   cardAlarmLive,
@@ -59,6 +60,9 @@ export function SwipeCard({
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const phase = useRef<LockDrag>(freshLockDrag(0));
+  const faceRef = useRef<HTMLDivElement>(null);
+  const prevId = useRef(id);
+  const prevLeaving = useRef(leaving);
   const drag = useRef({
     pointer: -1,
     axis: "undecided" as SwipeAxis,
@@ -80,6 +84,24 @@ export function SwipeCard({
     stopDeleteAhooga();
     playSwipeTone("clunk");
   }, [leaving]);
+
+  useLayoutEffect(() => {
+    const face = faceRef.current;
+    const snap = reusedSlotMustSnap(prevId.current, id, prevLeaving.current, leaving);
+    prevId.current = id;
+    prevLeaving.current = leaving;
+    if (!face || !snap) return;
+    setOffset(0);
+    setDragging(false);
+    drag.current.offset = 0;
+    drag.current.pointer = -1;
+    drag.current.axis = "undecided";
+    face.style.transition = "none";
+    face.style.transform = "translateX(0px)";
+    void face.offsetWidth;
+    face.style.transition = "";
+    face.style.transform = "";
+  }, [id, leaving]);
 
   useEffect(() => {
     if (!alarmLive) return;
@@ -234,6 +256,7 @@ export function SwipeCard({
         </span>
       </button>
       <div
+        ref={faceRef}
         className={dragging ? "stack-swipe-face is-dragging" : "stack-swipe-face"}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

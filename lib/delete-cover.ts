@@ -107,6 +107,22 @@ export function deleteRowLocked(
   return coverId != null && lineId != null && coverId === lineId;
 }
 
+/**
+ * Index keys reuse the deleted row's element for the card that slid into its slot.
+ * That element still has the shoot-off transform. It must snap home, not transition,
+ * or the card that just covered the hole flicks off to the side and back.
+ * A new id in the same slot, or leaving ending, both mean the shoot-off is over.
+ */
+export function reusedSlotMustSnap(
+  previousId: string | null,
+  nextId: string,
+  wasLeaving: boolean,
+  leaving: boolean,
+): boolean {
+  if (wasLeaving && !leaving) return true;
+  return previousId != null && previousId !== nextId;
+}
+
 /** One waiting delete. It starts after the active row is actually removed. */
 export function queuedCoverId(activeId: string, queuedId: string | null): string | null {
   if (!queuedId || queuedId === activeId) return null;
