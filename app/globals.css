@@ -461,42 +461,140 @@ button,
   pointer-events: none;
 }
 
+/* Jackpot lever. Everything sits in the same 48px column the ball always used (x 342-390 at 390px). */
+.pull-rig,
 .pull-handle {
   position: absolute;
   z-index: 8;
-  top: calc(0.15rem + 14px + var(--reel-name) - 48px);
+  top: calc(0.15rem + 14px + var(--reel-name) - 48px + var(--pull-lower, 0px));
   right: calc(-1 * var(--side));
   width: 48px;
   height: 48px;
 }
 
-.pull-bar {
+.pull-rig {
+  pointer-events: none;
+}
+
+/* Recessed guide below the hub that the arm drops into. */
+.pull-slot {
+  position: absolute;
+  top: calc(24px + var(--pull-gap));
+  left: 50%;
+  width: 5px;
+  transform: translateX(-50%);
+  border-radius: 3px;
+  background: linear-gradient(90deg, #050302, #1c120b 50%, #050302);
+  box-shadow: 0 0 0 1px rgba(196, 150, 62, 0.55), inset 0 2px 3px rgba(0, 0, 0, 0.9);
+}
+
+/* Slim brass escutcheon the hub is bolted to. */
+.pull-mount {
+  position: absolute;
+  top: calc(24px + var(--pull-gap) - 28px);
+  left: 50%;
+  width: 20px;
+  height: 56px;
+  transform: translateX(-50%);
+  border-radius: 7px;
+  background: linear-gradient(180deg, #f3e2ad 0%, #c4963e 28%, #7a5a22 62%, #e6cb82 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -1px 2px rgba(60, 30, 6, 0.6),
+    0 2px 4px rgba(0, 0, 0, 0.55);
+}
+
+.pull-mount i {
+  position: absolute;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff6dc, #c4963e 55%, #5a3a12);
+  box-shadow: 0 0.5px 0.5px rgba(0, 0, 0, 0.6);
+}
+
+.pull-mount i[data-rivet="t"] { top: 3px; }
+.pull-mount i[data-rivet="b"] { bottom: 3px; }
+
+/* Chrome drum seen side-on. The ribs scroll with the arm angle. */
+.pull-drum {
+  position: absolute;
+  top: calc(24px + var(--pull-gap) - 17px);
+  left: 50%;
+  width: 24px;
+  height: 34px;
+  transform: translateX(-50%);
+  border-radius: 4px / 9px;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.05) 30%, rgba(255, 255, 255, 0.42) 44%, rgba(0, 0, 0, 0) 60%, rgba(0, 0, 0, 0.78) 100%),
+    repeating-linear-gradient(180deg, #6f787f 0 1.2px, #f1f5f7 1.2px 2.2px, #a9b2b8 2.2px 3px, #3f464b 3px 4px);
+  background-position: 0 0, 0 var(--rib-shift, 0px);
+  box-shadow:
+    inset 3px 0 0 #b8862f,
+    inset 4px 0 0 #3a2410,
+    inset -3px 0 0 #e6cb82,
+    inset -4px 0 0 #5a3a12,
+    0 3px 5px rgba(0, 0, 0, 0.6);
+}
+
+.pull-drum.is-clunk {
+  animation: pull-drum-jolt 140ms ease-out;
+}
+
+@keyframes pull-drum-jolt {
+  0% { transform: translateX(-50%) translateY(0); }
+  35% { transform: translateX(-50%) translateY(1.5px); }
+  100% { transform: translateX(-50%) translateY(0); }
+}
+
+/* Polished chrome rod, 14px at the hub tapering to 9px at the ball. Pivots on the hub axis. */
+.pull-arm {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  width: 14px;
+  height: var(--pull-gap);
+  transform-origin: 50% 100%;
+  clip-path: polygon(16% 0, 84% 0, 100% 100%, 0 100%);
+  background: linear-gradient(90deg, #2f3438 0%, #8d979e 16%, #e4eaee 32%, #fff 42%, #c9d1d6 56%, #7d868c 76%, #24282b 100%);
+}
+
+.pull-arm-glint {
+  position: absolute;
+  inset: 0 38% 0 36%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.9) 50%, rgba(255, 255, 255, 0) 100%);
+}
+
+/* Polished cap over the axis where the rod sockets in. */
+.pull-cap {
+  position: absolute;
+  top: calc(24px + var(--pull-gap) - 7px);
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 36% 30%, #fff 0 12%, #d9dee2 26%, #7d868c 62%, #2b2f33 100%);
+  box-shadow: 0 0 0 1.5px #c4963e, 0 0 0 2.5px #3a2410, 0 2px 3px rgba(0, 0, 0, 0.6);
+}
+
+/* Brass collar under the ball. Moves with the ball and foreshortens with the rod. */
+.pull-collar {
   position: absolute;
   z-index: 1;
-  left: 50%;
-  width: 33%;
-  transform: translateX(-50%);
-  pointer-events: none;
-  background: linear-gradient(90deg, #5a6268 0%, #b4bdc4 34%, #f4f7f8 46%, #d7dee3 55%, #8b949b 78%, #4a5156 100%);
-  box-shadow:
-    inset 1px 0 1px rgba(255, 255, 255, 0.55),
-    inset -1px 0 1px rgba(0, 0, 0, 0.35);
-}
-
-.pull-bar[data-end="down"] {
   top: 50%;
-  border-radius: 0 0 999px 999px;
+  left: 50%;
+  width: 18px;
+  height: 7px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #5a3a12, #c4963e 25%, #fff2c8 45%, #e6cb82 60%, #7a5a22 85%, #3a2410);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
 }
 
-.pull-bar[data-end="up"] {
-  bottom: 50%;
-  border-radius: 999px 999px 0 0;
-}
-
-.pull-bar[data-end="none"] {
-  display: none;
-}
-
+/* Turquoise glass ball. Hue from the Download gem. */
 .pull-ball {
   position: relative;
   z-index: 2;
@@ -504,19 +602,16 @@ button,
   width: 100%;
   height: 100%;
   place-items: center;
+  overflow: visible;
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: radial-gradient(circle at 32% 30%, #f3d7b0, #8d4e2c 46%, #3a2014 78%);
+  background: var(--ball-fill, radial-gradient(circle at 34% 30%, #f7fffd 0%, #b6fff4 6%, #2ee0cf 19%, #0f9f97 38%, #0b6f72 58%, #083f4c 80%, #042f2e 100%));
   box-shadow:
-    inset 0 -8px 10px rgba(0, 0, 0, 0.4),
-    inset 0 2px 2px rgba(255, 220, 180, 0.45),
-    0 8px 10px rgba(0, 0, 0, 0.35);
-  color: #3a2710;
-  font-family: var(--font-display), Palatino, serif;
-  font-size: 0.55rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+    inset -3px -5px 7px var(--ball-glint, rgba(46, 224, 207, 0.35)),
+    inset 0 -6px 9px var(--ball-shade, rgba(2, 20, 22, 0.55)),
+    inset 0 0 0 1px var(--ball-edge, rgba(4, 47, 46, 0.7)),
+    0 6px 8px rgba(0, 0, 0, 0.45);
   cursor: grab;
   touch-action: none;
 }
@@ -538,8 +633,89 @@ button,
   pointer-events: auto;
 }
 
+.pull-ball.is-rest {
+  animation: pull-ready-glow 2.4s ease-in-out infinite;
+}
+
+@keyframes pull-ready-glow {
+  0%, 100% {
+    box-shadow:
+      inset -3px -5px 7px var(--ball-glint, rgba(46, 224, 207, 0.35)),
+      inset 0 -6px 9px var(--ball-shade, rgba(2, 20, 22, 0.55)),
+      inset 0 0 0 1px var(--ball-edge, rgba(4, 47, 46, 0.7)),
+      0 6px 8px rgba(0, 0, 0, 0.45),
+      0 0 0 1px rgba(255, 181, 71, 0.2),
+      0 0 3px 0 rgba(255, 181, 71, 0.2);
+  }
+  50% {
+    box-shadow:
+      inset -3px -5px 7px var(--ball-glint, rgba(46, 224, 207, 0.35)),
+      inset 0 -6px 9px var(--ball-shade, rgba(2, 20, 22, 0.55)),
+      inset 0 0 0 1px var(--ball-edge, rgba(4, 47, 46, 0.7)),
+      0 6px 8px rgba(0, 0, 0, 0.45),
+      0 0 0 1.5px rgba(255, 181, 71, 0.7),
+      0 0 7px 1px rgba(255, 122, 26, 0.6);
+  }
+}
+
+.pull-ball.is-clunk {
+  animation: pull-ball-clunk 140ms ease-out;
+}
+
+@keyframes pull-ball-clunk {
+  0% { transform: scale(1, 1); }
+  40% { transform: scale(1, 0.93) translateY(1.5px); }
+  100% { transform: scale(1, 1); }
+}
+
+/* MOCKUP (round 8, ?ball=...): alternative ball glass. Only the gradient and its matching inner tints
+   and legend edge change; the lever, drum, size, legend roll, amber ready-glow and gloss are untouched. */
+html[data-ball="emerald"] .pull-ball {
+  --ball-fill: radial-gradient(circle at 34% 30%, #f7fffb 0%, #e8fff4 6%, #3fe0a0 19%, #0f9d6e 38%, #0a7d57 58%, #046244 78%, #012a1e 100%);
+  --ball-glint: rgba(63, 224, 160, 0.35);
+  --ball-shade: rgba(1, 26, 18, 0.55);
+  --ball-edge: rgba(1, 42, 30, 0.7);
+  --pull-legend-edge: #01190f;
+}
+html[data-ball="ruby"] .pull-ball {
+  --ball-fill: radial-gradient(circle at 34% 30%, #fff6f6 0%, #ffe9ea 6%, #ff5a64 19%, #e2262f 38%, #c4121e 58%, #8a0b14 78%, #5e070c 100%);
+  --ball-glint: rgba(255, 90, 100, 0.35);
+  --ball-shade: rgba(40, 3, 6, 0.55);
+  --ball-edge: rgba(94, 7, 12, 0.7);
+  --pull-legend-edge: #2a0306;
+}
+html[data-ball="gold"] .pull-ball {
+  --ball-fill: radial-gradient(circle at 34% 30%, #fffbe8 0%, #fff3c4 6%, #f0c35a 19%, #d6a443 38%, #b8862b 58%, #85601f 78%, #5a3a10 100%);
+  --ball-glint: rgba(240, 195, 90, 0.35);
+  --ball-shade: rgba(42, 24, 4, 0.55);
+  --ball-edge: rgba(90, 58, 16, 0.7);
+  --pull-legend-edge: #2a1606;
+}
+html[data-ball="cobalt"] .pull-ball {
+  --ball-fill: radial-gradient(circle at 34% 30%, #f7fbff 0%, #e6f3ff 6%, #5aa8ff 19%, #3a7ad6 38%, #1f4fa8 58%, #143375 78%, #0b1f4a 100%);
+  --ball-glint: rgba(90, 168, 255, 0.35);
+  --ball-shade: rgba(4, 12, 32, 0.55);
+  --ball-edge: rgba(11, 31, 74, 0.7);
+  --pull-legend-edge: #050f26;
+}
+
+/* Fixed specular highlight. The legend rolls under it; the light does not move. */
+.pull-gloss {
+  position: absolute;
+  z-index: 2;
+  top: 9%;
+  left: 18%;
+  width: 34%;
+  height: 22%;
+  border-radius: 50%;
+  transform: rotate(-24deg);
+  background: radial-gradient(ellipse at 50% 45%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.55) 40%, rgba(255, 255, 255, 0) 72%);
+  pointer-events: none;
+}
+
 .pull-word {
   position: absolute;
+  z-index: 1;
   inset: 0;
   overflow: visible;
   pointer-events: none;
@@ -2486,6 +2662,9 @@ button,
   .bulbs span.on,
   .lever-arm.yank,
   .pull-ball,
+  .pull-ball.is-rest,
+  .pull-ball.is-clunk,
+  .pull-drum.is-clunk,
   .reel-viewport.is-rolling .reel-cylinder,
   .digit-reel-strip,
   .gauge-needle,
@@ -2546,3 +2725,44 @@ button,
   filter: drop-shadow(0 1px 0.6px rgba(0, 0, 0, 0.55)) drop-shadow(0 5px 6px rgba(0, 0, 0, 0.5));
 }
 .between-plates > .gauge-row { position: relative; z-index: 1; }
+
+/* ===== MOCKUP ONLY (local/compact-DO-NOT-PUSH): ?compact=1|2|3 =====
+   Reel header row removed; the gauge name plates label both gauge and wheel.
+   Each gauge sits over its reel column; smaller gauges slid down; lever ball rests lower. */
+html[data-compact] { --reel-name: 0px; }
+html[data-compact] .reel-name { display: none; }
+html[data-compact] .gauge-row:has(.gauge--round-b) {
+  padding-left: var(--reel-inset-left);
+  padding-right: var(--reel-inset-right);
+  padding-top: calc(var(--gauge-top-gap) - var(--gauge-b) * 5.5 / 96);
+  padding-bottom: var(--gauge-bottom-gap);
+  column-gap: 0;
+}
+html[data-compact] .gauge-row:has(.gauge--round-b) > .gauge,
+html[data-compact] .gauge-row:has(.gauge--round-b) > .gauge-center { justify-self: center; }
+html[data-compact] .pull-ball { --pull-throw-ratio: 1.78; }
+
+/* 1: ~95px gauges, plates kept, slid down to nearly touch the cabinet top. */
+html[data-compact="1"] .gauge-row:has(.gauge--round-b) { --gauge-b: 95px; --gauge-top-gap: 14px; --gauge-bottom-gap: 6px; }
+html[data-compact="1"] .between-plates { --wrap-top: 4px; --wrap-bottom: 2px; }
+html[data-compact="1"] { --pull-lower: 14px; }
+
+/* 2: ~85px gauges, plates sit on the cabinet's top rail (overlap). */
+html[data-compact="2"] .gauge-row:has(.gauge--round-b) { --gauge-b: 85px; --gauge-top-gap: 12px; --gauge-bottom-gap: 2px; }
+html[data-compact="2"] .between-plates { position: relative; z-index: 6; --wrap-top: 4px; --wrap-bottom: -2px; }
+html[data-compact="2"] .playfield { margin-top: -12px; }
+html[data-compact="2"] { --pull-lower: 30px; }
+
+/* 3: ~75px gauges in a slim Nouveau strip. */
+html[data-compact="3"] .gauge-row:has(.gauge--round-b) { --gauge-b: 75px; --gauge-top-gap: 9px; --gauge-bottom-gap: 0px; }
+html[data-compact="3"] .gauge-unit .gauge-nameplate::before { left: 4px; }
+html[data-compact="3"] .gauge-unit .gauge-nameplate::after { right: 4px; }
+html[data-compact="3"] .between-plates { position: relative; z-index: 6; --wrap-top: 3px; --wrap-bottom: -2px; }
+html[data-compact="3"] .playfield { margin-top: -10px; }
+html[data-compact="3"] { --pull-lower: 44px; }
+
+/* Variant 3 readability (mockup): larger, tighter plate lettering. */
+html[data-compact="3"] .gauge-row .gauge-unit .gauge-nameplate { height: 16px; margin-top: -6px; font-size: 11.5px; letter-spacing: 0.1em; padding: 0 11px 0 calc(11px + 0.1em); }
+/* ?plate=a|b|c (mockup): 3px of room under the plates so the backplate never crops; same overall height. */
+html[data-compact="3"][data-plate] .gauge-row:has(.gauge--round-b) { --gauge-bottom-gap: 3px; }
+html[data-compact="3"][data-plate] .playfield { margin-top: -13px; }
