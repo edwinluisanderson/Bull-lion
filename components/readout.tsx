@@ -3,8 +3,9 @@
 import { useLayoutEffect, useState } from "react";
 
 import { AssayDialog, AssayInfoIcon } from "@/components/assay-dialog";
-import { NixieReadout } from "@/components/nixie-readout";
-import { formatStamp, formatWholeDollars } from "@/lib/format";
+import { WheelReadout } from "@/components/wheel-readout";
+import { formatStamp } from "@/lib/format";
+import { meltWheelLabel } from "@/lib/melt-wheels";
 import { LIVE_WIRE_TICK_MS, liveWireState } from "@/lib/live-wire";
 import type { WeightSpec } from "@/lib/metals";
 import type { MetalQuote, PriceBook } from "@/lib/price-book";
@@ -15,7 +16,7 @@ export function Readout({
   metal,
   weight,
   pieces,
-  spinning,
+  spinning: _spinning,
   formula,
   source,
   fetchedAt,
@@ -62,7 +63,7 @@ export function Readout({
           <p className="plate-title">{metal.name}</p>
           <p className="readout-kicker melt-kicker">Melt Price</p>
         </div>
-        <NixieReadout spinning={spinning} value={formatWholeDollars(total)} />
+        <WheelReadout value={meltWheelLabel(total)} />
         <p className="tagline">{formatStackPhrase(weight, pieces)}</p>
         <p className="lamp" data-state={wire} data-testid="price-source">
           <i />
