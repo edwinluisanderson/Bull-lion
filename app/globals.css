@@ -2766,3 +2766,9 @@ html[data-compact="3"] .gauge-row .gauge-unit .gauge-nameplate { height: 16px; m
 /* ?plate=a|b|c (mockup): 3px of room under the plates so the backplate never crops; same overall height. */
 html[data-compact="3"][data-plate] .gauge-row:has(.gauge--round-b) { --gauge-bottom-gap: 3px; }
 html[data-compact="3"][data-plate] .playfield { margin-top: -13px; }
+/* That pull sets the wheel plate's top lip through the name plates.
+   Drop only the lip and give the top padding back, so the reels stay put. */
+html[data-compact="3"][data-plate] .window-frame {
+  margin-top: 8px;
+  padding-top: 6px;
+}
