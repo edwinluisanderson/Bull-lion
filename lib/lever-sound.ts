@@ -3,9 +3,19 @@ import { reelAudioContext } from "@/lib/reel-click";
 /**
  * Synthesized lever sounds, no new audio files. Shares the reel-click AudioContext.
  * Ratchet tick: 14ms band-passed noise at 3.2kHz, gain 0.10, with a 6ms buzz.
+ * Release thunk: a light sine drop plus a tiny noise tap, played once when the reels launch.
  */
 export const LEVER_TICK_GAIN = 0.1;
 export const LEVER_TICK_VIBRATE_MS = 6;
+export const RELEASE_START_HZ = 140;
+export const RELEASE_END_HZ = 70;
+export const RELEASE_SWEEP_S = 0.06;
+export const RELEASE_GAIN = 0.18;
+export const RELEASE_DECAY_S = 0.09;
+export const RELEASE_FLOOR = 0.001;
+export const RELEASE_NOISE_HZ = 800;
+export const RELEASE_NOISE_S = 0.015;
+export const RELEASE_NOISE_GAIN = 0.06;
 
 function noise(ctx: AudioContext, seconds: number): AudioBuffer {
   const length = Math.max(1, Math.floor(ctx.sampleRate * seconds));
@@ -39,6 +49,36 @@ export function leverTick(): void {
     gain.gain.value = LEVER_TICK_GAIN;
     source.connect(band).connect(gain).connect(ctx.destination);
     source.start();
+  } catch {
+    /* Audio is optional. */
+  }
+}
+
+/** Light mechanical thunk when the reels launch. Much quieter than the old bottom-stop clunk. */
+export function leverRelease(): void {
+  try {
+    const ctx = reelAudioContext();
+    if (!ctx || ctx.state !== "running") return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(RELEASE_START_HZ, now);
+    osc.frequency.exponentialRampToValueAtTime(RELEASE_END_HZ, now + RELEASE_SWEEP_S);
+    const tone = ctx.createGain();
+    tone.gain.setValueAtTime(RELEASE_GAIN, now);
+    tone.gain.exponentialRampToValueAtTime(RELEASE_FLOOR, now + RELEASE_DECAY_S);
+    osc.connect(tone).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + RELEASE_DECAY_S);
+    const tap = ctx.createBufferSource();
+    tap.buffer = noise(ctx, RELEASE_NOISE_S);
+    const low = ctx.createBiquadFilter();
+    low.type = "lowpass";
+    low.frequency.value = RELEASE_NOISE_HZ;
+    const tapGain = ctx.createGain();
+    tapGain.gain.value = RELEASE_NOISE_GAIN;
+    tap.connect(low).connect(tapGain).connect(ctx.destination);
+    tap.start(now);
   } catch {
     /* Audio is optional. */
   }
