@@ -49,6 +49,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      data-compact="3"
+      data-plate="d3"
+      data-orn="14a"
+      data-bars="long"
+      data-gearscale="1.2"
+      data-ball="ruby"
       className={`${display.variable} ${reel.variable} ${readout.variable} ${body.variable} h-full antialiased`}
     >
       <body className="min-h-full">

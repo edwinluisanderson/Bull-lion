@@ -43,6 +43,15 @@ import {
   weightStretchOrigin,
 } from "@/lib/weight-stretch";
 
+/** MOCKUP (compact): muted enamel fills for the segmented METAL selector dial. */
+const METAL_SEGMENT_FILL: Record<string, string> = {
+  Au: "#d9b65e",
+  Ag: "#b8bdc1",
+  Pt: "#d4dee5",
+  Pd: "#bdb3a6",
+  Cu: "#c98a5e",
+};
+
 export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const [book, setBook] = useState(initialBook);
   const [metalIndex, setMetalIndex] = useState(DEFAULT_METAL_INDEX);
@@ -256,12 +265,19 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                 label="METAL"
                 stops={book.metals.length}
                 index={metalIndex}
+                needle={6}
+                segments={book.metals.map((entry) => ({ mark: entry.mark, fill: METAL_SEGMENT_FILL[entry.mark] ?? "#cbbf9f" }))}
               />
               <div className="gauge-center">
-                <WeightDial grams={weight.grams} />
+                <WeightDial grams={weight.grams} face={4} rampPos="mid" rampTone="blue" needle={6} />
               </div>
               <Gauge
                 label="STACK"
+                face={4}
+                stackBand="a"
+                rampPos="mid"
+                rampTone="green"
+                needle={6}
                 fraction={countIndex / Math.max(1, COUNTS.length - 1)}
               />
             </div>

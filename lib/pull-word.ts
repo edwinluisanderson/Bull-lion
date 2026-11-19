@@ -1,41 +1,10 @@
-/** Orthographic "PULL" printed on the front of the ball. Cinzel Bold (wght 700). */
+/** Orthographic "PULL" printed on the front of the ball. Cinzel Bold (wght 700). The lever rolls it with `legendRoll`. */
 export const PULL_WORD_WEIGHT = 700;
 export const PULL_WORD_FACE = "Cinzel";
 export const PULL_SPHERE_RADIUS = 46;
 export const PULL_VIEW_CENTER = 50;
 export const PULL_WORD_MAX_LON = 1.12;
 export const PULL_WORD_MAX_LAT = 0.34;
-/** Opacity of the ink at the left and right limbs. Mild, so the final L stays visible. */
-export const PULL_WORD_EDGE_OPACITY = 0.92;
-/**
- * Lightest stop of `--brass-plate`, the gradient on `.nameplate.melt-plate`.
- * linear-gradient(180deg, #f3e2ad 0%, #c4963e 28%, #7a5a22 62%, #e6cb82 100%)
- */
-export const PULL_WORD_BRASS = "#f3e2ad";
-export const PULL_WORD_SHADE = { x1: 9.85, x2: 91.04, y1: 34.66, y2: 65.34 } as const;
-
-/**
- * Deboss pressed into the copper ball. Light comes from the upper left.
- * Offsets are in viewBox units. No blur, so the pull stays sharp.
- */
-export const PULL_EMBOSS = {
-  shadowX: -1.8,
-  shadowY: -1.8,
-  shadowOpacity: 0.72,
-  lightX: 1.15,
-  lightY: 1.35,
-  lightOpacity: 0.4,
-  /** How much of each offset the fill paints back, leaving a thin rim. */
-  rim: 0.38,
-  outline: 1.7,
-  shadow: "#2a160c",
-  /** Next stop down the melt-plate brass, used only to darken the top of the recess. */
-  shade: "#c4963e",
-  shadeOpacity: 0.42,
-  light: "#fff6e4",
-  outlineInk: "#3a2014",
-} as const;
-
 /** Screen point for a direction on the sphere. SVG y grows downward. */
 export function projectPullPoint(lon: number, lat: number, radius = PULL_SPHERE_RADIUS): { x: number; y: number } {
   return {

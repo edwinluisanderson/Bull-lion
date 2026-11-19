@@ -59,7 +59,7 @@ export type Box = { x: number; y: number; w: number; h: number };
  * One casting. `shadow` bakes the drop shadow into the filter (for the page-wide overlay, where a
  * CSS filter on the whole layer would be costly); the gauge surround uses its CSS shadow instead.
  */
-export function CastPiece({ id, box, shapes: s, shadow = false, fine = false, tone, children }: { id: string; box: Box; shapes: CastShapes; shadow?: boolean; fine?: boolean; tone?: number; children?: ReactNode }) {
+export function CastPiece({ id, box, shapes: s, shadow = false, fine = false, tone, stops, lift = 1.18, children }: { id: string; box: Box; shapes: CastShapes; shadow?: boolean; fine?: boolean; tone?: number; stops?: [number, string][]; lift?: number; children?: ReactNode }) {
   const { x, y, w, h } = box;
   // small pieces stretch the gradient over `tone` px (the surround's own height) so they show the same
   // band of brass instead of squeezing all five stops into a 40px rosette
@@ -71,11 +71,15 @@ export function CastPiece({ id, box, shapes: s, shadow = false, fine = false, to
       <defs>
         {/* Older, deeper brass than the bezels so the dials still read as separate instruments */}
         <linearGradient id={`${id}-brass`} gradientUnits="userSpaceOnUse" x1={x} y1={gy} x2={x + w * 0.18} y2={gy + gh}>
-          <stop offset="0" stopColor="#f6dc98" />
-          <stop offset="0.22" stopColor="#d9b066" />
-          <stop offset="0.55" stopColor="#a87a36" />
-          <stop offset="0.85" stopColor="#6f4a1c" />
-          <stop offset="1" stopColor="#a47634" />
+          {stops ? stops.map(([o, c]) => <stop key={o} offset={o} stopColor={c} />) : (
+            <>
+              <stop offset="0" stopColor="#f6dc98" />
+              <stop offset="0.22" stopColor="#d9b066" />
+              <stop offset="0.55" stopColor="#a87a36" />
+              <stop offset="0.85" stopColor="#6f4a1c" />
+              <stop offset="1" stopColor="#a47634" />
+            </>
+          )}
         </linearGradient>
         <mask id={`${id}-mask`} maskUnits="userSpaceOnUse" x={x} y={y} width={w} height={h}>
           <g fill="#fff">
@@ -99,7 +103,7 @@ export function CastPiece({ id, box, shapes: s, shadow = false, fine = false, to
             <feDistantLight azimuth="225" elevation="38" />
           </feSpecularLighting>
           <feComposite in="spec" in2="SourceAlpha" operator="in" result="specIn" />
-          <feComposite in="SourceGraphic" in2="diff" operator="arithmetic" k1="1.18" result="lit" />
+          <feComposite in="SourceGraphic" in2="diff" operator="arithmetic" k1={lift} result="lit" />
           <feComposite in="lit" in2="specIn" operator="arithmetic" k2="1" k3="0.6" result="shine" />
           {/* dark cast outline, same tone as the bezel's #2a1a08 edge */}
           <feMorphology in="SourceAlpha" operator="dilate" radius="0.85" result="dil" />
