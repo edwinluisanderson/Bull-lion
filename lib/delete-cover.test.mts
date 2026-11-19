@@ -16,6 +16,7 @@ import {
   isCoveringRow,
   isRemnantRow,
   queuedCoverId,
+  reusedSlotMustSnap,
 } from "@/lib/delete-cover";
 
 const card = readFileSync(new URL("../components/swipe-card.tsx", import.meta.url), "utf8");
@@ -102,4 +103,17 @@ test("a second delete waits its turn and the other cards stay swipeable", () => 
   assert.match(snap, /requestAnimationFrame\(onLayout\)/);
   assert.match(table, /queuedDelete/);
   assert.match(card, /if \(leaving\) return/);
+});
+
+test("the card that slides into a deleted slot does not inherit the shoot-off", () => {
+  assert.equal(reusedSlotMustSnap("deleted", "deleted", false, false), false);
+  assert.equal(reusedSlotMustSnap("deleted", "deleted", true, true), false);
+  assert.equal(reusedSlotMustSnap(null, "next", false, false), false);
+  assert.equal(reusedSlotMustSnap("deleted", "next", true, false), true);
+  assert.equal(reusedSlotMustSnap("deleted", "next", false, false), true);
+  assert.equal(reusedSlotMustSnap("deleted", "deleted", true, false), true);
+  assert.match(card, /reusedSlotMustSnap\(prevId\.current, id, prevLeaving\.current, leaving\)/);
+  assert.match(card, /face\.style\.transition = "none"/);
+  assert.match(card, /translateX\(0px\)/);
+  assert.match(table, /key=\{index\}/);
 });
