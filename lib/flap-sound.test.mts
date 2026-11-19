@@ -3,7 +3,14 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  CLUNK_DECAY_S,
+  CLUNK_END_HZ,
+  CLUNK_GAIN,
+  CLUNK_START_HZ,
+  CLUNK_STOP_S,
+  CLUNK_SWEEP_S,
   FLAP_BOARD_THRESHOLD,
+  FLAP_SUM_LIMIT,
   flapSoundAllowed,
   playFlapSound,
   resetFlapSoundForTests,
@@ -139,4 +146,24 @@ test("playFlapSound follows the board and the page, and other clicks do not", ()
   assert.match(table, /useLayoutEffect\(\(\) => \{[^}]*watchFlapBoard\(board\)/);
   assert.match(table, /ref=\{boardRef\}/);
   assert.match(flap, /playFlapSound\(\)/);
+});
+
+test("the delete clunk is louder and longer, and it skips the flap clip", () => {
+  assert.equal(CLUNK_GAIN, 0.68);
+  assert.equal(CLUNK_START_HZ, 130);
+  assert.equal(CLUNK_END_HZ, 50);
+  assert.equal(CLUNK_SWEEP_S, 0.13);
+  assert.equal(CLUNK_DECAY_S, 0.18);
+  assert.equal(CLUNK_STOP_S, 0.19);
+  assert.ok(CLUNK_GAIN > FLAP_SUM_LIMIT);
+  assert.ok(CLUNK_GAIN < 1);
+  const swipe = sound.slice(sound.indexOf("export function playSwipeTone"), sound.indexOf("export function playFlapSound"));
+  assert.match(swipe, /if \(!spinSoundEnabled\(\)\) return/);
+  assert.match(swipe, /clunk \? ctx\.destination : flapSum\(ctx\)/);
+  assert.match(swipe, /clunk \? CLUNK_GAIN : 0\.16/);
+  assert.match(swipe, /clunk \? CLUNK_START_HZ : 880/);
+  assert.match(swipe, /clunk \? CLUNK_END_HZ : 420/);
+  assert.match(swipe, /clunk \? CLUNK_SWEEP_S : 0\.04/);
+  assert.match(swipe, /clunk \? CLUNK_DECAY_S : 0\.05/);
+  assert.match(swipe, /clunk \? CLUNK_STOP_S : 0\.06/);
 });

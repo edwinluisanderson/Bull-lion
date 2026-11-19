@@ -236,6 +236,19 @@ function pageVisibility(): string {
   return document.visibilityState;
 }
 
+/**
+ * Delete clunk. About twice the old 0.34, and a little deeper and longer.
+ * A sine at this gain peaks at 0.68. The flap sum hard-clips at FLAP_SUM_LIMIT
+ * (0.5), so the clunk goes straight to the context output. 0.68 stays under
+ * full scale. A flap tick is about 0.12, so the two together still sit under 1.
+ */
+export const CLUNK_GAIN = 0.68;
+export const CLUNK_START_HZ = 130;
+export const CLUNK_END_HZ = 50;
+export const CLUNK_SWEEP_S = 0.13;
+export const CLUNK_DECAY_S = 0.18;
+export const CLUNK_STOP_S = 0.19;
+
 /** Brass tick as the card crosses the track detent, or the heavier delete clunk. */
 export function playSwipeTone(kind: "detent" | "clunk"): void {
   if (!spinSoundEnabled()) return;
@@ -248,14 +261,14 @@ export function playSwipeTone(kind: "detent" | "clunk"): void {
     const gain = ctx.createGain();
     const clunk = kind === "clunk";
     osc.type = clunk ? "sine" : "triangle";
-    osc.frequency.setValueAtTime(clunk ? 150 : 880, now);
-    osc.frequency.exponentialRampToValueAtTime(clunk ? 70 : 420, now + (clunk ? 0.09 : 0.04));
-    gain.gain.setValueAtTime(clunk ? 0.34 : 0.16, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + (clunk ? 0.12 : 0.05));
+    osc.frequency.setValueAtTime(clunk ? CLUNK_START_HZ : 880, now);
+    osc.frequency.exponentialRampToValueAtTime(clunk ? CLUNK_END_HZ : 420, now + (clunk ? CLUNK_SWEEP_S : 0.04));
+    gain.gain.setValueAtTime(clunk ? CLUNK_GAIN : 0.16, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + (clunk ? CLUNK_DECAY_S : 0.05));
     osc.connect(gain);
-    gain.connect(flapSum(ctx));
+    gain.connect(clunk ? ctx.destination : flapSum(ctx));
     osc.start(now);
-    osc.stop(now + (clunk ? 0.13 : 0.06));
+    osc.stop(now + (clunk ? CLUNK_STOP_S : 0.06));
   } catch {
     /* Audio is optional. */
   }
