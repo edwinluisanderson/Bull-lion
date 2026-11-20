@@ -12,6 +12,7 @@ import {
   ratchetTooth,
 } from "@/lib/lever-motion";
 import { leverRelease, leverTick } from "@/lib/lever-sound";
+import { notePullStrength } from "@/lib/pull-spin";
 import { PULL_WORD_PATH } from "@/lib/pull-word";
 import { unlockReelClick, reelSnap } from "@/lib/reel-click";
 import { armSpinOverlay } from "@/lib/spin-overlay";
@@ -99,6 +100,7 @@ export function PullBall({
     committed.current = true;
     onBend(0);
     leverRelease();
+    notePullStrength(travelRef.current);
     onCommit();
   }
 

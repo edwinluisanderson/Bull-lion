@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from "react";
 
 import {
   camPastNotch,
+  brakeDecel,
   coastAdvance,
-  COAST_DECAY,
   COAST_SETTLE_SPEED,
+  flingVelocity,
+  stopsCrossed,
   commitIndex,
   cylinderPose,
   glideSettleNotch,
@@ -17,7 +19,7 @@ import {
 import { hapticClick } from "@/lib/haptics";
 import { noteReelSpinning, playReelClick, reelSnap, unlockReelClick } from "@/lib/reel-click";
 import { detentForStop } from "@/lib/spin-gate";
-import { pullPlan } from "@/lib/pull-spin";
+import { currentPullStrength, pullLaunchVelocity } from "@/lib/pull-spin";
 import { setWheelLampSpeed } from "@/lib/wheel-lamp";
 import { playStretchPop, unlockStretchPops } from "@/lib/stretch-pop";
 import { stretchPopCount } from "@/lib/stretch-pops";
@@ -217,6 +219,7 @@ function createEngine(options: {
   }
 
   function setPos(next: number) {
+    const previous = position;
     position = next;
     options.setKinetics(next, velocity);
     const stops = options.getStretch()?.stops;
@@ -260,6 +263,9 @@ function createEngine(options: {
         }
       }
     }
+    for (const stop of stopsCrossed(previous, next)) {
+      if (!enabledIndex(stop)) playReelClick(audioSpin, true);
+    }
     const index = commitIndex(next, options.getCount(), options.isEnabled);
     if (index === null || index === committed) return;
     const count = options.getCount();
@@ -281,8 +287,8 @@ function createEngine(options: {
     }
     committed = index;
     options.onIndex(index);
-    if (detent.haptic) hapticClick();
-    if (detent.sound) playReelClick(audioSpin && !landing);
+    if (detent.haptic) hapticClick(landing);
+    if (detent.sound) playReelClick(audioSpin && !landing, false, landing);
   }
 
   function stop() {
@@ -366,11 +372,13 @@ function createEngine(options: {
 
     if (phase === "coast") {
       const count = options.getCount();
-      const step = coastAdvance(position, velocity, dt, options.isEnabled, count, COAST_DECAY);
+      const incoming = velocity;
+      const step = coastAdvance(position, velocity, dt, options.isEnabled, count, brakeDecel());
       velocity = step.velocity;
       setPos(step.position);
       if (Math.abs(velocity) < COAST_SETTLE_SPEED) {
-        camToNotch(glideSettleNotch(position, velocity, count, options.isEnabled), 180);
+        const direction = velocity !== 0 ? velocity : incoming;
+        camToNotch(glideSettleNotch(position, direction, count, options.isEnabled), 180);
         return;
       }
     }
@@ -394,14 +402,7 @@ function createEngine(options: {
   }
 
   function velocityFrom(samples: { t: number; y: number }[]) {
-    if (samples.length < 2) return 0;
-    const first = samples[0];
-    const lastSample = samples[samples.length - 1];
-    const elapsed = lastSample.t - first.t;
-    if (elapsed < 12) return 0;
-    const slotsPerSecond =
-      -((lastSample.y - first.y) / elapsed) * (1000 / REEL_ITEM_HEIGHT);
-    return Math.min(MAX_VELOCITY, Math.max(-MAX_VELOCITY, slotsPerSecond));
+    return flingVelocity(samples, REEL_ITEM_HEIGHT, MAX_VELOCITY);
   }
 
   function clearHold() {
@@ -699,33 +700,19 @@ function createEngine(options: {
       alternated = 0;
       setAudioSpin(true);
       const count = options.getCount();
-      const enabled: number[] = [];
-      for (let index = 0; index < count; index += 1) {
-        if (enabledIndex(index)) enabled.push(index);
-      }
-      const pool = enabled.length > 0 ? enabled : Array.from({ length: count }, (_, index) => index);
-      const landIndex = pool[Math.floor(Math.random() * pool.length)] ?? 0;
-      const plan = pullPlan({
-        order,
-        count,
-        position,
-        landIndex,
-        reduced: options.isReduced(),
-      });
-      if (plan.reduced) {
-        camToNotch(plan.notch, 0);
+      if (options.isReduced()) {
+        const direction = -1;
+        camToNotch(glideSettleNotch(position, direction, count, options.isEnabled), 0);
         return;
       }
       stop();
-      iceFrom = plan.start;
-      iceVelocity = plan.velocity;
-      iceHandoff = plan.handoff;
-      iceSeconds = plan.iceMs / 1000;
-      brakeNotch = plan.notch;
-      brakeMs = plan.brakeMs;
-      velocity = plan.velocity;
-      animStart = performance.now();
-      setPhase("ice");
+      velocity = pullLaunchVelocity({
+        order,
+        decel: brakeDecel(),
+        strength: currentPullStrength(),
+        random: Math.random(),
+      });
+      setPhase("coast");
       schedule();
     },
     destroy() {

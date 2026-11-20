@@ -2900,3 +2900,34 @@ html[data-compact="3"][data-plate] .window-frame {
   text-shadow: none;
   filter: url(#melt-fil-core);
 }
+
+.brake-switch {
+  position: fixed;
+  z-index: 6;
+  right: 10px;
+  bottom: 8px;
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  color: #8d7352;
+  font-family: var(--font-readout), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.brake-switch button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.brake-switch button[data-on="true"] {
+  color: #f0d78c;
+}

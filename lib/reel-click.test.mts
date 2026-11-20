@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 
-import { resetHapticQueue } from "@/lib/haptics";
+import { resetHapticQueue, setReelTicksOpen, settleReels } from "@/lib/haptics";
 import {
   REEL_CLICK_GAIN,
-  REEL_CLICKS_PER_FRAME,
   SPIN_FILTER_RAMP_S,
   SPIN_LOWPASS_HZ,
   SPIN_LOWPASS_Q,
@@ -146,18 +145,30 @@ test("a reel snap plays the soft click", async () => {
   assert.ok(REEL_CLICK_GAIN >= 0.25 && REEL_CLICK_GAIN <= 0.35);
 });
 
-test("a fast flick cannot stack dozens of clicks in one frame", async () => {
+test("a fast flick drops clicks closer than 40ms, and a stopped reel stays quiet", async () => {
   const fake = installAudio();
   let now = 1_000;
   Object.defineProperty(performance, "now", { configurable: true, value: () => now });
   await loadReelClick();
 
   for (let i = 0; i < 40; i += 1) playReelClick();
-  assert.equal(fake.starts, REEL_CLICKS_PER_FRAME);
+  assert.equal(fake.starts, 1);
 
   now += 20;
   playReelClick();
-  assert.equal(fake.starts, REEL_CLICKS_PER_FRAME + 1);
+  assert.equal(fake.starts, 1);
+
+  now += 20;
+  playReelClick();
+  assert.equal(fake.starts, 2);
+
+  settleReels([true], [false]);
+  now += 40;
+  playReelClick();
+  assert.equal(fake.starts, 2);
+  playReelClick(false, false, true);
+  assert.equal(fake.starts, 3);
+  setReelTicksOpen(true);
 });
 
 test("the first user gesture resumes a suspended audio context", () => {
@@ -171,12 +182,15 @@ test("the spin bus rolls off only while a reel is spinning", async () => {
   const fake = installAudio();
   await loadReelClick();
 
+  let now = 2_000;
+  Object.defineProperty(performance, "now", { configurable: true, value: () => now });
   reelSnap();
   assert.deepEqual(fake.routes, ["dest"]);
   assert.deepEqual(fake.filterTargets, []);
 
   noteReelSpinning(true);
   noteReelSpinning(true);
+  now += 40;
   playReelClick(true);
   assert.equal(fake.filterType, "lowpass");
   assert.equal(fake.filterQ, SPIN_LOWPASS_Q);
@@ -190,6 +204,7 @@ test("the spin bus rolls off only while a reel is spinning", async () => {
   noteReelSpinning(false);
   assert.equal(fake.filterTargets.at(-1), SPIN_OPEN_HZ);
 
+  now += 40;
   playReelClick(false);
   assert.equal(fake.routes.at(-1), "dest");
   assert.equal(fake.gains.at(-1), REEL_CLICK_GAIN);

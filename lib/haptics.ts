@@ -8,57 +8,46 @@
  *
  * A new vibrate() call cancels the one in progress. Stops during a
  * fast spin arrive closer together than 40ms, which restarts the
- * pulse before an Android motor can spin up. Pulses that arrive
- * while one is playing are kept and sent as the next pattern.
+ * pulse before an Android motor can spin up. Those late ticks are
+ * dropped. Nothing is queued, so a stopped wheel cannot keep buzzing.
+ * The landing tap is forced and is not cancelled by the stop that follows it.
  */
 export const HAPTIC_CLICK_MS = 40;
 
-let queued = 0;
-let timer: ReturnType<typeof setTimeout> | undefined;
+let lastAt = Number.NEGATIVE_INFINITY;
+let protectUntil = Number.NEGATIVE_INFINITY;
+let ticksOpen = true;
 
-function patternFor(count: number): number | number[] {
-  if (count <= 1) return HAPTIC_CLICK_MS;
-  const pattern: number[] = [];
-  for (let index = 0; index < count; index += 1) {
-    if (index > 0) pattern.push(HAPTIC_CLICK_MS);
-    pattern.push(HAPTIC_CLICK_MS);
-  }
-  return pattern;
+export function reelTicksOpen(): boolean {
+  return ticksOpen;
 }
 
-function play(count: number): void {
-  if (count <= 0) return;
+export function setReelTicksOpen(open: boolean): void {
+  ticksOpen = open;
+}
+
+function nowMs(): number {
+  return typeof performance !== "undefined" ? performance.now() : Date.now();
+}
+
+function play(): void {
   try {
     if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
-    navigator.vibrate(patternFor(count));
+    navigator.vibrate(HAPTIC_CLICK_MS);
   } catch {
     /* Haptics are optional. */
   }
 }
 
-function flush(): void {
-  timer = undefined;
-  if (queued <= 0) return;
-  const count = queued;
-  queued = 0;
-  play(count);
-  const pulses = count * HAPTIC_CLICK_MS + Math.max(0, count - 1) * HAPTIC_CLICK_MS;
-  timer = setTimeout(flush, pulses);
-}
-
-function clearQueue(): void {
-  queued = 0;
-  if (timer !== undefined) clearTimeout(timer);
-  timer = undefined;
-}
-
 export function resetHapticQueue(): void {
-  clearQueue();
+  lastAt = Number.NEGATIVE_INFINITY;
+  protectUntil = Number.NEGATIVE_INFINITY;
+  ticksOpen = true;
 }
 
-/** Stop the motor and drop any pattern still waiting to play. */
+/** Stop the motor. A landing tap that just started is left to finish. */
 export function stopHaptics(): void {
-  clearQueue();
+  if (nowMs() < protectUntil) return;
   try {
     if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
     navigator.vibrate(0);
@@ -74,17 +63,21 @@ export function stopHaptics(): void {
 export function settleReels(previous: readonly boolean[], next: readonly boolean[]): boolean {
   const wasMoving = previous.some(Boolean);
   const moving = next.some(Boolean);
+  if (!wasMoving && moving) {
+    setReelTicksOpen(true);
+    return false;
+  }
   if (!wasMoving || moving) return false;
+  setReelTicksOpen(false);
   stopHaptics();
   return true;
 }
 
-export function hapticClick(): void {
-  queued += 1;
-  if (timer !== undefined) return;
-  const count = queued;
-  queued = 0;
-  play(count);
-  const pulses = count * HAPTIC_CLICK_MS + Math.max(0, count - 1) * HAPTIC_CLICK_MS;
-  timer = setTimeout(flush, pulses);
+/** One pulse. A tick closer than 40ms is dropped. `force` is the landing tap. */
+export function hapticClick(force = false): void {
+  const now = nowMs();
+  if (!force && now - lastAt < HAPTIC_CLICK_MS) return;
+  lastAt = now;
+  if (force) protectUntil = now + HAPTIC_CLICK_MS;
+  play();
 }

@@ -75,9 +75,25 @@ export function modStop(value: number, count: number): number {
   return ((value % count) + count) % count;
 }
 
-/** Same decay the reel coast has always used on a real stop. */
-export const COAST_DECAY = 2.7;
+/** Constant deceleration, stops per second squared. Same brake on every reel and every stop. */
+export const BRAKE_PRESETS = { light: 8, medium: 16, heavy: 32 } as const;
+export type BrakePreset = keyof typeof BRAKE_PRESETS;
 export const COAST_SETTLE_SPEED = 0.5;
+
+let brakePreset: BrakePreset = "medium";
+
+export function brakeDecel(preset: BrakePreset = brakePreset): number {
+  return BRAKE_PRESETS[preset];
+}
+
+export function getBrakePreset(): BrakePreset {
+  return brakePreset;
+}
+
+export function setBrakePreset(next: BrakePreset): void {
+  if (next !== "light" && next !== "medium" && next !== "heavy") return;
+  brakePreset = next;
+}
 
 /** The integer stop whose half-stop basin contains `position`. */
 export function basinIndex(position: number): number {
@@ -85,50 +101,32 @@ export function basinIndex(position: number): number {
 }
 
 /**
- * Advance a coast by `dt` seconds.
- * Friction applies only inside an enabled stop's basin.
- * A gray basin is ice: speed stays constant while the wheel crosses it.
+ * Advance a coast by `dt` seconds under constant deceleration.
+ * Gray stops have the same friction as lit ones. Speed never reverses.
+ * `isEnabled` is unused; it stays so callers can pass the stop mask.
  */
 export function coastAdvance(
   position: number,
   velocity: number,
   dt: number,
-  isEnabled: (index: number) => boolean,
+  _isEnabled: (index: number) => boolean,
   count: number,
-  decay = COAST_DECAY,
+  decel = brakeDecel(),
 ): { position: number; velocity: number } {
-  if (count <= 0 || dt <= 0 || velocity === 0) return { position, velocity };
-  let pos = position;
-  let vel = velocity;
-  let left = dt;
-  for (let hop = 0; hop < 12 && left > 1e-8 && Math.abs(vel) > 1e-8; hop += 1) {
-    const basin = basinIndex(pos);
-    const ice = !isEnabled(modStop(basin, count));
-    const boundary = vel > 0 ? basin + 0.5 : basin - 0.5;
-    const gap = vel > 0 ? boundary - pos : pos - boundary;
-    if (gap <= 1e-9) {
-      pos += Math.sign(vel) * 1e-8;
-      continue;
-    }
-    const timeToEdge = gap / Math.abs(vel);
-    const slice = Math.min(left, timeToEdge);
-    if (ice || decay <= 0) {
-      pos += vel * slice;
-    } else {
-      const retained = Math.exp(-decay * slice);
-      const next = vel * retained;
-      pos += (vel - next) / decay;
-      vel = next;
-    }
-    left -= slice;
-    if (timeToEdge <= slice + 1e-12) pos += Math.sign(vel) * 1e-8;
+  if (count <= 0 || dt <= 0 || velocity === 0 || decel <= 0) return { position, velocity };
+  const sign = Math.sign(velocity);
+  const speed = Math.abs(velocity);
+  const drop = decel * dt;
+  if (drop >= speed) {
+    return { position: position + sign * ((0.5 * speed * speed) / decel), velocity: 0 };
   }
-  return { position: pos, velocity: vel };
+  const distance = speed * dt - 0.5 * decel * dt * dt;
+  return { position: position + sign * distance, velocity: sign * (speed - drop) };
 }
 
 /**
- * Where a dying flick should land.
- * A gray basin does not catch it: keep going in the direction of travel.
+ * The next lit stop in the direction of travel.
+ * Never rounds backward, never stops on a gray face, never stops halfway.
  */
 export function glideSettleNotch(
   position: number,
@@ -137,14 +135,53 @@ export function glideSettleNotch(
   isEnabled: (index: number) => boolean,
 ): number {
   if (count <= 0) return 0;
-  const rounded = Math.round(position);
-  if (isEnabled(modStop(rounded, count))) return rounded;
   const direction = velocity < 0 ? -1 : 1;
-  for (let step = 1; step <= count; step += 1) {
-    const candidate = rounded + direction * step;
+  const epsilon = 1e-6;
+  const nearest = Math.round(position);
+  if (Math.abs(position - nearest) <= epsilon && isEnabled(modStop(nearest, count))) return nearest;
+  let cursor = direction > 0 ? Math.ceil(position - epsilon) : Math.floor(position + epsilon);
+  if (Math.abs(cursor - position) <= epsilon) cursor += direction;
+  for (let step = 0; step <= count; step += 1) {
+    const candidate = cursor + direction * step;
     if (isEnabled(modStop(candidate, count))) return candidate;
   }
-  return rounded;
+  return cursor;
+}
+
+/** Integer stops the wheel moved onto between two positions. */
+export function stopsCrossed(previous: number, next: number): number[] {
+  if (next === previous) return [];
+  const direction = next > previous ? 1 : -1;
+  const stops: number[] = [];
+  let cursor = direction > 0 ? Math.floor(previous) + 1 : Math.ceil(previous) - 1;
+  const last = direction > 0 ? Math.floor(next) : Math.ceil(next);
+  while ((direction > 0 ? cursor <= last : cursor >= last) && stops.length < 12) {
+    stops.push(cursor);
+    cursor += direction;
+  }
+  return stops;
+}
+
+/** Time-weighted average of the last few pointer segments. Endpoints alone twitch. */
+export function flingVelocity(
+  samples: { t: number; y: number }[],
+  itemHeight: number,
+  max = 28,
+): number {
+  if (samples.length < 2 || itemHeight <= 0) return 0;
+  const recent = samples.slice(-5);
+  let weighted = 0;
+  let time = 0;
+  for (let i = 1; i < recent.length; i += 1) {
+    const dt = recent[i].t - recent[i - 1].t;
+    if (dt < 4 || dt > 80) continue;
+    const slots = -((recent[i].y - recent[i - 1].y) / dt) * (1000 / itemHeight);
+    weighted += slots * dt;
+    time += dt;
+  }
+  if (time < 12) return 0;
+  const speed = weighted / time;
+  return Math.min(max, Math.max(-max, speed));
 }
 
 /** Nearest enabled integer stop. Ties keep the stop closer to `position`. */
