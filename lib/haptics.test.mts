@@ -48,21 +48,37 @@ test("a reel click asks for a pulse Android motors can produce", () => {
   assert.equal(calls[0], 40);
 });
 
-test("rapid stops keep a 40ms pulse instead of restarting the motor", async () => {
+test("rapid stops drop late ticks instead of queueing them", async () => {
   const calls: Array<number | number[]> = [];
   installVibrate((pattern) => {
     calls.push(pattern);
     return true;
   });
+  let now = 1_000;
+  const nowDescriptor = Object.getOwnPropertyDescriptor(performance, "now");
+  Object.defineProperty(performance, "now", { configurable: true, value: () => now });
 
   hapticClick();
   hapticClick();
   hapticClick();
-
   assert.deepEqual(calls, [40]);
-  await new Promise((resolve) => setTimeout(resolve, 130));
-  assert.equal(calls.length, 2);
-  assert.deepEqual(calls[1], [40, 40, 40]);
+
+  now += 39;
+  hapticClick();
+  assert.deepEqual(calls, [40]);
+
+  now += 1;
+  hapticClick();
+  assert.deepEqual(calls, [40, 40]);
+
+  now += 10;
+  hapticClick(true);
+  assert.deepEqual(calls, [40, 40, 40]);
+
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.deepEqual(calls, [40, 40, 40]);
+
+  if (nowDescriptor) Object.defineProperty(performance, "now", nowDescriptor);
 });
 
 test("prefers-reduced-motion does not suppress the click", () => {
@@ -143,6 +159,27 @@ test("vibrate(0) is not called when one reel settles while another is still movi
   settleReels([true, false, false], [true, false, false]);
 
   assert.deepEqual(calls, []);
+});
+
+test("the landing tap is not cancelled by the stop that follows it", () => {
+  const calls: Array<number | number[]> = [];
+  installVibrate((pattern) => {
+    calls.push(pattern);
+    return true;
+  });
+  let now = 5_000;
+  const nowDescriptor = Object.getOwnPropertyDescriptor(performance, "now");
+  Object.defineProperty(performance, "now", { configurable: true, value: () => now });
+
+  hapticClick(true);
+  settleReels([true, false, false], [false, false, false]);
+  assert.deepEqual(calls, [40]);
+
+  now += 40;
+  settleReels([true, false, false], [false, false, false]);
+  assert.deepEqual(calls, [40, 0]);
+
+  if (nowDescriptor) Object.defineProperty(performance, "now", nowDescriptor);
 });
 
 test("settling the last reel clears the queued pulse", async () => {

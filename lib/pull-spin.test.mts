@@ -1,41 +1,38 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import {
-  PULL_BRAKE_MS,
-  PULL_ICE_MS,
-  PULL_LOOPS,
-  brakeVelocityAt,
-  pullPlan,
-  stillAtMs,
-} from "@/lib/pull-spin";
+import { BRAKE_PRESETS } from "@/lib/drum";
+import { PULL_STAGGER_S, pullLaunchVelocity, pullStopSeconds, stillAtMs } from "@/lib/pull-spin";
 
-test("free spin hands off to the brake at the same position and speed", () => {
-  for (const order of [0, 1, 2]) {
-    const count = [5, 16, 8][order];
-    for (const landIndex of [0, Math.floor(count / 2), count - 1]) {
-      const plan = pullPlan({ order, count, position: 12, landIndex, reduced: false });
-      assert.equal(plan.iceMs, PULL_ICE_MS);
-      assert.equal(plan.brakeMs, PULL_BRAKE_MS[order]);
-      assert.ok(plan.speed > 36 && plan.speed < 46, `order ${order} speed ${plan.speed}`);
-      const traveled = plan.start - plan.handoff;
-      assert.ok(Math.abs(traveled - plan.speed * 3) < 1e-9);
-      assert.ok(Math.abs(brakeVelocityAt(plan, 0) - plan.velocity) < 1e-9);
-      assert.equal(((plan.notch % count) + count) % count, landIndex);
-    }
-  }
+test("later reels launch faster by one stagger of the shared brake", () => {
+  const decel = BRAKE_PRESETS.medium;
+  const speeds = [0, 1, 2].map((order) =>
+    Math.abs(pullLaunchVelocity({ order, decel, strength: 1, random: 0.5 })),
+  );
+  assert.ok(speeds[0] < speeds[1] && speeds[1] < speeds[2]);
+  assert.ok(Math.abs(speeds[1] - speeds[0] - decel * PULL_STAGGER_S) < 1e-9);
+  assert.ok(Math.abs(speeds[2] - speeds[1] - decel * PULL_STAGGER_S) < 1e-9);
+  const gap = pullStopSeconds(speeds[1], decel) - pullStopSeconds(speeds[0], decel);
+  assert.ok(Math.abs(gap - PULL_STAGGER_S) < 1e-9);
+  assert.ok(pullLaunchVelocity({ order: 0, decel, strength: 1, random: 0.5 }) < 0);
 });
 
-test("the wheels are fully still at 4.04, 4.30, and 4.56 seconds", () => {
-  assert.deepEqual([0, 1, 2].map(stillAtMs), [4040, 4300, 4560]);
-  assert.deepEqual(PULL_LOOPS, [25, 8, 16]);
+test("jitter stays inside 15 percent and a harder pull is faster", () => {
+  const decel = BRAKE_PRESETS.medium;
+  const calm = Math.abs(pullLaunchVelocity({ order: 0, decel, strength: 1, random: 0.5 }));
+  const fast = Math.abs(pullLaunchVelocity({ order: 0, decel, strength: 1, random: 1 }));
+  const slow = Math.abs(pullLaunchVelocity({ order: 0, decel, strength: 1, random: 0 }));
+  assert.ok(fast > calm && slow < calm);
+  assert.ok(Math.abs(fast / calm - 1.15) < 1e-9);
+  assert.ok(Math.abs(slow / calm - 0.85) < 1e-9);
+  const light = Math.abs(pullLaunchVelocity({ order: 0, decel, strength: 0.85, random: 0.5 }));
+  const full = Math.abs(pullLaunchVelocity({ order: 0, decel, strength: 1, random: 0.5 }));
+  assert.ok(full > light);
 });
 
-test("reduced motion is a jump to the chosen stop", () => {
-  const plan = pullPlan({ order: 1, count: 16, position: 12, landIndex: 4, reduced: true });
-  assert.equal(plan.reduced, true);
-  assert.equal(plan.iceMs, 0);
-  assert.equal(plan.brakeMs, 0);
-  assert.equal(plan.speed, 0);
-  assert.equal(((plan.notch % 16) + 16) % 16, 4);
+test("the three reels still stop left to right", () => {
+  const lands = [0, 1, 2].map((order) => stillAtMs(order));
+  assert.ok(lands[0] < lands[1] && lands[1] < lands[2]);
+  assert.equal(lands[1] - lands[0], Math.round(PULL_STAGGER_S * 1000));
+  assert.ok(stillAtMs(0, "light") > stillAtMs(0, "heavy"));
 });

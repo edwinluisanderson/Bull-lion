@@ -1,7 +1,3 @@
-import { PULL_ICE_MS } from "@/lib/pull-spin";
-
-export { PULL_ICE_MS };
-
 export type DetentInput = {
   /** This reel is inside a scripted handle pull and has not landed. */
   pullSpin: boolean;
@@ -21,17 +17,13 @@ export type Detent = {
 
 /**
  * Whether a committed stop ticks.
- * Ice drops both the click and the haptic. The landing click always plays.
- * Weight alternates only the click, and only after the ice, until it lands.
+ * The landing click always plays. Weight, during a pull, sounds every other stop.
  * A flick, drag, step, or stretch is not a pull spin, so it always ticks.
  */
 export function detentForStop(input: DetentInput): Detent {
   const keep = input.alternated;
   if (!input.pullSpin || input.landing) {
     return { sound: true, haptic: true, alternated: keep };
-  }
-  if (input.elapsedMs < PULL_ICE_MS) {
-    return { sound: false, haptic: false, alternated: keep };
   }
   if (!input.alternate) {
     return { sound: true, haptic: true, alternated: keep };

@@ -1,4 +1,4 @@
-import { hapticClick } from "@/lib/haptics";
+import { HAPTIC_CLICK_MS, hapticClick, reelTicksOpen, setReelTicksOpen } from "@/lib/haptics";
 
 /**
  * Soft detent for a reel snap.
@@ -10,6 +10,8 @@ import { hapticClick } from "@/lib/haptics";
  */
 export const REEL_CLICK_URL = "/sounds/reel-click.mp3";
 export const REEL_CLICK_GAIN = 0.3;
+/** Gray stops use the same click, quieter, and never a haptic. */
+export const REEL_CLICK_DULL = 0.4;
 export const REEL_CLICKS_PER_FRAME = 3;
 
 /** Shared spin bus. Low Q keeps the click's body; the cutoff only takes the hiss. */
@@ -26,6 +28,7 @@ let loading: Promise<void> | null = null;
 let bytes: Promise<ArrayBuffer | null> | null = null;
 let frameStamp = -1;
 let framePlays = 0;
+let lastClickAt = Number.NEGATIVE_INFINITY;
 let spinVoices = 0;
 let spinTrim: GainNode | null = null;
 let spinFilter: BiquadFilterNode | null = null;
@@ -163,8 +166,13 @@ function allowThisFrame(): boolean {
 /**
  * Play one snap. `spin` routes it through the shared lowpass bus.
  * Stopped clicks, the lock, and the pull's stage B stay on the dry output.
+ * Ticks closer than 40ms, or any tick after the reels have stopped, are dropped.
+ * `force` is the landing click and always plays.
  */
-export function playReelClick(spin = false): void {
+export function playReelClick(spin = false, dull = false, force = false): void {
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  if (!force && (!reelTicksOpen() || now - lastClickAt < HAPTIC_CLICK_MS)) return;
+  lastClickAt = now;
   try {
     const ctx = getContext();
     if (!ctx || !buffer) {
@@ -176,7 +184,7 @@ export function playReelClick(spin = false): void {
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     const gain = ctx.createGain();
-    gain.gain.value = REEL_CLICK_GAIN;
+    gain.gain.value = REEL_CLICK_GAIN * (dull ? REEL_CLICK_DULL : 1);
     source.connect(gain);
     if (spin) {
       const bus = ensureSpinBus(ctx);
@@ -193,8 +201,8 @@ export function playReelClick(spin = false): void {
 
 /** Haptic plus click for a committed reel stop or the pull's stage B. */
 export function reelSnap(): void {
-  hapticClick();
-  playReelClick();
+  hapticClick(true);
+  playReelClick(false, false, true);
 }
 
 export function resetReelClickForTests(): void {
@@ -204,6 +212,8 @@ export function resetReelClickForTests(): void {
   bytes = null;
   frameStamp = -1;
   framePlays = 0;
+  lastClickAt = Number.NEGATIVE_INFINITY;
+  setReelTicksOpen(true);
   spinVoices = 0;
   spinTrim = null;
   spinFilter = null;
