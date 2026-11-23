@@ -389,22 +389,25 @@ button,
   position: relative;
 }
 
-.reel-column + .reel-column::before {
+/* Lens on the drum only: thickest and brightest at the payline, a point at each edge. */
+.reel-column + .reel-column::after {
   content: "";
   position: absolute;
   z-index: 5;
-  top: 0;
-  bottom: 0;
+  top: var(--reel-name);
   left: 0;
-  width: 1px;
-  background: #c6a15a;
-  opacity: 0.28;
+  width: 5px;
+  height: var(--reel-window);
+  transform: translateX(-50%);
   pointer-events: none;
+  background: linear-gradient(to bottom, transparent 0%, #c6a15a 50%, transparent 100%);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  opacity: 0.28;
   transition: opacity 280ms ease;
 }
 
-.reel-grid[data-divider-left="bright"] .reel-column:nth-child(2)::before,
-.reel-grid[data-divider-right="bright"] .reel-column:nth-child(3)::before {
+.reel-grid[data-divider-left="bright"] .reel-column:nth-child(2)::after,
+.reel-grid[data-divider-right="bright"] .reel-column:nth-child(3)::after {
   opacity: 0.35;
 }
 
