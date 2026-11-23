@@ -251,7 +251,10 @@ function emergedScreenTop(
   return anchorTop - sign * (index + 1) * itemHeight;
 }
 
-/** An in-between face that still paints inside the reel window, even if partly clipped. */
+/**
+ * An in-between face is on screen when at least half its row is outside the pin.
+ * A few pixels peeking past the pin is not a face the release should keep.
+ */
 export function betweenFaceVisible(
   screenTop: number,
   itemHeight: number,
@@ -260,7 +263,8 @@ export function betweenFaceVisible(
   if (!(itemHeight > 0)) return false;
   if (screenTop >= itemHeight * 3 || screenTop + itemHeight <= 0) return false;
   const clip = stretchRowClip(screenTop, itemHeight, direction, "between");
-  return clip.clipTop < itemHeight && clip.clipBottom < itemHeight;
+  const visible = itemHeight - clip.clipTop - clip.clipBottom;
+  return visible >= itemHeight / 2;
 }
 
 function rowOnScreen(screenTop: number, itemHeight: number): boolean {

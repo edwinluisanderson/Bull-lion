@@ -238,12 +238,49 @@ export function createReelEngine(options: {
     }
   }
 
+  function reelCount(): number {
+    if (guest?.run?.length) return options.getCount() + guest.run.length;
+    return options.getCount();
+  }
+
+  /** A stretch-made face is a real stop. Permanent faces keep their enabled flag. */
+  function enabledExpanded(index: number): boolean {
+    const count = reelCount();
+    const at = mod(index, count);
+    if (guest?.run?.length && guest.insertAfter != null) {
+      const first = guest.insertAfter + 1;
+      const last = first + guest.run.length - 1;
+      if (at >= first && at <= last) return true;
+      const permanent = at > last ? at - guest.run.length : at;
+      return options.isEnabled(mod(permanent, options.getCount()));
+    }
+    return options.isEnabled(mod(at, options.getCount()));
+  }
+
   function enabledIndex(index: number): boolean {
-    return options.isEnabled(mod(index, options.getCount()));
+    return enabledExpanded(index);
   }
 
   function nearestEnabledSlot(from: number): number {
-    return nearestEnabledNotch(from, options.getCount(), options.isEnabled);
+    return nearestEnabledNotch(from, reelCount(), enabledExpanded);
+  }
+
+  function publishCommitted(index: number) {
+    if (guest?.run?.length && guest.insertAfter != null) {
+      const count = reelCount();
+      const at = mod(index, count);
+      const first = guest.insertAfter + 1;
+      const last = first + guest.run.length - 1;
+      if (at >= first && at <= last) {
+        const value = guest.run[at - first];
+        if (value !== undefined) options.onPieces(value);
+        return;
+      }
+      const permanent = at > last ? at - guest.run.length : at;
+      options.onIndex(mod(permanent, options.getCount()));
+      return;
+    }
+    options.onIndex(index);
   }
 
   function setPos(next: number) {
@@ -251,30 +288,16 @@ export function createReelEngine(options: {
     position = next;
     options.setKinetics(next, velocity);
     const stops = options.getStretch()?.stops;
-    if (guest?.run?.length && guest.insertAfter != null) {
+    if (phase === "snap" && guest?.run?.length && guest.insertAfter != null) {
       const first = guest.insertAfter + 1;
-      const last = guest.insertAfter + guest.run.length;
-      let near = false;
-      for (let index = first; index <= last; index += 1) {
-        if (Math.abs(index - next) < 2.6) near = true;
+      const centered = Math.round(next);
+      if (centered >= first && centered < first + guest.run.length) {
+        const value = guest.run[centered - first];
+        if (value !== undefined) options.onPieces(value);
       }
-      if (!near) {
-        let folded = next;
-        if (folded > guest.insertAfter) folded -= guest.run.length;
-        guest = null;
-        options.onGuest(null);
-        position = mod(Math.round(folded), options.getCount());
-        options.setKinetics(position, velocity);
-      } else {
-        const centered = Math.round(next);
-        if (centered >= first && centered <= last) {
-          const value = guest.run[centered - first];
-          if (value !== undefined) options.onPieces(value);
-        }
-        return;
-      }
+      return;
     }
-    if (guest && stops) {
+    if (guest && stops && !guest.run?.length) {
       if (!guestStillVisible(position, stops, guest)) {
         guest = null;
         options.onGuest(null);
@@ -294,8 +317,8 @@ export function createReelEngine(options: {
     for (const stop of stopsCrossed(previous, next)) {
       if (!enabledIndex(stop)) playReelClick(audioSpin, true);
     }
-    const count = options.getCount();
-    const index = commitIndex(position, count, options.isEnabled);
+    const count = reelCount();
+    const index = commitIndex(position, count, enabledExpanded);
     const landingNotch =
       camNotch !== null &&
       index !== null &&
@@ -325,12 +348,12 @@ export function createReelEngine(options: {
       setAudioSpin(false);
       pullSpin = false;
       committed = index;
-      options.onIndex(index);
+      publishCommitted(index);
       if (noted.playLanding) playSettledLanding();
       return;
     }
     committed = index;
-    options.onIndex(index);
+    publishCommitted(index);
     if (detent.haptic) hapticClick(false);
     if (detent.sound) playReelClick(audioSpin, false, false, false);
   }
@@ -444,7 +467,7 @@ export function createReelEngine(options: {
     }
 
     if (phase === "coast") {
-      const count = options.getCount();
+      const count = reelCount();
       const incoming = velocity;
       const decel = pullSpin ? pullDecel(pullOrder) : brakeDecel();
       const glide = grayGlidePlan({
@@ -452,7 +475,7 @@ export function createReelEngine(options: {
         velocity,
         decel,
         count,
-        isEnabled: options.isEnabled,
+        isEnabled: enabledExpanded,
         locked: glideTarget,
       });
       glideTarget = glide.fallback ? null : glide.target;
@@ -461,7 +484,7 @@ export function createReelEngine(options: {
       setPos(step.position);
       if (Math.abs(velocity) < COAST_SETTLE_SPEED) {
         const direction = velocity !== 0 ? velocity : incoming;
-        camToNotch(glideSettleNotch(position, direction, count, options.isEnabled), 180);
+        camToNotch(glideSettleNotch(position, direction, count, enabledExpanded), 180);
         return;
       }
     }
@@ -813,11 +836,11 @@ export function createReelEngine(options: {
       drag = null;
       hapticClick();
       const speed = options.isReduced() ? 0 : velocityFrom(samples);
-      const count = options.getCount();
+      const count = reelCount();
       if (options.isReduced() || Math.abs(speed) < FLICK_COAST_SPEED) {
         const notch =
           Math.abs(speed) > 0 && !enabledIndex(Math.round(position))
-            ? glideSettleNotch(position, speed, count, options.isEnabled)
+            ? glideSettleNotch(position, speed, count, enabledExpanded)
             : nearestEnabledSlot(position);
         if (flickOwesLanding({ speed, position, notch, committed, count })) {
           landingWatch = armLandingWatch();
@@ -836,12 +859,7 @@ export function createReelEngine(options: {
       pullSpin = false;
       landingWatch = clearLandingWatch();
       hapticClick();
-      if (guest) {
-        const target = direction > 0 ? Math.ceil(guest.slot) : Math.floor(guest.slot);
-        animateTo(target, options.isReduced() ? 0 : 180);
-        return;
-      }
-      const count = options.getCount();
+      const count = reelCount();
       const start = Math.round(position);
       for (let delta = 1; delta <= count; delta += 1) {
         const candidate = start + direction * delta;

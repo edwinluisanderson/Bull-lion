@@ -467,6 +467,37 @@ test("releasing an upward stretch keeps the in-between that is still beside cent
   assert.deepEqual(guestWindow(COUNTS, placed.position, placed.guest), [21, 22, 25]);
 });
 
+test("one step from 20 to 21 does not invent 22 beside it", () => {
+  const origin = originFor(COUNTS, 20);
+  const sequence = sequenceFrom(origin, "up");
+  for (const travel of [HEIGHT, HEIGHT * 1.05, HEIGHT * 1.2]) {
+    const layout = stretchLayout({
+      direction: "up",
+      anchor: 20,
+      pin: origin.upper,
+      pushed: origin.lower,
+      sequence,
+      travel,
+      itemHeight: HEIGHT,
+    });
+    assert.equal(layout.centered, 21);
+    const placed = releasePlacement({
+      direction: "up",
+      origin,
+      sequence,
+      stops: COUNTS,
+      travel,
+      itemHeight: HEIGHT,
+      centered: layout.centered,
+    });
+    assert.ok(placed);
+    assert.equal(placed.guest.run?.includes(22), false);
+    const window = guestWindow(COUNTS, placed.center, placed.guest);
+    assert.equal(window.includes(22), false);
+    assert.deepEqual(window, [20, 21, 25]);
+  }
+});
+
 test("a release snap eases past center and settles on it", () => {
   assert.ok(STRETCH_SNAP_MS >= 90 && STRETCH_SNAP_MS <= 140);
   assert.ok(Math.abs(snapEase(0)) < 1e-9);

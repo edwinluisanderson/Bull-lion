@@ -209,7 +209,50 @@ test("after stretch releases, a drag moves the reel and a fling spins it", () =>
   }
 });
 
-test("a stretch from rest 20 to x18 keeps 17, 18, and 19", () => {
+test("a one-step stretch to 21 can be dragged and flung, and 22 never appears", () => {
+  installFrame();
+  mock.timers.enable({ apis: ["setTimeout"] });
+  for (const cycle of [1, 2, 3]) {
+    const { engine, read } = harness();
+    const time = 1_000;
+    const y = 400;
+    engine.pointerDown(y, time, 120, 258);
+    mock.timers.tick(STRETCH_HOLD_MS);
+    engine.pointerMove(y - 96, time + STRETCH_HOLD_MS + 40);
+    engine.pointerUp();
+    flushFrames();
+    const restedFaces = read();
+    const guest = restedFaces.guest;
+    if (!guest?.run?.length) assert.fail("the one-step face was not kept");
+    const faces = guestWindow(COUNTS, restedFaces.position, guest);
+    assert.equal(faces.includes(22), false, `cycle ${cycle} showed 22`);
+    assert.equal(faces.includes(21), true);
+    const rested = read().position;
+    engine.pointerDown(y, time + 800, 40, 258);
+    engine.pointerMove(y + 80, time + 840);
+    assert.ok(Math.abs(read().position - rested) > 0.4, `drag after one-step stretch ${cycle} did not move`);
+    engine.pointerMove(y + 170, time + 870);
+    engine.pointerMove(y + 280, time + 900);
+    const atRelease = read().position;
+    engine.pointerUp();
+    let spun = false;
+    let now = performance.now();
+    for (let frame = 0; frame < 8 && queued.length > 0; frame += 1) {
+      const batch = queued.splice(0, queued.length);
+      now += 16;
+      for (const callback of batch) callback(now);
+      if (Math.abs(read().position - atRelease) > 0.5) spun = true;
+    }
+    assert.equal(spun, true, `fling after one-step stretch ${cycle} settled in place`);
+    const after = read();
+    if (after.guest) {
+      assert.equal(guestWindow(COUNTS, after.position, after.guest).includes(22), false);
+    }
+    engine.destroy();
+  }
+});
+
+test("a stretch from rest 20 to x18 keeps the faces that cleared the pin", () => {
   installFrame();
   mock.timers.enable({ apis: ["setTimeout"] });
   const { engine, read } = harness();
@@ -217,7 +260,8 @@ test("a stretch from rest 20 to x18 keeps 17, 18, and 19", () => {
   const rested = read();
   const guest = rested.guest;
   if (!guest?.run?.length) assert.fail("stretch release dropped the visible run");
-  assert.deepEqual(guestWindow(COUNTS, rested.position, guest), [17, 18, 19]);
+  assert.deepEqual(guestWindow(COUNTS, rested.position, guest), [10, 18, 19]);
+  assert.equal(guestWindow(COUNTS, rested.position, guest).includes(17), false);
   engine.destroy();
 });
 
