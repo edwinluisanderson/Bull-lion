@@ -4,7 +4,7 @@
  */
 export const DIVIDER_COLOR = "#f0d78c";
 export const DIVIDER_BRIGHT = 1;
-export const DIVIDER_DIM = 0.65;
+export const DIVIDER_DIM = 0.6;
 
 export type DividerLevels = { left: number; right: number };
 
