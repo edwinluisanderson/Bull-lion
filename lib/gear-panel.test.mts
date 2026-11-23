@@ -5,16 +5,15 @@ import test from "node:test";
 const machine = readFileSync(new URL("../components/slot-machine.tsx", import.meta.url), "utf8");
 const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 
-test("the decorative gears sit in the holding panel under the machine", () => {
+test("the scrap plate is blank wood under the machine", () => {
   const cabinet = machine.slice(machine.indexOf('className="cabinet"'), machine.indexOf('className="gear-panel"'));
   const panel = machine.slice(machine.indexOf('className="gear-panel"'));
   assert.equal(cabinet.includes("<Gear"), false);
-  assert.equal(cabinet.includes("bg-gear-left"), false);
-  assert.equal(cabinet.includes("bg-gear-right"), false);
-  assert.equal((panel.match(/<Gear /g) ?? []).length, 2);
-  assert.match(panel, /gear-panel-bg-left/);
-  assert.match(panel, /gear-panel-bg-right/);
-  assert.equal(panel.includes("marquee-gear"), false);
+  assert.equal(panel.includes("<Gear"), false);
+  assert.equal(panel.includes("gear-panel-bg"), false);
+  assert.equal(panel.includes("RollingPrice"), false);
+  assert.equal(panel.includes("scrap-readout"), false);
+  assert.match(panel, /className="scrap-clear"/);
   assert.match(css, /\.gear-panel \{[^}]*border-radius:\s*var\(--cabinet-radius\)/);
   assert.match(css, /\.nameplate \{[^}]*border-radius:\s*14px/);
   assert.match(css, /\.nameplate \{[^}]*inset 0 1px 0 rgba\(255, 255, 255, 0\.7\)/);

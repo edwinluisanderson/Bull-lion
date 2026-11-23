@@ -5,11 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Gauge } from "@/components/gauge";
 import { WeightDial } from "@/components/weight-dial";
 import { GaugeSurround } from "@/components/gauge-surround";
-import { Gear } from "@/components/gear";
 import { SteampunkLight } from "@/components/steampunk-light";
 import { WheelLamps } from "@/components/wheel-lamps";
 import { pulseWheelLamp } from "@/lib/wheel-lamp";
-import { RollingPrice } from "@/components/rolling-price";
 import { StackTable } from "@/components/stack-table";
 import { PullBall } from "@/components/lever";
 import { Readout } from "@/components/readout";
@@ -22,7 +20,7 @@ import {
   IDLE_COUNT_GUARD,
   notePullStarted,
 } from "@/lib/count-guard";
-import { formatTroyOunces, formatUsd, formatWholeDollars } from "@/lib/format";
+import { formatTroyOunces, formatUsd } from "@/lib/format";
 import {
   COUNTS,
   DEFAULT_COUNT_INDEX,
@@ -444,26 +442,16 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           <span className="rivet" data-corner="tr" />
           <span className="rivet" data-corner="bl" />
           <span className="rivet" data-corner="br" />
-          <div className="gear-panel-stage" aria-hidden="true">
-          <Gear className="gear bg-gear gear-panel-bg gear-panel-bg-left" />
-          <Gear className="gear bg-gear gear-panel-bg gear-panel-bg-right" />
-          </div>
-          <div className="scrap-readout-gap" aria-hidden="true" />
-          <div className="scrap-readout">
-            {/* TEMP_CLEAR_ALL: testing control on the scrap plate. Remove with the flag. */}
-            {TEMP_CLEAR_ALL ? (
-              <button
-                type="button"
-                className="scrap-clear"
-                onClick={() => window.dispatchEvent(new Event(CLEAR_STACK_EVENT))}
-              >
-                Clear all
-              </button>
-            ) : null}
-            <section className={spinning ? "readout is-spinning" : "readout"}>
-              <RollingPrice value={metal ? formatWholeDollars(meltValue(metal.usdPerTroyOz, weight.grams, pieces)) : "—"} />
-            </section>
-          </div>
+          {/* TEMP_CLEAR_ALL: testing control on the scrap plate. Remove with the flag. */}
+          {TEMP_CLEAR_ALL ? (
+            <button
+              type="button"
+              className="scrap-clear"
+              onClick={() => window.dispatchEvent(new Event(CLEAR_STACK_EVENT))}
+            >
+              Clear all
+            </button>
+          ) : null}
         </div>
         {lampCompare ? (
           <div className="lamp-compare">

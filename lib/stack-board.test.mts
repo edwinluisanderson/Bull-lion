@@ -218,8 +218,9 @@ test("My Stack sits between the cabinet and the scrap plate", () => {
   assert.equal(plate.includes("<Gear"), false);
   const scrap = machine.slice(panel);
   assert.equal(scrap.includes("<StackTable"), false);
-  assert.match(scrap, /className="scrap-readout"/);
-  assert.match(scrap, /className="scrap-readout-gap"/);
+  assert.match(scrap, /className="scrap-clear"/);
+  assert.equal(scrap.includes("scrap-readout"), false);
+  assert.equal(scrap.includes("RollingPrice"), false);
   assert.equal(plate.includes('className="rivet"'), false);
   assert.match(css, /\.stack-plate \{[^}]*width:\s*auto/);
   assert.match(css, /\.stack-plate \{[^}]*margin:\s*20px 0 0/);
@@ -235,7 +236,7 @@ test("My Stack sits between the cabinet and the scrap plate", () => {
 
 test("the split-flap stack keeps its board and the flaps stay quiet when sound is off", () => {
   assert.match(machine, /<StackTable/);
-  assert.match(machine, /className="scrap-readout-gap"/);
+  assert.match(machine, /className="scrap-clear"/);
   assert.equal(table.includes("Add to stack"), false);
   assert.equal(table.includes("stack-add"), false);
   assert.equal(table.includes("addCurrent"), false);

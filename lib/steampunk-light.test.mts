@@ -95,7 +95,6 @@ test("brightness runs from an unlit bulb to a full warm halo", () => {
 
 test("the scrap plate keeps its height without the test lamps", () => {
   assert.match(css, /\.gear-panel \{[^}]*min-height:\s*360px/);
-  assert.match(css, /\.gear-panel-stage \{[^}]*min-height:\s*250px/);
   assert.equal(css.includes("min-height: 540px"), false);
   assert.equal(css.includes(".gear-panel-lights"), false);
   assert.equal(css.includes(".lighthouse-beam"), false);
