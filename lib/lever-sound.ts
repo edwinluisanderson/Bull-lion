@@ -34,6 +34,40 @@ function vibrate(pattern: number): void {
   }
 }
 
+/** Softer than the lever tick. A page passing a stop. */
+export const PAGE_PASS_GAIN = 0.045;
+/** Quiet landing click when the page settles on a stop. */
+export const PAGE_LAND_GAIN = 0.06;
+
+function pageClick(gainValue: number): void {
+  try {
+    const ctx = reelAudioContext();
+    if (!ctx || ctx.state !== "running") return;
+    const source = ctx.createBufferSource();
+    source.buffer = noise(ctx, 0.014);
+    const band = ctx.createBiquadFilter();
+    band.type = "bandpass";
+    band.frequency.value = 3200;
+    band.Q.value = 2.5;
+    const gain = ctx.createGain();
+    gain.gain.value = gainValue;
+    source.connect(band).connect(gain).connect(ctx.destination);
+    source.start();
+  } catch {
+    /* Audio is optional. */
+  }
+}
+
+/** Lever-tick timbre, lighter, and without its own buzz. The page owns the 6ms haptic. */
+export function pagePassClick(): void {
+  pageClick(PAGE_PASS_GAIN);
+}
+
+/** One quiet click when the cushion lands. The page owns the 15ms tap. */
+export function pageLandClick(): void {
+  pageClick(PAGE_LAND_GAIN);
+}
+
 export function leverTick(): void {
   vibrate(LEVER_TICK_VIBRATE_MS);
   try {

@@ -99,8 +99,8 @@ test("a second delete waits its turn and the other cards stay swipeable", () => 
   assert.equal(queuedCoverId("gold", null), null);
 
   const snap = readFileSync(new URL("../components/page-snap.tsx", import.meta.url), "utf8");
-  assert.match(snap, /stack-swipe\.is-departing/);
-  assert.match(snap, /requestAnimationFrame\(onLayout\)/);
+  assert.equal(snap.includes("ResizeObserver"), false);
+  assert.equal(snap.includes('addEventListener("scrollend", finish)'), false);
   assert.match(table, /queuedDelete/);
   assert.match(card, /if \(leaving\) return/);
 });

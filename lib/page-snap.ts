@@ -1,33 +1,24 @@
 /**
- * Magnetic field around a stop, in pixels.
- * A scroll that comes to rest inside this distance is drawn onto the stop.
- * At this distance and beyond, the page stays exactly where it was left.
- * A fixed pixel radius, not a share of the viewport: a tall window must not
- * start grabbing scrolls that should stay put.
- */
-export const SNAP_RADIUS_PX = 100;
-/**
  * Optional stops must be at least this far from a stop already kept.
- * Twice the field radius: the 100px zones meet at a single point where the
- * pull is already zero, so two fields never both claim the same resting
- * position. Always-stops are not dropped when a short screen packs them closer.
+ * Always-stops are not dropped when a short screen packs them closer.
  */
-export const SNAP_MIN_GAP_PX = SNAP_RADIUS_PX * 2;
-/** Already on the stop. Don't start another ease. */
-export const SNAP_SLOP_PX = 8;
-/**
- * Natural frequency of the critically damped glide, in radians per second.
- * Closer rests use a slightly higher frequency. Both are low: the page glides
- * instead of jumping, even right next to a stop.
- */
-export const SPRING_OMEGA_NEAR = 3.6;
-export const SPRING_OMEGA_FAR = 2.4;
-/**
- * Initial acceleration of a rest-start glide stays at or under this many
- * pixels per second squared. A short distance cannot pick a frequency that
- * would snap.
- */
-export const GLIDE_MAX_ACCEL = 400;
+export const SNAP_MIN_GAP_PX = 200;
+
+/** A lift slower than this is not a fling. The page stays where the finger left it. */
+export const FLING_MIN_PX_PER_SEC = 280;
+/** At this speed and above, the fling skips exactly one stop. */
+export const HARD_FLING_PX_PER_SEC = 2200;
+
+/** Distance before the target where the cushion takes over from the fling. */
+export const CUSHION_ZONE_PX = 120;
+/** First stretch of the cushion. Ease from the fling speed down to the glide. */
+export const CATCH_PX = 40;
+/** Last stretch. Ease from the glide speed down to zero on the stop. */
+export const SETTLE_PX = 15;
+/** Middle of the cushion. The zone minus the catch and the settle. */
+export const GLIDE_PX = CUSHION_ZONE_PX - CATCH_PX - SETTLE_PX;
+/** Constant speed through the glide, in pixels per second. */
+export const GLIDE_SPEED = 56;
 
 /** Page top, melt plate, wheel window, and page bottom are never removed. */
 export const ALWAYS_SNAP_NAMES = ["top", "melt", "wheels", "bottom"] as const;
@@ -66,113 +57,111 @@ function clampScroll(point: number, limit: number): number {
   return Math.min(limit, Math.max(0, point));
 }
 
-/**
- * Whether a rest is inside the field. The value is a gentle even engagement,
- * not a magnet that is strongest on the stop. It stays flat through the field
- * and fades to zero across the outer 15 percent, so a rest near 100px still
- * starts a close and the field meets the no-pull region without a corner.
- */
-export function magneticStrength(distancePx: number, radius = SNAP_RADIUS_PX): number {
-  if (!Number.isFinite(distancePx) || !Number.isFinite(radius) || radius <= 0) return 0;
-  if (distancePx >= radius) return 0;
-  const t = Math.max(0, distancePx) / radius;
-  const fadeStart = 0.85;
-  const engagement = 0.45;
-  if (t <= fadeStart) return engagement;
-  const u = (t - fadeStart) / (1 - fadeStart);
-  const smooth = u * u * (3 - 2 * u);
-  return engagement * (1 - smooth);
+function smoothstep(unit: number): number {
+  const u = clamp01(unit);
+  return u * u * (3 - 2 * u);
 }
 
-/** Cruise speed of a soft-close, in pixels per second. The same for every stop. */
-export const SOFT_CLOSE_SPEED = 56;
-/**
- * How long the cushion lasts. A gap shorter than {@link SOFT_CLOSE_CUSHION_PX}
- * uses this same time, so a close rest is slower instead of grabbier.
- */
-export const SOFT_CLOSE_CUSHION_SEC = 1.05;
-/** Distance covered while the cushion bleeds the cruise speed down to zero. */
-export const SOFT_CLOSE_CUSHION_PX = (SOFT_CLOSE_SPEED * SOFT_CLOSE_CUSHION_SEC) / 2;
-
-export function glideDuration(distancePx: number): number {
-  const distance = Math.max(0, Math.abs(distancePx));
-  const cushionPx = Math.min(SOFT_CLOSE_CUSHION_PX, distance);
-  const cruiseSec = (distance - cushionPx) / SOFT_CLOSE_SPEED;
-  return (cruiseSec + SOFT_CLOSE_CUSHION_SEC) * 1000;
-}
-
-/**
- * Soft-close drawer. Offset is the signed gap still left to the stop.
- * A long gap cruises at {@link SOFT_CLOSE_SPEED}, then a cosine taper brings
- * the speed to zero. A short gap uses only the taper, at a lower entry speed,
- * over the same cushion time. The offset stays on its starting side of the stop.
- */
-export function softCloseAt(elapsedSec: number, distancePx: number): { offset: number; velocity: number } {
-  const distance = Math.abs(distancePx);
-  const sign = distancePx < 0 ? -1 : 1;
-  if (distance === 0) return { offset: 0, velocity: 0 };
-  const cushionPx = Math.min(SOFT_CLOSE_CUSHION_PX, distance);
-  const cruiseSec = (distance - cushionPx) / SOFT_CLOSE_SPEED;
-  const entry = (2 * cushionPx) / SOFT_CLOSE_CUSHION_SEC;
-  const t = Math.max(0, elapsedSec);
-  if (t >= cruiseSec + SOFT_CLOSE_CUSHION_SEC) return { offset: 0, velocity: 0 };
-  if (cruiseSec > 0 && t <= cruiseSec) {
-    return { offset: sign * (distance - SOFT_CLOSE_SPEED * t), velocity: -sign * SOFT_CLOSE_SPEED };
+/** Speed from the last moments of a drag. Too short a sample is not a fling. */
+export function releaseVelocity(samples: readonly { t: number; y: number }[]): number {
+  if (samples.length < 2) return 0;
+  const last = samples[samples.length - 1];
+  let first = samples[0];
+  for (let index = samples.length - 1; index >= 0; index -= 1) {
+    first = samples[index];
+    if (last.t - samples[index].t >= 70) break;
   }
-  const u = (t - cruiseSec) / SOFT_CLOSE_CUSHION_SEC;
-  const covered = (entry / 2) * (t - cruiseSec + (SOFT_CLOSE_CUSHION_SEC / Math.PI) * Math.sin(Math.PI * u));
-  const offset = Math.max(0, cushionPx - covered);
-  const velocity = -entry * (1 + Math.cos(Math.PI * u)) / 2;
-  return { offset: sign * offset, velocity: sign * velocity };
+  const dt = (last.t - first.t) / 1000;
+  if (dt < 0.016) return 0;
+  return (last.y - first.y) / dt;
 }
 
+export type FlingPlan = {
+  /** Null when the page should stay exactly where the finger lifted. */
+  target: number | null;
+  /** The one stop a hard fling passes. Never more than one. */
+  skipped: number | null;
+  hard: boolean;
+};
+
 /**
- * Frequency for a critically damped glide. Strength raises it, so a closer
- * rest finishes sooner, and {@link GLIDE_MAX_ACCEL} lowers it when ω² × distance
- * would otherwise jump. Distance is the absolute gap to the stop, in pixels.
+ * Where a release is going.
+ * No fling stays put. A normal fling takes the next stop in its direction.
+ * A hard fling skips that stop and takes the one after, and never a further one.
+ * Reduced motion never starts a glide.
  */
-export function springOmega(strength: number, distancePx: number): number {
-  const pull = clamp01(strength);
-  const wanted = SPRING_OMEGA_FAR + (SPRING_OMEGA_NEAR - SPRING_OMEGA_FAR) * pull;
-  const distance = Math.max(distancePx, 1);
-  const capped = Math.sqrt(GLIDE_MAX_ACCEL / distance);
-  return Math.min(wanted, capped);
+export function planFling(input: {
+  scrollTop: number;
+  velocity: number;
+  maxScroll: number;
+  points: readonly SnapMark[];
+  reduced: boolean;
+}): FlingPlan {
+  const stay = { target: null, skipped: null, hard: false };
+  if (input.reduced || Math.abs(input.velocity) < FLING_MIN_PX_PER_SEC) return stay;
+  const limit = Math.max(0, input.maxScroll);
+  const y = clampScroll(input.scrollTop, limit);
+  const dir = input.velocity > 0 ? 1 : -1;
+  const ahead = collectStops(input.points, limit)
+    .map((stop) => stop.at)
+    .filter((at) => (dir > 0 ? at > y + 0.5 : at < y - 0.5))
+    .sort((a, b) => dir * (a - b));
+  if (ahead.length === 0) return stay;
+  const hard = Math.abs(input.velocity) >= HARD_FLING_PX_PER_SEC && ahead.length >= 2;
+  if (!hard) return { target: ahead[0], skipped: null, hard: false };
+  return { target: ahead[1], skipped: ahead[0], hard: true };
 }
 
 /**
- * Critically damped spring, offset from the stop. `velocityPxPerSec` is the
- * offset's velocity (same sign as scrollTop velocity when offset is
- * `scrollTop - stop`). With a zero start velocity the first derivative is 0,
- * so the glide eases in. It does not overshoot when that velocity is 0.
+ * Speed toward the stop, in px/s, from the distance still left.
+ * Outside the cushion this is the fling speed. At the catch entrance it is
+ * that same speed. The catch eases it to {@link GLIDE_SPEED}. The glide holds
+ * 56. The settle eases to zero. `catchFrom` is the remaining distance where
+ * this catch began, so a fling that starts mid-catch is continuous there.
  */
-export function criticallyDamped(
-  elapsedSec: number,
-  omega: number,
-  offsetPx: number,
-  velocityPxPerSec: number,
-): { offset: number; velocity: number } {
-  const w = Math.max(omega, 0.001);
-  const t = Math.max(0, elapsedSec);
-  const A = offsetPx;
-  const B = velocityPxPerSec + w * A;
-  const decay = Math.exp(-w * t);
-  return {
-    offset: (A + B * t) * decay,
-    velocity: (B - w * (A + B * t)) * decay,
-  };
+export function cushionSpeed(remainingPx: number, flingSpeed: number, catchFrom = CUSHION_ZONE_PX): number {
+  const remaining = Math.max(0, remainingPx);
+  const entry = Math.max(0, flingSpeed);
+  if (remaining > CUSHION_ZONE_PX) return entry;
+  const catchEnd = CUSHION_ZONE_PX - CATCH_PX;
+  if (remaining > catchEnd) {
+    const from = Math.min(CUSHION_ZONE_PX, Math.max(remaining, catchFrom));
+    const span = Math.max(0.001, from - catchEnd);
+    const u = (from - remaining) / span;
+    return entry + (GLIDE_SPEED - entry) * smoothstep(u);
+  }
+  if (remaining > SETTLE_PX) return GLIDE_SPEED;
+  const u = (SETTLE_PX - remaining) / SETTLE_PX;
+  return GLIDE_SPEED * (1 - smoothstep(u));
+}
+
+/** Stops strictly between two scroll positions, in the direction of travel. */
+export function stopsPassed(from: number, to: number, stops: readonly number[]): number[] {
+  const dir = to >= from ? 1 : -1;
+  return stops
+    .filter((at) => (dir > 0 ? at > from + 0.5 && at < to - 0.5 : at < from - 0.5 && at > to + 0.5))
+    .sort((a, b) => dir * (a - b));
+}
+
+export type PageCue = "pass" | "land";
+
+/** Hard fling: one pass tick for the skipped stop, then one landing. A normal fling only lands. */
+export function flingCues(hard: boolean): PageCue[] {
+  return hard ? ["pass", "land"] : ["land"];
+}
+
+/** One pass cue for each stop a finger drags across. A drag does not land. */
+export function dragCues(passed: number): PageCue[] {
+  return Array.from({ length: Math.max(0, passed) }, () => "pass" as const);
 }
 
 /**
- * Words for the optional `?magnet=1` caption. The close itself is the drawer
- * curve, not these bands. The bands only name what a viewer is seeing.
+ * Words for the optional `?magnet=1` caption.
  */
 export function magnetCaption(distancePx: number, stopName: string): string {
   const distance = Math.max(0, Math.round(distancePx));
-  let feel = "soft close";
-  if (distance >= SNAP_RADIUS_PX) feel = "no pull";
-  else if (distance <= SNAP_SLOP_PX) feel = "on stop";
-  else if (distance <= SOFT_CLOSE_CUSHION_PX) feel = "cushion";
-  return `${distance}px from ${stopName} · ${feel}`;
+  const zone = distance <= CUSHION_ZONE_PX ? "cushion" : "free";
+  return `${distance}px from ${stopName} · ${zone}`;
 }
 
 /**
@@ -250,22 +239,3 @@ export function nearestStop(
   return { at: nearest.at, distance: best, name: nearest.name || "stop" };
 }
 
-/**
- * The stop to ease onto, or null when the page should stay exactly where it landed.
- * Inside the field the page soft-closes. Strength is even, not strongest at
- * the stop, and zero at {@link SNAP_RADIUS_PX} and beyond. Reduced motion
- * never moves the scroll.
- */
-export function settleSnap(input: SnapSettle): MagneticPull | null {
-  if (input.reduced) return null;
-  const nearest = nearestStop(input.scrollTop, input.points, input.maxScroll);
-  if (nearest.distance <= SNAP_SLOP_PX) return null;
-  const strength = magneticStrength(nearest.distance);
-  if (strength <= 0) return null;
-  return {
-    target: nearest.at,
-    distance: nearest.distance,
-    strength,
-    name: nearest.name,
-  };
-}
