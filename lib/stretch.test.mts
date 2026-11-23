@@ -5,6 +5,9 @@ import { COUNTS } from "@/lib/metals";
 import {
   STRETCH_HOLD_MS,
   STRETCH_SLOP_PX,
+  alignDevicePixel,
+  canonicalNotch,
+  centerFaceOffset,
   countRows,
   faceTop,
   guestStillVisible,
@@ -752,6 +755,24 @@ test("crossing 100 does not swap a face in the middle of the window", () => {
   const edge = guestWindow(COUNTS, at100 + 1, guest);
   assert.equal(edge[0], 100);
   assert.notEqual(edge[1], 2);
+});
+
+test("a wrap index folds onto the main face and an exact notch has no offset", () => {
+  assert.equal(canonicalNotch(10, COUNTS.length), COUNTS.indexOf(5));
+  assert.equal(canonicalNotch(9, COUNTS.length), COUNTS.indexOf(2));
+  assert.equal(canonicalNotch(8, COUNTS.length), COUNTS.indexOf(1));
+  assert.equal(canonicalNotch(-1, COUNTS.length), COUNTS.indexOf(100));
+  assert.equal(canonicalNotch(-3, COUNTS.length), COUNTS.indexOf(25));
+  assert.equal(canonicalNotch(10, COUNTS.length), 2);
+  assert.notEqual(canonicalNotch(10, COUNTS.length), COUNTS.indexOf(20));
+  assert.ok(Math.abs(centerFaceOffset(canonicalNotch(10, COUNTS.length))) < 1e-9);
+  assert.ok(Math.abs(centerFaceOffset(8)) < 1e-9);
+  assert.ok(Math.abs(centerFaceOffset(8.006)) > 0.3);
+  assert.equal(alignDevicePixel(86, 1), 86);
+  assert.equal(alignDevicePixel(86.34, 1), 86);
+  assert.equal(alignDevicePixel(86.77, 1), 87);
+  assert.equal(alignDevicePixel(86.34, 2), 86.5);
+  assert.equal(alignDevicePixel(faceTop(0) + 0.34, 2), faceTop(0) + 0.5);
 });
 
 test("the ends of the count list have no invented numbers", () => {

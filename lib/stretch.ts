@@ -157,6 +157,19 @@ export function faceTop(offset: number, itemHeight = REEL_ITEM_HEIGHT): number {
   return itemHeight * 1.5 + pose.shift * itemHeight - itemHeight / 2;
 }
 
+/** Pixels the center face sits off the payline. An exact notch is 0. */
+export function centerFaceOffset(position: number, itemHeight = REEL_ITEM_HEIGHT): number {
+  if (!Number.isFinite(position) || !(itemHeight > 0)) return 0;
+  const fraction = position - Math.floor(position);
+  return faceTop(-fraction, itemHeight) + itemHeight / 2 - itemHeight * 1.5;
+}
+
+/** Snap a painted offset onto the device-pixel grid so a notch cannot sit a fraction off the bar. */
+export function alignDevicePixel(value: number, devicePixelRatio = 1): number {
+  const ratio = Number.isFinite(devicePixelRatio) && devicePixelRatio > 0 ? devicePixelRatio : 1;
+  return Math.round(value * ratio) / ratio;
+}
+
 /**
  * Settled faces use the shared reel plate.
  * Stretch fills and clips belong only to the stretch overlay.
@@ -396,6 +409,19 @@ export function guestWindow(stops: readonly number[], position: number, guest: G
 export function releaseNotch(position: number): number {
   if (!Number.isFinite(position)) return 0;
   return Math.round(position);
+}
+
+/**
+ * Main-list index of an unwrapped position.
+ * A stretch that crosses 100 → 1 (or 1 → 100) keeps counting past the seam,
+ * so three steps up from ×100 sit at index 10. That is the same face as
+ * index 2. Folding whole revolutions maps it back; adding the seam again
+ * would land two stops further on.
+ */
+export function canonicalNotch(position: number, count: number): number {
+  if (!(count > 0) || !Number.isFinite(position)) return 0;
+  const rounded = Math.round(position);
+  return ((rounded % count) + count) % count;
 }
 
 /**

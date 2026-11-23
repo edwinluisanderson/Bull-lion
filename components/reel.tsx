@@ -50,6 +50,8 @@ import {
   projectGuest,
   guestWindow,
   originFromWindow,
+  alignDevicePixel,
+  canonicalNotch,
   releaseNotch,
   releasePlacement,
   rollGuestWindow,
@@ -386,10 +388,27 @@ export function createReelEngine(options: {
       return;
     }
     velocity = 0;
+    parkSettledPosition();
     options.setKinetics(position, 0);
     setAudioSpin(false);
     setPhase("idle");
     settleLanding();
+  }
+
+  /**
+   * A wrap leaves the index outside the main list (10 is the same face as 2).
+   * Park on that main index once the snap has arrived, without scrolling the
+   * extra revolutions that separate the two numbers.
+   */
+  function parkSettledPosition() {
+    const count = reelCount();
+    if (!(count > 0)) return;
+    const rounded = Math.round(position);
+    if (Math.abs(position - rounded) > 1e-4) return;
+    const parked = canonicalNotch(rounded, count);
+    if (parked === position) return;
+    position = parked;
+    options.setKinetics(parked, 0);
   }
 
   function animateTo(target: number, duration: number) {
@@ -402,6 +421,7 @@ export function createReelEngine(options: {
         camNotch = null;
         setPos(notch);
       }
+      parkSettledPosition();
       setPhase("idle");
       settleLanding();
       return;
@@ -421,6 +441,7 @@ export function createReelEngine(options: {
       velocity = 0;
       setPos(notch);
       camNotch = null;
+      parkSettledPosition();
       setPhase("idle");
       settleLanding();
       return;
@@ -435,6 +456,7 @@ export function createReelEngine(options: {
       velocity = 0;
       position = target;
       options.setKinetics(target, 0);
+      parkSettledPosition();
       setPhase("idle");
       return;
     }
@@ -671,6 +693,10 @@ export function createReelEngine(options: {
       options.onGuest(placed.guest);
     }
     const nextPos = placed.position;
+    // The finger is still in the stretch gesture, including a wrap whose
+    // sequence is empty (100 → 1, or 1 → 100). Release snaps to the face
+    // on screen instead of coasting on the stretch speed.
+    handedOff = true;
     gesture = "drag";
     slideDirection = null;
     stretchTravel = 0;
@@ -820,7 +846,7 @@ export function createReelEngine(options: {
         releaseStretch();
         return;
       }
-      if (handedOff && guest?.run?.length && guest.insertAfter != null && phase === "drag" && drag) {
+      if (handedOff && phase === "drag" && drag) {
         const notch = releaseNotch(position);
         handBack();
         const cue = stretchLandingGate({ played: false });
@@ -1209,7 +1235,10 @@ export function Reel({
           const symbol = viewItems[index];
           if (!symbol) return null;
           const pose = cylinderPose(offset - fraction);
-          const y = REEL_ITEM_HEIGHT * 1.5 + pose.shift * REEL_ITEM_HEIGHT - REEL_ITEM_HEIGHT / 2;
+          const y = alignDevicePixel(
+            REEL_ITEM_HEIGHT * 1.5 + pose.shift * REEL_ITEM_HEIGHT - REEL_ITEM_HEIGHT / 2,
+            typeof window === "undefined" ? 1 : window.devicePixelRatio || 1,
+          );
           const isActive = index === facing;
           const override = !drawingGuest && centerPieces != null && offset === 0;
           const customFace = override ? (stretch?.label?.(centerPieces) ?? countFace(centerPieces)) : null;

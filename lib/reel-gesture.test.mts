@@ -1,17 +1,23 @@
 import assert from "node:assert/strict";
 import { afterEach, mock, test } from "node:test";
 
-import { createReelEngine } from "@/components/reel";
+import { createReelEngine, type StretchFrame } from "@/components/reel";
 import { REEL_SPEED_CAP } from "@/lib/drum";
 import { settleReels } from "@/lib/haptics";
-import { COUNTS } from "@/lib/metals";
+import { COUNTS, REEL_ITEM_HEIGHT } from "@/lib/metals";
 import {
   LANDING_KNOCK_GAIN,
   LANDING_PAWL_GAIN,
   loadReelClick,
   resetReelClickForTests,
 } from "@/lib/reel-click";
-import { guestWindow, STRETCH_HOLD_MS, type GuestCount } from "@/lib/stretch";
+import {
+  betweenFaceVisible,
+  centerFaceOffset,
+  guestWindow,
+  STRETCH_HOLD_MS,
+  type GuestCount,
+} from "@/lib/stretch";
 
 const queued: FrameRequestCallback[] = [];
 
@@ -34,6 +40,7 @@ function harness(start = COUNTS.indexOf(20)) {
   let velocity = 0;
   let moving = false;
   let guest: GuestCount | null = null;
+  let frame: StretchFrame | null = null;
   const engine = createReelEngine({
     initialIndex: start,
     setKinetics(next, speed) {
@@ -51,7 +58,9 @@ function harness(start = COUNTS.indexOf(20)) {
     isEnabled: () => true,
     getStretch: () => ({ stops: COUNTS, isValueEnabled: () => true }),
     onPieces() {},
-    onStretchFrame() {},
+    onStretchFrame(next) {
+      frame = next;
+    },
     onGuest(next) {
       guest = next;
     },
@@ -60,7 +69,7 @@ function harness(start = COUNTS.indexOf(20)) {
   });
   return {
     engine,
-    read: () => ({ position, velocity, guest }),
+    read: () => ({ position, velocity, guest, frame }),
   };
 }
 
@@ -209,6 +218,29 @@ test("after stretch releases, a drag moves the reel and a fling spins it", () =>
   }
 });
 
+function liftFaces(state: {
+  position: number;
+  guest: GuestCount | null;
+  frame: StretchFrame | null;
+}): number[] {
+  const frame = state.frame;
+  if (frame) {
+    const rows = frame.rows
+      .filter((row) => row.screenTop < REEL_ITEM_HEIGHT * 3 && row.screenTop + REEL_ITEM_HEIGHT > 0)
+      .filter(
+        (row) => row.role !== "between" || betweenFaceVisible(row.screenTop, REEL_ITEM_HEIGHT, frame.direction),
+      )
+      .sort((a, b) => a.screenTop - b.screenTop || a.value - b.value);
+    const center = rows.findIndex((row) => row.centered);
+    if (center >= 0) {
+      return [center - 1, center, center + 1]
+        .map((index) => rows[index]?.value)
+        .filter((value): value is number => value !== undefined);
+    }
+  }
+  return visibleFaces(state.position, state.guest);
+}
+
 function visibleFaces(position: number, guest: GuestCount | null): number[] {
   if (guest?.run?.length) return guestWindow(COUNTS, position, guest);
   const count = COUNTS.length;
@@ -347,6 +379,46 @@ test("a fling after 1, 2, and 3 stretches lands with the pawl and knock", async 
       `fling landing missing after ${cycles} stretches`,
     );
     assert.equal(queued.length, 0);
+    engine.destroy();
+  }
+});
+
+test("wrap stretches keep the lift faces and rest on an exact notch", () => {
+  installFrame();
+  mock.timers.enable({ apis: ["setTimeout"] });
+  const cases: { start: number; sign: number; steps: number; extra?: number }[] = [
+    { start: 100, sign: -1, steps: 1 },
+    { start: 100, sign: -1, steps: 2 },
+    { start: 100, sign: -1, steps: 3 },
+    { start: 100, sign: 1, steps: 1 },
+    { start: 100, sign: 1, steps: 2 },
+    { start: 100, sign: 1, steps: 3 },
+    { start: 1, sign: 1, steps: 1 },
+    { start: 1, sign: 1, steps: 2 },
+    { start: 1, sign: 1, steps: 3 },
+    { start: 100, sign: -1, steps: 1, extra: 5 },
+  ];
+  for (const item of cases) {
+    const { engine, read } = harness(COUNTS.indexOf(item.start));
+    const y0 = 400;
+    let time = 5_000;
+    engine.pointerDown(y0, time, 120, 258);
+    mock.timers.tick(STRETCH_HOLD_MS);
+    time += STRETCH_HOLD_MS;
+    const travel = item.sign * (item.steps * REEL_ITEM_HEIGHT + (item.extra ?? 0));
+    const moves = 8;
+    for (let step = 1; step <= moves; step += 1) {
+      time += 16;
+      engine.pointerMove(y0 + (travel * step) / moves, time);
+    }
+    const held = liftFaces(read());
+    engine.pointerUp();
+    settle(read);
+    const rested = read();
+    const label = `${item.start} ${item.sign < 0 ? "up" : "down"} ${item.steps}${item.extra ? `+${item.extra}px` : ""}`;
+    assert.deepEqual(visibleFaces(rested.position, rested.guest), held, label);
+    assert.ok(Math.abs(centerFaceOffset(rested.position)) < 1e-9, `${label} offset`);
+    assert.ok(Math.abs(rested.position - Math.round(rested.position)) < 1e-9, `${label} notch`);
     engine.destroy();
   }
 });
