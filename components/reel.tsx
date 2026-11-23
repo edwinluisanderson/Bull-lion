@@ -183,7 +183,7 @@ export function createReelEngine(options: {
     samples: { t: number; y: number }[];
   } | null = null;
   let gesture: GestureMode = "drag";
-  let holdTimer = 0;
+  let holdTimer: ReturnType<typeof setTimeout> | undefined;
   let anchorIndex = options.initialIndex;
   let stretchOrigin: StretchOrigin | null = null;
   let slideDirection: StretchDirection | null = null;
@@ -294,13 +294,23 @@ export function createReelEngine(options: {
     for (const stop of stopsCrossed(previous, next)) {
       if (!enabledIndex(stop)) playReelClick(audioSpin, true);
     }
-    const index = commitIndex(next, options.getCount(), options.isEnabled);
-    if (index === null || index === committed) return;
     const count = options.getCount();
+    const index = commitIndex(position, count, options.isEnabled);
     const landingNotch =
       camNotch !== null &&
+      index !== null &&
       Math.abs(position - camNotch) < 0.5 &&
       index === mod(Math.round(camNotch), count);
+    if (index === null || index === committed) {
+      if (landingNotch && landingWatch.owed && !landingWatch.played) {
+        const noted = commitReelStop(landingWatch, true);
+        landingWatch = noted.watch;
+        setAudioSpin(false);
+        pullSpin = false;
+        if (noted.playLanding) playSettledLanding();
+      }
+      return;
+    }
     const noted = commitReelStop(landingWatch, landingNotch);
     landingWatch = noted.watch;
     const detent = detentForStop({
@@ -483,8 +493,8 @@ export function createReelEngine(options: {
   }
 
   function clearHold() {
-    if (holdTimer) clearTimeout(holdTimer);
-    holdTimer = 0;
+    if (holdTimer !== undefined) clearTimeout(holdTimer);
+    holdTimer = undefined;
   }
 
   /** Stretch is over. The next drag or fling is an ordinary reel gesture. */
@@ -495,6 +505,8 @@ export function createReelEngine(options: {
     stretchTravel = 0;
     stretchOrigin = null;
     drag = null;
+    camNotch = null;
+    glideTarget = null;
     clearHold();
     publishStretch(null);
   }
@@ -655,17 +667,15 @@ export function createReelEngine(options: {
     const origin = stretchOrigin;
     const anchor = origin?.anchor ?? stops[anchorIndex] ?? anchorIndex;
     const direction = slideDirection ?? "down";
-    const layout = layoutNow(direction, stretchTravel);
+    const travel = stretchTravel;
+    const layout = layoutNow(direction, travel);
     const centered = layout?.centered ?? anchor;
     const enabled = config?.isValueEnabled ?? (() => true);
-    handBack();
     if (!enabled(centered)) {
       const fallback = valueAfterRelease(anchor, centered, stops, enabled);
       const index = stops.indexOf(fallback);
       guest = null;
       options.onGuest(null);
-      publishStretch(null);
-      stretchOrigin = null;
       if (index >= 0) {
         committed = index;
         position = index;
@@ -674,6 +684,7 @@ export function createReelEngine(options: {
         options.onPieces(fallback);
         options.onIndex(index);
       }
+      handBack();
       setPhase("idle");
       return;
     }
@@ -685,20 +696,19 @@ export function createReelEngine(options: {
             origin,
             sequence,
             stops,
-            travel: stretchTravel,
+            travel,
             itemHeight: REEL_ITEM_HEIGHT,
             centered,
           })
         : null;
     if (!placed && !sequence.includes(centered)) {
-      publishStretch(null);
-      stretchOrigin = null;
       velocity = 0;
       if (typeof anchor === "number" && stops.includes(anchor)) {
         guest = null;
         options.onGuest(null);
       }
       options.onPieces(anchor);
+      handBack();
       setPhase("idle");
       return;
     }
@@ -716,12 +726,12 @@ export function createReelEngine(options: {
     options.setKinetics(position, 0);
     options.onPieces(centered);
     options.onGuest(guest);
-    publishStretch(null);
-    stretchOrigin = null;
+    const snapTo = placed ? placed.center : null;
+    handBack();
     const cue = stretchLandingGate({ played: false });
     if (cue.play) playSettledLanding();
-    if (placed) {
-      animateSnap(placed.center);
+    if (snapTo != null) {
+      animateSnap(snapTo);
       return;
     }
     setPhase("idle");
@@ -731,6 +741,8 @@ export function createReelEngine(options: {
     pointerDown(y, time, localY = 0, height = 0) {
       pullSpin = false;
       landingWatch = clearLandingWatch();
+      camNotch = null;
+      glideTarget = null;
       stop();
       handedOff = false;
       clearHold();
