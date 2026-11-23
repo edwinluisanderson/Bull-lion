@@ -26,6 +26,7 @@ import { createReelMotion } from "@/lib/reel-motion";
 import { setWheelLampSpeed } from "@/lib/wheel-lamp";
 import { playStretchPop, unlockStretchPops } from "@/lib/stretch-pop";
 import { stretchPopCount } from "@/lib/stretch-pops";
+import { DRUM_WINDOW, drumSkin } from "@/lib/drum-housing";
 import { REEL_ITEM_HEIGHT } from "@/lib/metals";
 import {
   STRETCH_HOLD_MS,
@@ -853,6 +854,7 @@ export function Reel({
   const shown = viewPosition - bendDegrees / STOP_DEGREES;
   const base = Math.floor(shown);
   const fraction = shown - base;
+  const skin = drumSkin(fraction);
   const active = mod(Math.round(viewPosition), count);
   const facing = mod(Math.round(shown), count);
   const activeSymbol = viewItems[active];
@@ -948,7 +950,11 @@ export function Reel({
           }
         }}
       >
-        <div className="reel-cylinder">
+        <div className="reel-drum" style={{ top: skin.top, height: skin.height }} />
+        <div
+          className="reel-cylinder"
+          style={{ clipPath: `inset(${skin.top}px 0 ${DRUM_WINDOW - skin.bottom}px 0)` }}
+        >
         {stretchFrame
           ? stretchFrame.rows.map((row) => {
               const clip = stretchRowClip(row.screenTop, REEL_ITEM_HEIGHT, stretchFrame.direction, row.role);

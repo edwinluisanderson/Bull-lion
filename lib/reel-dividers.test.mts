@@ -27,8 +27,8 @@ test("a moving reel lights only the dividers beside it", () => {
   assert.match(css, new RegExp(`opacity:\\s*${DIVIDER_DIM}`));
   assert.match(css, new RegExp(`opacity:\\s*${DIVIDER_BRIGHT}`));
   const seam = css.match(/\.reel-column \+ \.reel-column::after\s*\{([^}]*)\}/)?.[1] ?? "";
-  assert.match(seam, /top:\s*var\(--reel-name\)/);
-  assert.match(seam, /height:\s*var\(--reel-window\)/);
+  assert.match(seam, /top:\s*calc\(var\(--reel-name\) \+ 15px\)/);
+  assert.match(seam, /height:\s*calc\(var\(--reel-window\) - 30px\)/);
   assert.match(seam, /width:\s*1px/);
   assert.match(seam, /background:\s*#f0d78c/);
   assert.equal(/\.reel-viewport:focus-visible\s*\{[^}]*#f0d78c/.test(css), false);
