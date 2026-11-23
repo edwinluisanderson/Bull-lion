@@ -1,4 +1,4 @@
-import { HAPTIC_CLICK_MS, hapticClick, reelTicksOpen, setReelTicksOpen } from "@/lib/haptics";
+import { HAPTIC_MIN_GAP_MS, hapticClick, reelTicksOpen, setReelTicksOpen } from "@/lib/haptics";
 
 /**
  * Pawl ticks cut from the slow opening of "Freewheel clicks" by donkpow,
@@ -243,7 +243,7 @@ function startVoice(ctx: AudioContext, clip: AudioBuffer, gainValue: number, rat
  */
 export function playReelClick(spin = false, dull = false, force = false, landing = false): void {
   const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-  if (!landing && !force && (!reelTicksOpen() || now - lastClickAt < HAPTIC_CLICK_MS)) return;
+  if (!landing && !force && (!reelTicksOpen() || now - lastClickAt < HAPTIC_MIN_GAP_MS)) return;
   if (!landing) lastClickAt = now;
   try {
     const ctx = getContext();
