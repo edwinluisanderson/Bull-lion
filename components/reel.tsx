@@ -468,7 +468,6 @@ export function createReelEngine(options: {
 
     if (phase === "coast") {
       const count = reelCount();
-      const incoming = velocity;
       const decel = pullSpin ? pullDecel(pullOrder) : brakeDecel();
       const glide = grayGlidePlan({
         position,
@@ -483,8 +482,7 @@ export function createReelEngine(options: {
       velocity = step.velocity;
       setPos(step.position);
       if (Math.abs(velocity) < COAST_SETTLE_SPEED) {
-        const direction = velocity !== 0 ? velocity : incoming;
-        camToNotch(glideSettleNotch(position, direction, count, enabledExpanded), 180);
+        camToNotch(nearestEnabledSlot(position), 180);
         return;
       }
     }
@@ -838,10 +836,7 @@ export function createReelEngine(options: {
       const speed = options.isReduced() ? 0 : velocityFrom(samples);
       const count = reelCount();
       if (options.isReduced() || Math.abs(speed) < FLICK_COAST_SPEED) {
-        const notch =
-          Math.abs(speed) > 0 && !enabledIndex(Math.round(position))
-            ? glideSettleNotch(position, speed, count, enabledExpanded)
-            : nearestEnabledSlot(position);
+        const notch = nearestEnabledSlot(position);
         if (flickOwesLanding({ speed, position, notch, committed, count })) {
           landingWatch = armLandingWatch();
         }

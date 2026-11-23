@@ -29,13 +29,13 @@ function flushFrames() {
   for (const callback of batch) callback(time);
 }
 
-function harness() {
-  let position = COUNTS.indexOf(20);
+function harness(start = COUNTS.indexOf(20)) {
+  let position = start;
   let velocity = 0;
   let moving = false;
   let guest: GuestCount | null = null;
   const engine = createReelEngine({
-    initialIndex: position,
+    initialIndex: start,
     setKinetics(next, speed) {
       position = next;
       velocity = speed;
@@ -207,6 +207,60 @@ test("after stretch releases, a drag moves the reel and a fling spins it", () =>
   } finally {
     mock.timers.reset();
   }
+});
+
+function visibleFaces(position: number, guest: GuestCount | null): number[] {
+  if (guest?.run?.length) return guestWindow(COUNTS, position, guest);
+  const count = COUNTS.length;
+  const center = Math.round(position);
+  const at = (index: number) => COUNTS[((index % count) + count) % count];
+  return [at(center - 1), at(center), at(center + 1)];
+}
+
+function settle(read: () => { position: number }) {
+  let now = performance.now();
+  for (let frame = 0; frame < 80 && queued.length > 0; frame += 1) {
+    const batch = queued.splice(0, queued.length);
+    now += 16;
+    for (const callback of batch) callback(now);
+  }
+  return read().position;
+}
+
+test("a release keeps the centered face at the wrap and on a mixed window", () => {
+  installFrame();
+  mock.timers.enable({ apis: ["setTimeout"] });
+  const y = 400;
+
+  const wrap = harness(COUNTS.indexOf(100));
+  wrap.engine.pointerDown(y, 1_000, 120, 258);
+  mock.timers.tick(STRETCH_HOLD_MS);
+  wrap.engine.pointerMove(y - 90, 1_000 + STRETCH_HOLD_MS + 300);
+  wrap.engine.pointerMove(y - 94, 1_000 + STRETCH_HOLD_MS + 320);
+  const wrapHeld = visibleFaces(wrap.read().position, wrap.read().guest);
+  assert.deepEqual(wrapHeld, [100, 1, 2]);
+  wrap.engine.pointerUp();
+  settle(wrap.read);
+  assert.deepEqual(visibleFaces(wrap.read().position, wrap.read().guest), [100, 1, 2]);
+  wrap.engine.destroy();
+
+  const mixed = harness(COUNTS.indexOf(20));
+  mixed.engine.pointerDown(y, 2_000, 120, 258);
+  mock.timers.tick(STRETCH_HOLD_MS);
+  mixed.engine.pointerMove(y + 3 * 86, 2_000 + STRETCH_HOLD_MS + 200);
+  mixed.engine.pointerUp();
+  settle(mixed.read);
+  assert.deepEqual(visibleFaces(mixed.read().position, mixed.read().guest), [10, 17, 18]);
+  const from = mixed.read().position;
+  mixed.engine.pointerDown(y, 4_000, 40, 258);
+  mixed.engine.pointerMove(y - 86, 4_400);
+  mixed.engine.pointerMove(y - 90, 4_420);
+  assert.deepEqual(visibleFaces(mixed.read().position, mixed.read().guest), [17, 18, 20]);
+  assert.ok(Math.abs(mixed.read().position - from) > 0.5);
+  mixed.engine.pointerUp();
+  settle(mixed.read);
+  assert.deepEqual(visibleFaces(mixed.read().position, mixed.read().guest), [17, 18, 20]);
+  mixed.engine.destroy();
 });
 
 test("a one-step stretch to 21 can be dragged and flung, and 22 never appears", () => {
