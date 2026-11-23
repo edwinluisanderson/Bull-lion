@@ -51,6 +51,7 @@ import {
   guestWindow,
   originFromWindow,
   releasePlacement,
+  rollGuestWindow,
   sequenceFrom,
   STRETCH_SNAP_MS,
   stretchLandingGate,
@@ -587,6 +588,26 @@ function createEngine(options: {
       return;
     }
     const sequence = sequenceNow(stretchOrigin, slideDirection);
+    if (sequence.length === 0 && guest?.run?.length) {
+      const rolled = rollGuestWindow({
+        position,
+        guest,
+        direction: slideDirection,
+        travel: layout.remainderPx,
+        itemHeight: REEL_ITEM_HEIGHT,
+      });
+      guest = rolled.guest;
+      const nextPos = rolled.position;
+      gesture = "drag";
+      slideDirection = null;
+      stretchTravel = 0;
+      publishStretch(null);
+      current.originY = y;
+      current.originPos = nextPos;
+      current.samples = [{ t: time, y }];
+      setPos(nextPos);
+      return;
+    }
     const placed = handoffPlacement({
       direction: slideDirection,
       anchorIndex,

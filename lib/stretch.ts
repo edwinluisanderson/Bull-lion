@@ -385,6 +385,23 @@ export function guestWindow(stops: readonly number[], position: number, guest: G
   });
 }
 
+/**
+ * Slide a resting run when the visible faces are already consecutive.
+ * The run stays; travel only changes which face is centered.
+ */
+export function rollGuestWindow(input: {
+  position: number;
+  guest: GuestCount;
+  direction: StretchDirection;
+  travel: number;
+  itemHeight: number;
+}): { position: number; guest: GuestCount } {
+  return {
+    position: input.position + handoffShift(input.direction, input.travel, input.itemHeight),
+    guest: input.guest,
+  };
+}
+
 /** Extra travel once the in-betweens are done. Down moves the reel toward lower indexes. */
 export function handoffShift(direction: StretchDirection, remainderPx: number, itemHeight: number): number {
   if (itemHeight <= 0) return 0;

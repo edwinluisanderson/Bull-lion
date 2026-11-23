@@ -13,6 +13,7 @@ import {
   nextGestureMode,
   originFor,
   originFromWindow,
+  rollGuestWindow,
   visibleStretchFaces,
   pressHitsCenter,
   projectGuest,
@@ -624,6 +625,67 @@ test("a re-press keeps the released neighbor, and three cycles do not restore th
     faces = next;
   }
   assert.notDeepEqual(faces, [10, 18, 20]);
+});
+
+test("consecutive faces roll off-screen instead of jumping to the main stops", () => {
+  const insertAfter = COUNTS.indexOf(10);
+  const guest = { value: 18, slot: insertAfter + 0.5, run: [17, 18, 19], insertAfter };
+  const position = insertAfter + 2;
+  assert.deepEqual(guestWindow(COUNTS, position, guest), [17, 18, 19]);
+  const origin = originFromWindow({
+    above: 17,
+    center: 18,
+    below: 19,
+    insertAfter,
+    upperIndex: insertAfter + 1,
+  });
+  assert.deepEqual(sequenceFrom(origin, "down"), []);
+  assert.deepEqual(sequenceFrom(origin, "up"), []);
+
+  const down = rollGuestWindow({ position, guest, direction: "down", travel: HEIGHT, itemHeight: HEIGHT });
+  assert.deepEqual(guestWindow(COUNTS, Math.round(down.position), down.guest), [10, 17, 18]);
+  const up = rollGuestWindow({ position, guest, direction: "up", travel: HEIGHT, itemHeight: HEIGHT });
+  assert.deepEqual(guestWindow(COUNTS, Math.round(up.position), up.guest), [18, 19, 20]);
+
+  const nudge = rollGuestWindow({ position, guest, direction: "down", travel: 12, itemHeight: HEIGHT });
+  assert.equal(guestWindow(COUNTS, Math.round(nudge.position), nudge.guest)[1], 18);
+  assert.notDeepEqual(guestWindow(COUNTS, Math.round(nudge.position), nudge.guest), [2, 5, 10]);
+
+  let cursor = position;
+  const windows: number[][] = [];
+  for (let step = 0; step < 3; step += 1) {
+    const rolled = rollGuestWindow({
+      position: cursor,
+      guest,
+      direction: "down",
+      travel: HEIGHT,
+      itemHeight: HEIGHT,
+    });
+    cursor = rolled.position;
+    windows.push(guestWindow(COUNTS, Math.round(cursor), guest));
+  }
+  assert.deepEqual(windows, [
+    [10, 17, 18],
+    [5, 10, 17],
+    [2, 5, 10],
+  ]);
+
+  cursor = position;
+  const upward: number[][] = [];
+  for (let step = 0; step < 3; step += 1) {
+    const rolled = rollGuestWindow({
+      position: cursor,
+      guest,
+      direction: "up",
+      travel: HEIGHT,
+      itemHeight: HEIGHT,
+    });
+    cursor = rolled.position;
+    upward.push(guestWindow(COUNTS, Math.round(cursor), guest));
+  }
+  assert.deepEqual(upward[0], [18, 19, 20]);
+  assert.deepEqual(upward[1], [19, 20, 25]);
+  assert.ok(upward[2].includes(20));
 });
 
 test("the ends of the count list have no invented numbers", () => {
