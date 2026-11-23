@@ -1,72 +1,54 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { BRAKE_PRESETS, REEL_SPEED_CAP } from "@/lib/drum";
 import {
-  BRAKE_PRESETS,
-  REEL_CHECK_HZ,
-  REEL_PROFILES,
-  REEL_SPEED_CAPS,
-  reelAliasSpeed,
-  reelSpeedCap,
-} from "@/lib/drum";
-import {
+  PULL_LIGHT_STOP_S,
   PULL_STAGGER_S,
   fitLaunchSpeeds,
+  pullDecel,
   pullLaunchSpeeds,
   pullLaunchVelocity,
   pullStopSeconds,
   stillAtMs,
 } from "@/lib/pull-spin";
 
-test("later reels launch faster by one stagger of the shared brake", () => {
-  const decel = BRAKE_PRESETS.medium;
-  const speeds = pullLaunchSpeeds(decel);
-  assert.ok(speeds[0] < speeds[1] && speeds[1] < speeds[2]);
-  assert.ok(Math.abs(speeds[1] - speeds[0] - decel * PULL_STAGGER_S) < 1e-9);
-  assert.ok(Math.abs(speeds[2] - speeds[1] - decel * PULL_STAGGER_S) < 1e-9);
-  const gap = pullStopSeconds(speeds[1], decel) - pullStopSeconds(speeds[0], decel);
-  assert.ok(Math.abs(gap - PULL_STAGGER_S) < 1e-9);
-  assert.ok(pullLaunchVelocity({ order: 0, decel }) < 0);
+test("every reel launches at the cap", () => {
+  const speeds = [0, 1, 2].map((order) => pullLaunchVelocity({ order }));
+  assert.deepEqual(speeds, [-REEL_SPEED_CAP, -REEL_SPEED_CAP, -REEL_SPEED_CAP]);
+  assert.deepEqual(pullLaunchSpeeds(), [REEL_SPEED_CAP, REEL_SPEED_CAP, REEL_SPEED_CAP]);
 });
 
-test("a fast pull and a slow pull launch the same speeds", () => {
-  const decel = BRAKE_PRESETS.light;
-  const once = [0, 1, 2].map((order) => pullLaunchVelocity({ order, decel }));
-  const again = [0, 1, 2].map((order) => pullLaunchVelocity({ order, decel }));
-  assert.deepEqual(once, again);
-  assert.deepEqual(
-    once.map((speed) => Math.abs(speed)),
-    pullLaunchSpeeds(decel),
-  );
-});
-
-test("the three reels stop left to right on the light brake", () => {
-  const decel = BRAKE_PRESETS.light;
-  const speeds = pullLaunchSpeeds(decel);
-  assert.ok(Math.abs(speeds[0] - 8) < 1e-9);
-  assert.ok(Math.abs(speeds[1] - 11.2) < 1e-9);
-  assert.ok(Math.abs(speeds[2] - 14.4) < 1e-9);
-  const lands = speeds.map((speed) => pullStopSeconds(speed, decel));
-  assert.ok(lands[0] < lands[1] && lands[1] < lands[2]);
-  const gap = lands[1] - lands[0];
-  assert.ok(gap >= 0.3 && gap <= 0.5);
-  assert.ok(Math.abs(gap - PULL_STAGGER_S) < 1e-9);
+test("the light brakes stop the reels left to right about 0.4s apart", () => {
+  const times = [0, 1, 2].map((order) => pullStopSeconds(order, "light"));
+  assert.deepEqual(times, [...PULL_LIGHT_STOP_S]);
+  const decels = [0, 1, 2].map((order) => pullDecel(order, "light"));
+  assert.ok(Math.abs(decels[0] - 10) < 1e-9);
+  assert.ok(Math.abs(decels[1] - 20 / 2.4) < 1e-9);
+  assert.ok(Math.abs(decels[2] - 20 / 2.8) < 1e-9);
+  assert.ok(decels[0] > decels[1] && decels[1] > decels[2]);
   assert.equal(stillAtMs(1) - stillAtMs(0), Math.round(PULL_STAGGER_S * 1000));
-  assert.ok(stillAtMs(0, "light") > stillAtMs(0, "heavy"));
+  assert.equal(stillAtMs(2) - stillAtMs(1), Math.round(PULL_STAGGER_S * 1000));
 });
 
-test("each reel stays under its own alias threshold", () => {
-  for (const profile of REEL_PROFILES) {
-    const cap = reelSpeedCap(profile.patternStops);
-    assert.equal(REEL_SPEED_CAPS[profile.order], cap);
-    const launch = Math.abs(pullLaunchVelocity({ order: profile.order, decel: BRAKE_PRESETS.light }));
-    assert.ok(launch <= cap + 1e-9);
-    for (const hz of REEL_CHECK_HZ) {
-      const alias = reelAliasSpeed(profile.patternStops, hz);
-      assert.ok(cap < alias);
-      assert.ok(cap / hz < 0.5);
-    }
+test("heavier presets shorten every stop and keep the proportions", () => {
+  const light = [0, 1, 2].map((order) => pullStopSeconds(order, "light"));
+  const medium = [0, 1, 2].map((order) => pullStopSeconds(order, "medium"));
+  const heavy = [0, 1, 2].map((order) => pullStopSeconds(order, "heavy"));
+  for (let order = 0; order < 3; order += 1) {
+    assert.ok(Math.abs(medium[order] - light[order] / 2) < 1e-9);
+    assert.ok(Math.abs(heavy[order] - light[order] / 4) < 1e-9);
+    assert.ok(Math.abs(medium[order] / medium[0] - light[order] / light[0]) < 1e-9);
+    assert.ok(Math.abs(heavy[order] / heavy[0] - light[order] / light[0]) < 1e-9);
   }
+  const decels = (preset: keyof typeof BRAKE_PRESETS) =>
+    [0, 1, 2].map((order) => pullDecel(order, preset));
+  for (const preset of ["light", "medium", "heavy"] as const) {
+    const values = decels(preset);
+    assert.ok(values[0] > values[1] && values[1] > values[2]);
+    assert.ok(Math.abs(values[0] / BRAKE_PRESETS[preset] - decels("light")[0] / BRAKE_PRESETS.light) < 1e-9);
+  }
+  assert.ok(stillAtMs(0, "light") > stillAtMs(0, "heavy"));
 });
 
 test("an over-cap launch lowers every reel by the same overshoot", () => {
@@ -76,7 +58,6 @@ test("an over-cap launch lowers every reel by the same overshoot", () => {
   assert.equal(speeds[2], 20);
   assert.ok(Math.abs(speeds[1] - speeds[0] - 3.2) < 1e-9);
   assert.ok(Math.abs(speeds[2] - speeds[1] - 5.2) < 1e-9);
-  assert.equal(speeds[2], 20);
 });
 
 test("different caps scale the set by the largest overshoot ratio", () => {

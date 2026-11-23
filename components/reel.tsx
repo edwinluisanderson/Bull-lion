@@ -21,7 +21,7 @@ import {
 import { hapticClick } from "@/lib/haptics";
 import { noteReelSpinning, playReelClick, reelSnap, unlockReelClick } from "@/lib/reel-click";
 import { detentForStop } from "@/lib/spin-gate";
-import { pullLaunchVelocity } from "@/lib/pull-spin";
+import { pullDecel, pullLaunchVelocity } from "@/lib/pull-spin";
 import { setWheelLampSpeed } from "@/lib/wheel-lamp";
 import { playStretchPop, unlockStretchPops } from "@/lib/stretch-pop";
 import { stretchPopCount } from "@/lib/stretch-pops";
@@ -172,6 +172,7 @@ function createEngine(options: {
   let popsPlayed = 0;
   let audioSpin = false;
   let pullSpin = false;
+  let pullOrder = 0;
   let pullStarted = 0;
   let alternated = 0;
   let iceFrom = 0;
@@ -375,7 +376,8 @@ function createEngine(options: {
     if (phase === "coast") {
       const count = options.getCount();
       const incoming = velocity;
-      const step = flywheelAdvance(position, velocity, dt, brakeDecel(), options.speedCap);
+      const decel = pullSpin ? pullDecel(pullOrder) : brakeDecel();
+      const step = flywheelAdvance(position, velocity, dt, decel, options.speedCap);
       velocity = step.velocity;
       setPos(step.position);
       if (Math.abs(velocity) < COAST_SETTLE_SPEED) {
@@ -708,10 +710,8 @@ function createEngine(options: {
         return;
       }
       stop();
-      velocity = pullLaunchVelocity({
-        order,
-        decel: brakeDecel(),
-      });
+      pullOrder = order;
+      velocity = pullLaunchVelocity({ order });
       setPhase("coast");
       schedule();
     },
