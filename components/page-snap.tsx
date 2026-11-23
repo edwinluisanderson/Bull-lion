@@ -2,12 +2,25 @@
 
 import { useEffect } from "react";
 
+import { hapticPageLand, hapticPageTick } from "@/lib/haptics";
+import { pageLandClick, pagePassClick } from "@/lib/lever-sound";
 import {
   ALWAYS_SNAP_NAMES,
+  advanceOwnedGlide,
+  aimedSpeed,
+  beginPageGesture,
+  gestureLift,
   magnetCaption,
   nearestStop,
-  settleSnap,
-  softCloseAt,
+  notePageScroll,
+  notePageTouchMove,
+  pageGestureVelocity,
+  pageOwnsTouch,
+  passStopPositions,
+  planFling,
+  startOwnedGlide,
+  stopsPassed,
+  type PageGesture,
   type SnapMark,
 } from "@/lib/page-snap";
 
@@ -27,47 +40,55 @@ function snapPoints(root: Element): { points: SnapMark[]; maxScroll: number; top
   return { points, maxScroll, top };
 }
 
+function passCue(): void {
+  if (!hapticPageTick()) return;
+  pagePassClick();
+}
+
+/** Once, when the settle finishes. The click is not gated on the haptic gap. */
+function landCue(): void {
+  hapticPageLand();
+  pageLandClick();
+}
+
+const HANDLED_DRAG = ".reel-viewport, .pull-ball, .stack-swipe, .stack-swipe-face";
+
 /**
- * Soft-close drawer. The page cruises, then cushions to a stop. A scroll that
- * moves out from under the glide is left alone so a finger can interrupt it.
+ * Owned fling. The finger already moved the page, so native momentum never
+ * starts. The first frame steps from `origin` by the clamped speed times dt.
  */
-function glide(root: Element, to: number, onDone: () => void) {
-  const from = root.scrollTop;
-  const offset0 = from - to;
-  if (Math.abs(offset0) < 1) {
-    root.scrollTop = to;
-    onDone();
-    return () => {};
-  }
-  const start = performance.now();
+function glide(
+  root: Element,
+  velocity: number,
+  target: number,
+  origin: number,
+  maxScroll: number,
+  onDone: (at: number) => void,
+) {
+  let state = startOwnedGlide(origin, velocity, target, maxScroll);
   let frame = 0;
-  let placed = from;
+  let last = performance.now();
   let stopped = false;
   const finishOnce = () => {
     if (stopped) return;
     stopped = true;
-    onDone();
+    onDone(state.y);
   };
+  root.scrollTop = origin;
   const step = (now: number) => {
     if (stopped) return;
-    const actual = root.scrollTop;
-    if (Math.abs(actual - placed) > 3) {
+    const dt = Math.max(0, (now - last) / 1000);
+    last = now;
+    const next = advanceOwnedGlide(state, dt, state.y);
+    state = next.state;
+    root.scrollTop = state.y;
+    if (state.done) {
+      root.scrollTop = state.y;
+      if (next.landed) landCue();
       finishOnce();
       return;
     }
-    const elapsed = (now - start) / 1000;
-    const sample = softCloseAt(elapsed, offset0);
-    const limit = Math.max(0, root.scrollHeight - root.clientHeight);
-    const next = Math.min(limit, Math.max(0, to + sample.offset));
-    root.scrollTop = next;
-    placed = root.scrollTop;
-    const settled = Math.abs(sample.offset) < 0.35 && Math.abs(sample.velocity) < 6;
-    if (!settled && elapsed < 8) frame = requestAnimationFrame(step);
-    else {
-      root.scrollTop = Math.min(limit, Math.max(0, to));
-      placed = root.scrollTop;
-      finishOnce();
-    }
+    frame = requestAnimationFrame(step);
   };
   frame = requestAnimationFrame(step);
   return () => {
@@ -151,16 +172,10 @@ function mountMagnetCaption(): () => void {
 }
 
 /**
- * After a drag or a fling comes to rest, ease onto a nearby stop.
- * The finger path and the fling stay native. Android Chrome composites that
- * scroll, and writing `scrollTop` while the fling is in flight fights it.
- * `scrollend` is the moment the fling lets go, including one that slowed to
- * rest near a stop. The glide is a soft-close drawer: a calm cruise, then a
- * cushion that arrives with almost no speed. A closer rest is not grabbier.
- * A rest at the field radius or farther is left exactly where it landed. A new
- * touch, wheel, or scroll key cancels the ease. Touch listeners leave the
- * event alone, so a pull down at the top stays a native overscroll and
- * Android Chrome can refresh.
+ * The page follows the finger one pixel per pixel, then flings on its own.
+ * Native momentum never starts, so the first frames cannot fight it.
+ * A pull down at the top, a sideways swipe, and the reel, handle, and cards
+ * keep the browser's touch. A new touch, wheel, or scroll key stops the glide.
  */
 export function PageSnap() {
   useEffect(() => {
@@ -168,26 +183,13 @@ export function PageSnap() {
     if (!root) return;
     let cancelGlide = () => {};
     let gliding = false;
-    let touching = 0;
-
-    const finish = () => {
-      if (gliding) return;
-      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const measured = snapPoints(root);
-      const pull = settleSnap({
-        scrollTop: measured.top,
-        maxScroll: measured.maxScroll,
-        points: measured.points,
-        reduced,
-      });
-      if (pull == null || Math.abs(pull.target - root.scrollTop) < 1) return;
-      gliding = true;
-      cancelGlide();
-      cancelGlide = glide(root, pull.target, () => {
-        gliding = false;
-        cancelGlide = () => {};
-      });
-    };
+    let gesture: PageGesture | null = null;
+    let fingers = 0;
+    let lastDrag = root.scrollTop;
+    let originX = 0;
+    let originY = 0;
+    let lastY = 0;
+    let owned: "undecided" | "own" | "native" = "native";
 
     const stop = () => {
       gliding = false;
@@ -195,14 +197,95 @@ export function PageSnap() {
       cancelGlide = () => {};
     };
 
-    let resizeFrame = 0;
-    let departWaitStart = 0;
-    const onDown = () => {
-      touching += 1;
-      stop();
+    const noteDrag = (y: number) => {
+      if (gliding) return;
+      const measured = snapPoints(root);
+      const passed = stopsPassed(lastDrag, y, passStopPositions(measured.points, measured.maxScroll));
+      lastDrag = y;
+      for (const _stop of passed) passCue();
     };
-    const onUp = () => {
-      touching = Math.max(0, touching - 1);
+
+    const onTouchStart = (event: TouchEvent) => {
+      const touch = event.changedTouches[0] ?? event.touches[0];
+      if (!touch) return;
+      stop();
+      fingers = event.touches.length;
+      originX = touch.clientX;
+      originY = touch.clientY;
+      lastY = touch.clientY;
+      const target = event.target;
+      const interactive =
+        target instanceof Element && target.closest(HANDLED_DRAG) != null;
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      owned = interactive || reduced ? "native" : "undecided";
+      gesture = owned === "native" ? null : beginPageGesture(performance.now(), root.scrollTop, touch.clientY);
+      lastDrag = root.scrollTop;
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch || owned === "native") return;
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (owned === "undecided") {
+        owned = pageOwnsTouch({
+          reduced,
+          interactive: false,
+          scrollTop: root.scrollTop,
+          originX,
+          originY,
+          x: touch.clientX,
+          y: touch.clientY,
+        })
+          ? "own"
+          : Math.hypot(touch.clientX - originX, touch.clientY - originY) >= 8
+            ? "native"
+            : "undecided";
+        if (owned !== "own") return;
+      }
+      if (event.cancelable) event.preventDefault();
+      const limit = Math.max(0, root.scrollHeight - root.clientHeight);
+      const next = Math.min(limit, Math.max(0, root.scrollTop - (touch.clientY - lastY)));
+      lastY = touch.clientY;
+      root.scrollTop = next;
+      const now = performance.now();
+      if (gesture) {
+        gesture = notePageTouchMove(gesture, now, touch.clientY);
+        gesture = notePageScroll(gesture, now, next);
+      }
+      noteDrag(next);
+    };
+    const onScroll = () => {
+      if (!gesture || gliding) return;
+      const y = root.scrollTop;
+      gesture = notePageScroll(gesture, performance.now(), y);
+      noteDrag(y);
+    };
+    const onLift = (event: TouchEvent) => {
+      if (!gestureLift(event.type)) return;
+      fingers = event.touches.length;
+      if (fingers > 0) return;
+      const current = gesture;
+      gesture = null;
+      if (!current) return;
+      if (owned !== "own") return;
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const velocity = pageGestureVelocity(current);
+      const origin = root.scrollTop;
+      const measured = snapPoints(root);
+      const plan = planFling({
+        scrollTop: origin,
+        velocity,
+        maxScroll: measured.maxScroll,
+        points: measured.points,
+        reduced,
+      });
+      if (plan.target == null) return;
+      const speed = aimedSpeed(velocity, origin, plan.target);
+      gliding = true;
+      cancelGlide();
+      cancelGlide = glide(root, speed, plan.target, origin, measured.maxScroll, () => {
+        gliding = false;
+        cancelGlide = () => {};
+      });
     };
     const onWheel = () => {
       stop();
@@ -212,41 +295,22 @@ export function PageSnap() {
       if (target instanceof HTMLElement && target.closest("input, textarea, select, [contenteditable='true']")) return;
       if (SCROLL_KEYS.has(event.key)) stop();
     };
-    const onLayout = () => {
-      if (touching || gliding) return;
-      // A delete cover changes the page height on purpose. Snapping mid-slide yanks the rows.
-      // Keep checking until that row is gone, then settle. A stuck flag must not spin forever.
-      if (document.querySelector(".stack-swipe.is-departing")) {
-        if (departWaitStart === 0) departWaitStart = performance.now();
-        if (performance.now() - departWaitStart > 3000) return;
-        cancelAnimationFrame(resizeFrame);
-        resizeFrame = requestAnimationFrame(onLayout);
-        return;
-      }
-      departWaitStart = 0;
-      cancelAnimationFrame(resizeFrame);
-      resizeFrame = requestAnimationFrame(finish);
-    };
-    const observer = new ResizeObserver(onLayout);
-    observer.observe(document.body);
-    document.addEventListener("scrollend", finish);
-    window.addEventListener("pointerdown", onDown);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
+    document.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("touchstart", onTouchStart, { passive: false });
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onLift, { passive: true });
+    window.addEventListener("touchcancel", onLift, { passive: true });
     window.addEventListener("wheel", onWheel, { passive: true });
     window.addEventListener("keydown", onKey);
-    window.addEventListener("resize", onLayout);
     return () => {
       stop();
-      cancelAnimationFrame(resizeFrame);
-      observer.disconnect();
-      document.removeEventListener("scrollend", finish);
-      window.removeEventListener("pointerdown", onDown);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
+      document.removeEventListener("scroll", onScroll);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onLift);
+      window.removeEventListener("touchcancel", onLift);
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("resize", onLayout);
     };
   }, []);
 

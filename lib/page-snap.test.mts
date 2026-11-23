@@ -3,18 +3,37 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
-  GLIDE_MAX_ACCEL,
-  SNAP_MIN_GAP_PX,
-  SNAP_RADIUS_PX,
-  SOFT_CLOSE_CUSHION_SEC,
-  SOFT_CLOSE_SPEED,
+  CATCH_PX,
+  CUSHION_ZONE_PX,
+  FLING_MIN_PX_PER_SEC,
+  FLING_SPEED_CAP,
+  GLIDE_PX,
+  GLIDE_SPEED,
+  LAND_EPS_PX,
+  RELEASE_SAMPLE_MS,
+  SETTLE_PX,
+  aimedSpeed,
+  zoneEntryCap,
+  advanceOwnedGlide,
+  beginPageGesture,
   collectStops,
-  glideDuration,
+  cushionSpeed,
+  dragCues,
+  flingCues,
+  gestureLift,
   magnetCaption,
-  magneticStrength,
-  settleSnap,
+  nearestStop,
+  notePagePointerCancel,
+  notePageScroll,
+  notePageTouchMove,
+  pageGestureVelocity,
+  pageOwnsTouch,
+  passStopPositions,
+  planFling,
   snapStops,
-  softCloseAt,
+  startOwnedGlide,
+  stopsPassed,
+  touchScrollVelocity,
 } from "@/lib/page-snap";
 
 const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
@@ -34,223 +53,338 @@ const page = [
   { at: 1500, always: true, name: "bottom" },
 ];
 
-test("always stops stay, and a non-stack optional stop still clears the gap", () => {
-  assert.equal(SNAP_RADIUS_PX, 100);
-  assert.equal(SNAP_MIN_GAP_PX, 200);
-  assert.equal(SNAP_MIN_GAP_PX, SNAP_RADIUS_PX * 2);
+test("only the melt plate and whichever of My Stack or the bottom comes first", () => {
+  const stops = collectStops(page, 1500);
   assert.deepEqual(
-    snapStops(
-      [
-        { at: 20, always: true },
-        { at: 190, always: true },
-        { at: 538, always: true },
-      ],
-      1500,
-    ),
-    [0, 20, 190, 538, 1500],
+    stops.map((stop) => stop.name),
+    ["melt", "stack"],
   );
-  assert.deepEqual(snapStops(page, 1500), [0, 190, 538, 946, 1500]);
-  assert.deepEqual(
-    snapStops(
-      [
-        { at: 190, always: true },
-        { at: 538, always: true },
-        { at: 540, always: false },
-        { at: 548, always: false },
-      ],
-      548,
-    ),
-    [0, 190, 538, 548],
-  );
-  assert.deepEqual(
-    snapStops(
-      [
-        { at: 538, always: true },
-        { at: 538 + 199, always: false },
-      ],
-      1500,
-    ),
-    [0, 538, 1500],
-  );
-  assert.deepEqual(
-    snapStops(
-      [
-        { at: 538, always: true },
-        { at: 538 + 200, always: false },
-      ],
-      1500,
-    ),
-    [0, 538, 738, 1500],
-  );
-  assert.deepEqual(snapStops([{ at: 500, always: true }, { at: 500, always: true }], 800), [0, 500, 800]);
-  assert.deepEqual(snapStops([], 0), [0]);
-});
+  assert.deepEqual(snapStops(page, 1500), [190, 946]);
+  assert.equal(stops.some((stop) => stop.name === "top" || stop.name === "wheels"), false);
 
-test("My Stack is a stop when its top can reach the top of the screen", () => {
-  const wheels = { at: 400, always: true, name: "wheels" };
-  const exact = collectStops([wheels, { at: 1000, always: false, name: "stack" }], 1000);
-  assert.deepEqual(
-    exact.map((stop) => stop.at),
-    [0, 400, 1000],
-  );
-  assert.equal(exact.filter((stop) => Math.abs(stop.at - 1000) <= 0.5).length, 1);
-  assert.equal(exact.find((stop) => Math.abs(stop.at - 1000) <= 0.5)?.name, "stack/bottom");
-
-  const before = collectStops([wheels, { at: 950, always: false, name: "stack" }], 1000);
-  assert.deepEqual(
-    before.map((stop) => stop.at),
-    [0, 400, 950, 1000],
-  );
-  assert.equal(before.find((stop) => stop.at === 950)?.name, "stack");
-
-  const past = collectStops([wheels, { at: 1000.6, always: false, name: "stack" }], 1000);
-  assert.deepEqual(
-    past.map((stop) => stop.at),
-    [0, 400, 1000],
-  );
-  assert.equal(past.some((stop) => stop.name === "stack"), false);
-
-  const nearWheels = collectStops([wheels, { at: 450, always: false, name: "stack" }], 1000);
-  assert.deepEqual(
-    nearWheels.map((stop) => stop.at),
-    [0, 400, 450, 1000],
-  );
-  const tie = settleSnap({ scrollTop: 975, maxScroll: 1000, points: [wheels, { at: 950, always: false, name: "stack" }], reduced: false });
-  assert.equal(tie?.target, 950);
-  assert.equal(tie?.name, "stack");
-});
-
-test("a My Stack that shares a stop is named stack and the other stop", () => {
-  const withBottom = collectStops([{ at: 1000, always: false, name: "stack" }], 1000);
-  assert.equal(withBottom.filter((stop) => Math.abs(stop.at - 1000) <= 0.5).length, 1);
-  assert.equal(withBottom.find((stop) => Math.abs(stop.at - 1000) <= 0.5)?.name, "stack/bottom");
-
-  const withWheels = collectStops(
+  const stackFirst = collectStops(
     [
+      { at: 180, always: true, name: "melt" },
       { at: 400, always: true, name: "wheels" },
-      { at: 400.4, always: false, name: "stack" },
+      { at: 950, always: false, name: "stack" },
     ],
-    1200,
+    1000,
   );
-  assert.equal(withWheels.find((stop) => stop.at === 400)?.name, "stack/wheels");
-  assert.equal(withWheels.filter((stop) => Math.abs(stop.at - 400) <= 0.5).length, 1);
+  assert.deepEqual(
+    stackFirst.map((stop) => stop.at),
+    [180, 950],
+  );
+  assert.equal(stackFirst.find((stop) => stop.at === 950)?.name, "stack");
+
+  const bottomFirst = collectStops(
+    [
+      { at: 180, always: true, name: "melt" },
+      { at: 1400, always: false, name: "stack" },
+    ],
+    1000,
+  );
+  assert.deepEqual(
+    bottomFirst.map((stop) => stop.name),
+    ["melt", "bottom"],
+  );
+  assert.deepEqual(
+    bottomFirst.map((stop) => stop.at),
+    [180, 1000],
+  );
+
+  const shared = collectStops([{ at: 200, always: true, name: "melt" }, { at: 1000, always: false, name: "stack" }], 1000);
+  assert.equal(shared.find((stop) => Math.abs(stop.at - 1000) <= 0.5)?.name, "stack/bottom");
+  assert.equal(shared.length, 2);
 });
 
-test("the field engages evenly and fades only at the outer rim", () => {
-  assert.equal(magneticStrength(SNAP_RADIUS_PX), 0);
-  assert.equal(magneticStrength(110), 0);
-  assert.equal(magneticStrength(0), magneticStrength(15));
-  assert.equal(magneticStrength(15), magneticStrength(50));
-  assert.equal(magneticStrength(50), magneticStrength(85));
-  assert.ok(magneticStrength(15) > 0 && magneticStrength(15) < 0.6);
-  assert.ok(magneticStrength(95) > 0);
-  assert.ok(magneticStrength(95) < magneticStrength(85));
-  assert.ok(magneticStrength(99) > 0);
-  assert.ok(magneticStrength(99) < magneticStrength(95));
+test("a lift with no fling stays and every fling takes the next stop", () => {
+  const input = { maxScroll: 1500, points: page, reduced: false };
+  const stay = planFling({ ...input, scrollTop: 210, velocity: 40 });
+  assert.equal(stay.target, null);
+  assert.equal(planFling({ ...input, scrollTop: 20, velocity: 0 }).target, null);
+  assert.ok(40 < FLING_MIN_PX_PER_SEC);
+
+  const normal = planFling({ ...input, scrollTop: 210, velocity: 700 });
+  assert.equal(normal.target, 946);
+
+  const fromTop = planFling({ ...input, scrollTop: 0, velocity: 2400 });
+  assert.equal(fromTop.target, 190);
+  const betweenDown = planFling({ ...input, scrollTop: 400, velocity: 2400 });
+  assert.equal(betweenDown.target, 946);
+  const betweenUp = planFling({ ...input, scrollTop: 700, velocity: -2400 });
+  assert.equal(betweenUp.target, 190);
+  const belowDown = planFling({ ...input, scrollTop: 1100, velocity: 2400 });
+  assert.equal(belowDown.target, 1500);
+  const belowUp = planFling({ ...input, scrollTop: 1200, velocity: -2400 });
+  assert.equal(belowUp.target, 946);
+
+  assert.equal(planFling({ ...input, scrollTop: 400, velocity: 900, reduced: true }).target, null);
+
+  assert.equal(FLING_SPEED_CAP, 1500);
+  assert.equal(aimedSpeed(2200, 100, 946), FLING_SPEED_CAP);
+  assert.equal(aimedSpeed(-2200, 700, 0), -FLING_SPEED_CAP);
 });
 
-test("a closer rest is not grabbier, and past the radius the page stays put", () => {
-  const wide = [
-    { at: 0, always: true, name: "top" },
-    { at: 400, always: true, name: "melt" },
-    { at: 800, always: true, name: "wheels" },
-    { at: 1500, always: true, name: "bottom" },
+test("a pointercancel in the middle of a pan still flings from the later samples", () => {
+  assert.equal(gestureLift("pointercancel"), false);
+  assert.equal(gestureLift("pointerup"), false);
+  assert.equal(gestureLift("touchend"), true);
+  assert.equal(gestureLift("touchcancel"), true);
+  assert.ok(RELEASE_SAMPLE_MS >= 80 && RELEASE_SAMPLE_MS <= 100);
+
+  let gesture = beginPageGesture(0, 100, 500);
+  gesture = notePageTouchMove(gesture, 16, 490);
+  gesture = notePagePointerCancel(gesture);
+  assert.equal(gesture.active, true);
+  gesture = notePageScroll(gesture, 40, 120);
+  gesture = notePageScroll(gesture, 80, 150);
+  gesture = notePageScroll(gesture, 130, 190);
+  const velocity = pageGestureVelocity(gesture);
+  assert.ok(velocity > FLING_MIN_PX_PER_SEC);
+  const plan = planFling({
+    scrollTop: 190,
+    velocity,
+    maxScroll: 1500,
+    points: page,
+    reduced: false,
+  });
+  assert.equal(plan.target, 946);
+});
+
+test("touch samples over the last 90ms are the release velocity", () => {
+  const samples = [
+    { t: 0, y: 400 },
+    { t: 50, y: 390 },
+    { t: 100, y: 380 },
+    { t: 190, y: 200 },
   ];
-  const close = settleSnap({ scrollTop: 15, maxScroll: 1500, points: wide, reduced: false });
-  const middle = settleSnap({ scrollTop: 50, maxScroll: 1500, points: wide, reduced: false });
-  const far = settleSnap({ scrollTop: 85, maxScroll: 1500, points: wide, reduced: false });
-  assert.equal(close?.target, 0);
-  assert.equal(middle?.target, 0);
-  assert.equal(far?.target, 0);
-  assert.ok(close && middle && far);
-  assert.equal(close.strength, middle.strength);
-  assert.equal(middle.strength, far.strength);
-  const at15 = glideDuration(15);
-  const at50 = glideDuration(50);
-  const at95 = glideDuration(95);
-  assert.equal(at15, SOFT_CLOSE_CUSHION_SEC * 1000);
-  assert.ok(at15 < at50 && at50 < at95);
-  assert.ok(15 / (at15 / 1000) < 50 / (at50 / 1000));
-  assert.ok(50 / (at50 / 1000) <= SOFT_CLOSE_SPEED + 0.01);
-  assert.equal(settleSnap({ scrollTop: 100, maxScroll: 1500, points: wide, reduced: false }), null);
-  assert.equal(settleSnap({ scrollTop: 110, maxScroll: 1500, points: wide, reduced: false }), null);
-  assert.equal(settleSnap({ scrollTop: 8, maxScroll: 1500, points: wide, reduced: false }), null);
-  const melt = settleSnap({ scrollTop: 450, maxScroll: 1500, points: wide, reduced: false });
-  assert.equal(melt?.target, 400);
-  assert.equal(melt?.name, "melt");
-  const away = settleSnap({ scrollTop: 946 + 400, maxScroll: 2200, points: page, reduced: false });
-  assert.equal(away, null);
+  const velocity = touchScrollVelocity(samples);
+  assert.ok(Math.abs(velocity - 2000) < 1);
+  let gesture = beginPageGesture(0, 210, 400);
+  for (const sample of samples) {
+    gesture = notePageTouchMove(gesture, sample.t, sample.y);
+    gesture = notePageScroll(gesture, sample.t, 210 + (400 - sample.y));
+  }
+  assert.ok(Math.abs(pageGestureVelocity(gesture) - 2000) < 1);
 });
 
-test("a rest 100px from one always-stop can still sit inside a nearer field", () => {
-  const pulled = settleSnap({ scrollTop: 100, maxScroll: 1500, points: page, reduced: false });
-  assert.equal(pulled?.target, 190);
-  assert.equal(pulled?.name, "melt");
-  assert.equal(pulled?.distance, 90);
+test("an owned glide keeps going when the scroller drifts and holds 56 in the cushion", () => {
+  let state = startOwnedGlide(0, 900, 400);
+  let sawGlide = false;
+  for (let frame = 0; frame < 500 && !state.done; frame += 1) {
+    const before = state.y;
+    const remaining = Math.abs(state.target - before);
+    const drifted = before + 40;
+    const next = advanceOwnedGlide(state, 0.016, drifted);
+    if (remaining <= CUSHION_ZONE_PX - CATCH_PX && remaining > SETTLE_PX + 2 && !next.landed) {
+      const moved = Math.abs(next.state.y - before) / 0.016;
+      assert.ok(Math.abs(moved - GLIDE_SPEED) < 1.5, `glide speed ${moved}`);
+      sawGlide = true;
+    }
+    assert.notEqual(next.state.y, drifted);
+    state = next.state;
+  }
+  assert.equal(sawGlide, true);
+  assert.equal(state.done, true);
+  assert.equal(state.y, 400);
 });
 
-test("fields that meet at the radius do not pull from the shared edge", () => {
-  const pair = [
-    { at: 400, always: true, name: "melt" },
-    { at: 600, always: true, name: "wheels" },
-  ];
-  assert.deepEqual(snapStops(pair, 1200), [0, 400, 600, 1200]);
-  assert.equal(settleSnap({ scrollTop: 500, maxScroll: 1200, points: pair, reduced: false }), null);
-  const inside = settleSnap({ scrollTop: 499, maxScroll: 1200, points: pair, reduced: false });
-  assert.equal(inside?.target, 400);
-});
+test("the land cue fires once when scrollTop rounds off a fractional stop", () => {
+  assert.equal(LAND_EPS_PX, 1);
+  const target = 189.97;
+  let state = startOwnedGlide(80, 700, target);
+  let cues = 0;
+  for (let frame = 0; frame < 800 && !state.done; frame += 1) {
+    const scrollTop = Math.round(state.y);
+    const next = advanceOwnedGlide(state, frame % 4 === 0 ? 0.031 : 0.016, scrollTop);
+    if (next.landed) cues += 1;
+    state = next.landed ? next.state : { ...next.state, y: Math.round(next.state.y) };
+  }
+  assert.equal(cues, 1);
+  assert.equal(state.done, true);
+  assert.ok(Math.abs(state.y - target) <= LAND_EPS_PX);
+  assert.equal(advanceOwnedGlide(state, 0.016, Math.round(state.y)).landed, false);
 
-test("always-stops closer than the gap both stay, and the nearer one wins", () => {
   const packed = [
     { at: 0, always: true, name: "top" },
-    { at: 100, always: true, name: "melt" },
-    { at: 400, always: true, name: "wheels" },
+    { at: 838, always: true, name: "wheels" },
+    { at: 844, always: true, name: "bottom" },
   ];
-  assert.deepEqual(snapStops(packed, 800), [0, 100, 400, 800]);
-  const overlap = settleSnap({ scrollTop: 70, maxScroll: 800, points: packed, reduced: false });
-  assert.equal(overlap?.target, 100);
-  assert.equal(overlap?.name, "melt");
-});
-
-test("a soft-close cruises, then cushions to a stop under the acceleration cap", () => {
-  for (const distance of [15, 30, 90]) {
-    const start = softCloseAt(0, distance);
-    assert.ok(Math.abs(start.offset - distance) < 1e-6);
-    assert.ok(start.velocity < 0);
-    assert.ok(Math.abs(start.velocity) <= SOFT_CLOSE_SPEED + 1e-6);
-    const done = softCloseAt(glideDuration(distance) / 1000, distance);
-    assert.ok(Math.abs(done.offset) < 1e-6);
-    assert.ok(Math.abs(done.velocity) < 1e-6);
-    let previous = distance;
-    let peakAccel = 0;
-    let previousVelocity = start.velocity;
-    for (let step = 1; step <= 40; step += 1) {
-      const sample = softCloseAt((glideDuration(distance) / 1000) * (step / 40), distance);
-      assert.ok(sample.offset >= -0.001);
-      assert.ok(sample.offset <= previous + 0.001);
-      peakAccel = Math.max(peakAccel, Math.abs(sample.velocity - previousVelocity) / (glideDuration(distance) / 1000 / 40));
-      previous = sample.offset;
-      previousVelocity = sample.velocity;
-    }
-    assert.ok(peakAccel <= GLIDE_MAX_ACCEL);
+  const plan = planFling({ scrollTop: 600, velocity: 900, maxScroll: 844, points: packed, reduced: false });
+  assert.equal(plan.target, 844);
+  let cluster = startOwnedGlide(600, 900, plan.target ?? 838);
+  let clusterLands = 0;
+  for (let frame = 0; frame < 800 && !cluster.done; frame += 1) {
+    const next = advanceOwnedGlide(cluster, 0.016, Math.round(cluster.y));
+    if (next.landed) clusterLands += 1;
+    cluster = next.state;
   }
-  const cruise = softCloseAt(0.2, 90);
-  assert.ok(Math.abs(cruise.velocity + SOFT_CLOSE_SPEED) < 1e-6);
-  assert.ok(Math.abs(90 - cruise.offset - SOFT_CLOSE_SPEED * 0.2) < 1e-6);
-  const cushion = softCloseAt(glideDuration(30) / 1000 - 0.05, 30);
-  assert.ok(Math.abs(cushion.velocity) < SOFT_CLOSE_SPEED * 0.25);
+  assert.equal(clusterLands, 1);
+  assert.equal(cluster.y, 844);
 });
 
-test("the caption names the four check distances", () => {
+test("a hard fling lands on the next stop from the top, between stops, and below My Stack", () => {
+  const input = { maxScroll: 1500, points: page, reduced: false };
+  const cases = [
+    { scrollTop: 0, velocity: 2400, target: 190 },
+    { scrollTop: 400, velocity: 2400, target: 946 },
+    { scrollTop: 700, velocity: -2400, target: 190 },
+    { scrollTop: 1100, velocity: 2400, target: 1500 },
+    { scrollTop: 1200, velocity: -2400, target: 946 },
+  ];
+  for (const item of cases) {
+    const plan = planFling({ ...input, scrollTop: item.scrollTop, velocity: item.velocity });
+    assert.equal(plan.target, item.target, `${item.scrollTop} at ${item.velocity}`);
+    const speed = aimedSpeed(item.velocity, item.scrollTop, item.target);
+    let state = startOwnedGlide(item.scrollTop, speed, item.target, input.maxScroll);
+    let lands = 0;
+    for (let frame = 0; frame < 800 && !state.done; frame += 1) {
+      const next = advanceOwnedGlide(state, 0.016, state.y);
+      if (next.landed) lands += 1;
+      state = next.state;
+      if (item.velocity > 0) assert.ok(state.y <= item.target + 0.01);
+      else assert.ok(state.y >= item.target - 0.01);
+    }
+    assert.equal(lands, 1, `${item.scrollTop} lands`);
+    assert.ok(Math.abs(state.y - item.target) <= LAND_EPS_PX);
+    assert.equal(state.target, item.target);
+  }
+});
+
+test("the first owned frame uses the capped speed and does not reverse or overshoot", () => {
+  const dt = 0.016;
+  const opened = startOwnedGlide(100, 2600, 900, 1500);
+  assert.ok(opened.speed <= FLING_SPEED_CAP);
+  const first = advanceOwnedGlide(opened, dt, opened.y);
+  const moved = first.state.y - 100;
+  assert.ok(moved > 0, "a downward fling must not reverse");
+  assert.ok(Math.abs(moved - FLING_SPEED_CAP * dt) < 0.6, `first step ${moved}`);
+
+  const near = startOwnedGlide(165, 1200, 190, 700);
+  assert.ok(near.speed <= zoneEntryCap(25) + 1);
+  const nearStep = advanceOwnedGlide(near, dt, near.y);
+  assert.ok(nearStep.state.y <= 190);
+  assert.ok(nearStep.state.y >= 165);
+
+  const close = startOwnedGlide(185, 1000, 190, 700);
+  assert.ok(close.speed <= GLIDE_SPEED + 1);
+  const closeStep = advanceOwnedGlide(close, dt, close.y);
+  assert.ok(closeStep.state.y <= 190);
+  assert.ok(closeStep.state.y >= 185);
+  assert.equal(closeStep.landed, false);
+
+  let onto = startOwnedGlide(100, 700, 190, 700);
+  let cues = 0;
+  for (let frame = 0; frame < 400 && !onto.done; frame += 1) {
+    const next = advanceOwnedGlide(onto, 0.016, onto.y);
+    if (next.landed) cues += 1;
+    onto = next.state;
+    assert.ok(onto.y <= 190 + 0.01);
+  }
+  assert.equal(cues, 1);
+  assert.ok(Math.abs(onto.y - 190) <= LAND_EPS_PX);
+  const held = advanceOwnedGlide(onto, 0.016, onto.y);
+  assert.equal(held.landed, false);
+  assert.equal(held.state.y, onto.y);
+});
+
+test("catch speed stays continuous when frame times are uneven", () => {
+  let state = startOwnedGlide(0, 1000, 500);
+  let prev = state.speed;
+  let entered = false;
+  const dts = [0.016, 0.005, 0.04, 0.008, 0.028, 0.016];
+  for (let frame = 0; frame < 500 && !state.done; frame += 1) {
+    const before = state.y;
+    const dt = dts[frame % dts.length];
+    const remaining = Math.abs(state.target - before);
+    const next = advanceOwnedGlide(state, dt, Math.round(before));
+    const used = dt > 0 ? Math.abs(next.state.y - before) / Math.min(dt, 0.032) : 0;
+    if (!entered && remaining > CUSHION_ZONE_PX && Math.abs(state.target - next.state.y) <= CUSHION_ZONE_PX) {
+      entered = true;
+      assert.ok(Math.abs((next.state.entrySpeed ?? 0) - 1000) < 1);
+    }
+    if (remaining <= CUSHION_ZONE_PX && remaining > SETTLE_PX) {
+      assert.ok(used >= -1, `catch reversed at ${used}`);
+      assert.ok(used <= prev + 24, `catch spiked from ${prev} to ${used}`);
+    }
+    prev = used;
+    state = next.state;
+  }
+  assert.equal(entered, true);
+  assert.equal(state.done, true);
+  assert.equal(state.y, 500);
+});
+
+test("the cushion keeps the fling speed at the catch, glides at 56, and stops at zero", () => {
+  assert.equal(CUSHION_ZONE_PX, 60);
+  assert.equal(CATCH_PX, 20);
+  assert.equal(SETTLE_PX, 10);
+  assert.equal(GLIDE_PX, 30);
+  assert.equal(GLIDE_SPEED, 56);
+  const fling = 900;
+  assert.equal(cushionSpeed(60, fling), fling);
+  assert.equal(cushionSpeed(61, fling), fling);
+  assert.ok(Math.abs(cushionSpeed(40.001, fling) - GLIDE_SPEED) < 1);
+  assert.equal(cushionSpeed(30, fling), GLIDE_SPEED);
+  assert.equal(cushionSpeed(10, fling), GLIDE_SPEED);
+  assert.equal(cushionSpeed(0, fling), 0);
+  assert.ok(cushionSpeed(5, fling) > 0 && cushionSpeed(5, fling) < GLIDE_SPEED);
+
+  const started = 50;
+  assert.equal(cushionSpeed(started, fling, started), fling);
+  assert.ok(Math.abs(cushionSpeed(40.001, fling, started) - GLIDE_SPEED) < 1);
+  assert.equal(cushionSpeed(20, 400), GLIDE_SPEED);
+});
+
+test("the sliding cap is about 600 at 30px and the glide speed in the last 10", () => {
+  assert.equal(zoneEntryCap(60), FLING_SPEED_CAP);
+  assert.equal(zoneEntryCap(10), GLIDE_SPEED);
+  const at30 = zoneEntryCap(30);
+  assert.ok(at30 > 520 && at30 < 680, `cap at 30px was ${at30}`);
+  assert.ok(zoneEntryCap(45) > at30);
+  assert.ok(zoneEntryCap(15) < at30 && zoneEntryCap(15) > GLIDE_SPEED);
+  const toward = aimedSpeed(1400, 160, 190);
+  assert.ok(Math.abs(toward) < 1400);
+  assert.ok(Math.abs(toward) <= zoneEntryCap(30) + 1);
+  const away = aimedSpeed(1400, 160, 900);
+  assert.equal(away, 1400);
+});
+
+test("touching the page edge cancels the soft close and holds", () => {
+  let state = startOwnedGlide(200, 900, 800, 360);
+  let lands = 0;
+  for (let frame = 0; frame < 200 && !state.done; frame += 1) {
+    const next = advanceOwnedGlide(state, 0.016, state.y);
+    if (next.landed) lands += 1;
+    state = next.state;
+  }
+  assert.equal(state.done, true);
+  assert.equal(state.y, 360);
+  assert.equal(lands, 0);
+  assert.equal(advanceOwnedGlide(state, 0.016, state.y).state.y, 360);
+});
+
+test("pass and landing cues fire once for the stops they belong to", () => {
+  assert.deepEqual(flingCues(), ["land"]);
+  assert.deepEqual(dragCues(0), []);
+  assert.deepEqual(dragCues(2), ["pass", "pass"]);
+  assert.deepEqual(stopsPassed(200, 600, [0, 190, 538, 946, 1500]), [538]);
+  assert.deepEqual(stopsPassed(1000, 100, [0, 190, 538, 946, 1500]), [946, 538, 190]);
+  assert.deepEqual(stopsPassed(190, 538, [190, 538]), [538]);
+  assert.deepEqual(stopsPassed(189, 190, [190]), [190]);
+  assert.deepEqual(stopsPassed(189.6, 190.4, [190.2]), [190.2]);
+  assert.deepEqual(stopsPassed(190, 191, [190]), []);
+  assert.deepEqual(passStopPositions(page, 1500), [190, 946]);
+});
+
+test("the caption names distance from the nearest stop", () => {
   assert.equal(magnetCaption(15, "melt"), "15px from melt · cushion");
-  assert.equal(magnetCaption(50, "wheels"), "50px from wheels · soft close");
-  assert.equal(magnetCaption(85, "wheels"), "85px from wheels · soft close");
-  assert.equal(magnetCaption(100, "top"), "100px from top · no pull");
-  assert.equal(magnetCaption(110, "top"), "110px from top · no pull");
+  assert.equal(magnetCaption(50, "wheels"), "50px from wheels · cushion");
+  assert.equal(magnetCaption(130, "top"), "130px from top · free");
 });
 
 test("reduced motion does not pull the page", () => {
-  assert.equal(settleSnap({ scrollTop: 15, maxScroll: 1500, points: page, reduced: true }), null);
+  assert.equal(planFling({ scrollTop: 15, maxScroll: 1500, points: page, velocity: 900, reduced: true }).target, null);
 });
 
 test("the page eases after scrollend and the plates are marked", () => {
@@ -277,14 +411,106 @@ test("the page eases after scrollend and the plates are marked", () => {
   assert.match(reel, /preventDefault\(\)/);
   assert.match(lever, /preventDefault\(\)/);
   assert.match(swipe, /onPointerDown/);
-  assert.match(snapSource, /scrollend/);
-  assert.match(snapSource, /softCloseAt/);
+  assert.match(snapSource, /planFling/);
+  assert.match(snapSource, /advanceOwnedGlide/);
   assert.match(snapSource, /scrollingElement/);
-  assert.equal(snapSource.includes("touchmove"), false);
+  assert.match(snapSource, /touchstart/);
+  assert.match(snapSource, /touchmove/);
+  assert.match(snapSource, /touchend/);
+  assert.match(snapSource, /touchcancel/);
+  assert.equal(snapSource.includes('addEventListener("pointerdown"'), false);
+  assert.equal(snapSource.includes('addEventListener("pointerup"'), false);
+  assert.equal(snapSource.includes('addEventListener("pointercancel"'), false);
   assert.match(snapSource, /prefers-reduced-motion: reduce/);
-  assert.equal(snapSource.includes("preventDefault"), false);
+  assert.match(snapSource, /preventDefault\(\)/);
+  assert.match(snapSource, /passive:\s*false/);
+  assert.match(snapSource, /pageOwnsTouch/);
+  assert.equal(snapSource.includes("actual - placed"), false);
+  assert.match(snapSource, /wheel/);
   assert.match(snapSource, /get\("magnet"\) !== "1"/);
   assert.match(snapSource, /pointer-events:\s*none/);
-  assert.match(snapSource, /stack-swipe\.is-departing/);
-  assert.match(snapSource, /requestAnimationFrame\(onLayout\)/);
+  assert.match(snapSource, /aimedSpeed/);
+  assert.match(snapSource, /passStopPositions/);
+  assert.match(snapSource, /reel-viewport/);
+  assert.match(snapSource, /pull-ball/);
+  assert.match(snapSource, /stack-swipe/);
+});
+
+test("the page owns a vertical drag and leaves pull-to-refresh, sideways, and controls alone", () => {
+  assert.equal(
+    pageOwnsTouch({ reduced: false, interactive: false, scrollTop: 200, originX: 0, originY: 100, x: 2, y: 40 }),
+    true,
+  );
+  assert.equal(
+    pageOwnsTouch({ reduced: false, interactive: false, scrollTop: 0, originX: 0, originY: 100, x: 0, y: 130 }),
+    false,
+  );
+  assert.equal(
+    pageOwnsTouch({ reduced: false, interactive: false, scrollTop: 0, originX: 0, originY: 100, x: 0, y: 70 }),
+    true,
+  );
+  assert.equal(
+    pageOwnsTouch({ reduced: false, interactive: false, scrollTop: 200, originX: 0, originY: 100, x: 40, y: 104 }),
+    false,
+  );
+  assert.equal(
+    pageOwnsTouch({ reduced: true, interactive: false, scrollTop: 200, originX: 0, originY: 100, x: 0, y: 40 }),
+    false,
+  );
+  assert.equal(
+    pageOwnsTouch({ reduced: false, interactive: true, scrollTop: 200, originX: 0, originY: 100, x: 0, y: 40 }),
+    false,
+  );
+});
+
+test("owned frames do not reverse and obey both speed caps", () => {
+  const dt = 0.016;
+  let state = startOwnedGlide(100, 540, 900, 2000);
+  let previous = 100;
+  for (const frame of [0.012, 0.015, 0.017]) {
+    const next = advanceOwnedGlide(state, frame, state.y);
+    const delta = next.state.y - previous;
+    assert.ok(delta > 0, `frame reversed by ${delta}`);
+    assert.ok(Math.abs(delta - 540 * Math.min(frame, 0.032)) < 0.75);
+    previous = next.state.y;
+    state = next.state;
+  }
+
+  const capped = startOwnedGlide(100, 2700, 900, 2000);
+  assert.ok(capped.speed <= FLING_SPEED_CAP);
+  const first = advanceOwnedGlide(capped, dt, capped.y);
+  assert.ok((first.state.y - 100) / dt <= FLING_SPEED_CAP + 1);
+
+  for (const [distance, limit] of [
+    [25, zoneEntryCap(25)],
+    [15, zoneEntryCap(15)],
+    [5, zoneEntryCap(5)],
+  ] as const) {
+    const near = startOwnedGlide(190 - distance, 2000, 190, 800);
+    assert.ok(near.speed <= limit + 1, `${distance}px started at ${near.speed} over ${limit}`);
+    const step = advanceOwnedGlide(near, dt, near.y);
+    assert.ok(step.state.y <= 190);
+    assert.ok((step.state.y - (190 - distance)) / dt <= limit + 1);
+  }
+});
+
+test("a normal upward fling from mid page lands on melt once", () => {
+  const plan = planFling({
+    scrollTop: 400,
+    velocity: -700,
+    maxScroll: 1500,
+    points: page,
+    reduced: false,
+  });
+  assert.equal(plan.target, 190);
+  let state = startOwnedGlide(400, aimedSpeed(-700, 400, 190), plan.target ?? 190, 1500);
+  let cues = 0;
+  for (let frame = 0; frame < 500 && !state.done; frame += 1) {
+    const next = advanceOwnedGlide(state, 0.016, state.y);
+    if (next.landed) cues += 1;
+    state = next.state;
+    assert.ok(state.y >= 190 - 0.01, `passed melt at ${state.y}`);
+  }
+  assert.equal(cues, 1);
+  assert.ok(Math.abs(state.y - 190) <= LAND_EPS_PX);
 });

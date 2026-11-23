@@ -81,11 +81,36 @@ export function settleReels(previous: readonly boolean[], next: readonly boolean
   return true;
 }
 
-/** One pulse. A tick closer than the gap is dropped. `force` is the landing thump. */
-export function hapticClick(force = false): void {
+/** Light page tick while a finger or a hard fling passes a stop. */
+export const HAPTIC_PAGE_TICK_MS = 6;
+
+/**
+ * Six-millisecond buzz. Dropped inside {@link HAPTIC_MIN_GAP_MS} so it cannot
+ * restart the motor. Returns whether the pulse was started.
+ */
+export function hapticPageTick(): boolean {
   const now = nowMs();
-  if (!force && now - lastAt < HAPTIC_MIN_GAP_MS) return;
+  if (now - lastAt < HAPTIC_MIN_GAP_MS) return false;
+  lastAt = now;
+  play(HAPTIC_PAGE_TICK_MS);
+  return true;
+}
+
+/**
+ * Page landing. Always the 15ms stop pulse, including inside the tick gap,
+ * so a pass tick a moment earlier cannot swallow the landing.
+ */
+export function hapticPageLand(): void {
+  lastAt = nowMs();
+  play(HAPTIC_STOP_MS);
+}
+
+/** One pulse. A tick closer than the gap is dropped. `force` is the landing thump. */
+export function hapticClick(force = false): boolean {
+  const now = nowMs();
+  if (!force && now - lastAt < HAPTIC_MIN_GAP_MS) return false;
   lastAt = now;
   if (force) protectUntil = now + HAPTIC_LANDING_MS;
   play(force ? HAPTIC_LANDING_PATTERN : HAPTIC_STOP_MS);
+  return true;
 }
