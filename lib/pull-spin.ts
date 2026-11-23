@@ -1,54 +1,58 @@
-import { BRAKE_PRESETS, REEL_SPEED_CAP, type BrakePreset, brakeDecel } from "@/lib/drum";
+import {
+  BRAKE_PRESETS,
+  REEL_SPEED_CAPS,
+  type BrakePreset,
+  brakeDecel,
+} from "@/lib/drum";
 
-/** Nominal gap between reel stops, left to right. */
+/** Nominal gap between reel stops, left to right, on the light brake. */
 export const PULL_STAGGER_S = 0.4;
 /**
- * Opening speed of the left reel, in stops per second, before strength and jitter.
- * Small enough that a full light-brake pull, with the fastest jitter, still
- * fits under the speed cap with the stagger added on top.
+ * Fixed opening speed of the left reel, in stops per second.
+ * A pull is a trigger. How fast the lever moved does not change this.
  */
-export const PULL_BASE_SPEED = 10;
-/** Each reel's launch speed wanders by this fraction. */
-export const PULL_JITTER = 0.15;
-/** A committed drag is at least this far; a full keyboard pull is 1. */
-export const PULL_MIN_STRENGTH = 0.85;
+export const PULL_BASE_SPEED = 8;
 
-let pullStrength = 1;
-
-export function notePullStrength(travel: number): void {
-  if (!Number.isFinite(travel)) {
-    pullStrength = 1;
-    return;
+/**
+ * Keep every launch under its cap without flattening the stagger.
+ * Equal caps: subtract the fastest reel's overshoot from all three, so that
+ * reel sits on the cap and the gaps stay. Different caps: divide by the
+ * largest speed/cap ratio, so the tightest reel sits on its cap and the
+ * gaps shrink together instead of one reel being clipped.
+ */
+export function fitLaunchSpeeds(speeds: readonly number[], caps: readonly number[]): number[] {
+  const values = speeds.map((speed) => Math.abs(speed));
+  const limits = caps.map((cap) => Math.abs(cap));
+  const equal = limits.every((cap) => Math.abs(cap - limits[0]) < 1e-9);
+  if (equal) {
+    let fastest = 0;
+    for (let index = 1; index < values.length; index += 1) {
+      if (values[index] > values[fastest]) fastest = index;
+    }
+    const overshoot = values[fastest] - limits[fastest];
+    if (overshoot <= 0) return values;
+    const shifted = values.map((speed) => speed - overshoot);
+    if (shifted.every((speed, index) => speed > 0 && speed <= limits[index] + 1e-9)) return shifted;
   }
-  pullStrength = Math.min(1, Math.max(PULL_MIN_STRENGTH, travel));
+  const ratio = Math.max(1, ...values.map((speed, index) => speed / limits[index]));
+  return values.map((speed) => speed / ratio);
 }
 
-export function currentPullStrength(): number {
-  return pullStrength;
+/** Fixed launch speeds, left to right. Negative when read one reel at a time. */
+export function pullLaunchSpeeds(decel = brakeDecel(), caps: readonly number[] = REEL_SPEED_CAPS): number[] {
+  const ideal = [0, 1, 2].map((order) => PULL_BASE_SPEED + order * decel * PULL_STAGGER_S);
+  return fitLaunchSpeeds(ideal, caps);
 }
 
 /**
  * Launch speed for one reel. Negative, so the wheel spins toward decreasing position.
- * Later reels are faster by `decel * PULL_STAGGER_S`, which is `PULL_STAGGER_S` seconds
- * of extra coast on this brake. `random` is 0..1; 0.5 is no jitter.
+ * Every pull of this brake is the same speed. Strength and jitter are not inputs.
  */
-export function pullLaunchVelocity(input: {
-  order: number;
-  decel?: number;
-  strength?: number;
-  random?: number;
-}): number {
+export function pullLaunchVelocity(input: { order: number; decel?: number; caps?: readonly number[] }): number {
   const order = Math.min(2, Math.max(0, Math.floor(input.order)));
   const decel = input.decel && input.decel > 0 ? input.decel : brakeDecel();
-  const strength = Math.min(1, Math.max(PULL_MIN_STRENGTH, input.strength ?? currentPullStrength()));
-  const unit = input.random == null ? 0 : Math.min(1, Math.max(0, input.random)) * 2 - 1;
-  const jitter = 1 + unit * PULL_JITTER;
-  const ideal =
-    PULL_BASE_SPEED * (strength / PULL_MIN_STRENGTH) * jitter + order * decel * PULL_STAGGER_S;
-  // Keep a later reel faster even when the ideal speed is past the cap.
-  const step = Math.min(decel * PULL_STAGGER_S, REEL_SPEED_CAP / 3);
-  const ceiling = REEL_SPEED_CAP - (2 - order) * step;
-  return -Math.min(ideal, ceiling);
+  const speeds = pullLaunchSpeeds(decel, input.caps ?? REEL_SPEED_CAPS);
+  return -speeds[order];
 }
 
 /** Seconds until this launch speed has braked to zero, before the short settle. */
@@ -57,9 +61,9 @@ export function pullStopSeconds(speed: number, decel: number): number {
   return Math.abs(speed) / decel;
 }
 
-/** Nominal stop time for a reel, no jitter, full-strength pull, on the active brake. */
+/** Nominal stop time for a reel on the light brake, unless a preset is named. */
 export function stillAtMs(order: number, preset: BrakePreset = "light"): number {
   const decel = BRAKE_PRESETS[preset];
-  const speed = pullLaunchVelocity({ order, decel, strength: 1, random: 0.5 });
+  const speed = pullLaunchVelocity({ order, decel });
   return Math.round(pullStopSeconds(speed, decel) * 1000);
 }

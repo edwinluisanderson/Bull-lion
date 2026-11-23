@@ -8,7 +8,8 @@ import {
   COAST_SETTLE_SPEED,
   flingVelocity,
   flywheelAdvance,
-  REEL_SPEED_CAP,
+  REEL_MAX_FRAME_DT,
+  REEL_SPEED_CAPS,
   stopsCrossed,
   commitIndex,
   cylinderPose,
@@ -20,7 +21,7 @@ import {
 import { hapticClick } from "@/lib/haptics";
 import { noteReelSpinning, playReelClick, reelSnap, unlockReelClick } from "@/lib/reel-click";
 import { detentForStop } from "@/lib/spin-gate";
-import { currentPullStrength, pullLaunchVelocity } from "@/lib/pull-spin";
+import { pullLaunchVelocity } from "@/lib/pull-spin";
 import { setWheelLampSpeed } from "@/lib/wheel-lamp";
 import { playStretchPop, unlockStretchPops } from "@/lib/stretch-pop";
 import { stretchPopCount } from "@/lib/stretch-pops";
@@ -83,7 +84,6 @@ function countFace(value: number): StretchFace {
   return { mark: `×${value}`, detail: value === 1 ? "piece" : "pieces" };
 }
 
-const MAX_VELOCITY = REEL_SPEED_CAP;
 const WINDOW = [-2, -1, 0, 1, 2, 3];
 
 function guestSymbol(
@@ -142,6 +142,7 @@ function createEngine(options: {
   onStretchFrame: (frame: StretchFrame | null) => void;
   onGuest: (guest: GuestCount | null) => void;
   alternatePullStops: () => boolean;
+  speedCap: number;
 }): Engine {
   let position = options.initialIndex;
   let phase: Phase = "idle";
@@ -355,7 +356,7 @@ function createEngine(options: {
   function tick(now: number) {
     raf = 0;
     if (phase === "idle" || phase === "drag") return;
-    const dt = Math.min(0.05, (now - last) / 1000);
+    const dt = Math.min(REEL_MAX_FRAME_DT, Math.max(0, (now - last) / 1000));
     last = now;
 
     if (phase === "ice") {
@@ -375,7 +376,15 @@ function createEngine(options: {
     if (phase === "coast") {
       const count = options.getCount();
       const incoming = velocity === 0 ? launchTarget : velocity;
-      const step = flywheelAdvance(position, velocity, launchTarget, dt, brakeDecel());
+      const step = flywheelAdvance(
+        position,
+        velocity,
+        launchTarget,
+        dt,
+        brakeDecel(),
+        undefined,
+        options.speedCap,
+      );
       velocity = step.velocity;
       launchTarget = step.target;
       setPos(step.position);
@@ -405,7 +414,7 @@ function createEngine(options: {
   }
 
   function velocityFrom(samples: { t: number; y: number }[]) {
-    return flingVelocity(samples, REEL_ITEM_HEIGHT, MAX_VELOCITY);
+    return flingVelocity(samples, REEL_ITEM_HEIGHT, options.speedCap);
   }
 
   function clearHold() {
@@ -715,8 +724,6 @@ function createEngine(options: {
       launchTarget = pullLaunchVelocity({
         order,
         decel: brakeDecel(),
-        strength: currentPullStrength(),
-        random: Math.random(),
       });
       setPhase("coast");
       schedule();
@@ -824,6 +831,7 @@ export function Reel({
       onStretchFrame: (frame) => listenerRef.current.onStretchFrame?.(frame),
       onGuest: (next) => listenerRef.current.onGuest?.(next),
       alternatePullStops: () => alternateRef.current,
+      speedCap: REEL_SPEED_CAPS[spinOrder] ?? REEL_SPEED_CAPS[0],
     });
     engineRef.current = engine;
     return () => {

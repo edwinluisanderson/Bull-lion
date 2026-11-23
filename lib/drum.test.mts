@@ -153,7 +153,7 @@ test("the speed cap stays under the wagon-wheel limit at 60, 90, and 120Hz", () 
   const spacing = paylineSpacing();
   assert.ok(spacing > 1 && spacing < 1.04);
   for (const hz of REEL_CHECK_HZ) {
-    const alias = reelAliasSpeed(hz);
+    const alias = reelAliasSpeed(1, hz);
     assert.equal(alias, 0.5 * hz);
     assert.ok(REEL_SPEED_CAP < alias);
     assert.ok(REEL_SPEED_CAP / hz < 0.5);
@@ -187,6 +187,12 @@ test("a launch winds up to the target instead of jumping there", () => {
   assert.equal(goal, 0);
   assert.ok(Math.abs(velocity) < REEL_SPEED_CAP);
   assert.ok(position < 0);
+});
+
+test("a late frame cannot jump half a stop", () => {
+  const step = flywheelAdvance(0, -REEL_SPEED_CAP, 0, 0.05, BRAKE_PRESETS.light);
+  assert.ok(Math.abs(step.position) <= REEL_CAP_FRACTION + 1e-9);
+  assert.ok(Math.abs(step.position) > 0);
 });
 
 test("the light brake is the one the reels start on", () => {

@@ -76,23 +76,64 @@ export function modStop(value: number, count: number): number {
 }
 
 /**
- * One stop is the pattern period. At the payline the cylinder moves
+ * One stop is the cell the eye tracks. At the payline the cylinder moves
  * `paylineSpacing()` symbol heights per stop, which is just over 1
- * (d(sin θ)/d(stop) at the facing angle, θ = 18°). A frame that travels
- * a whole stop looks frozen. Half a stop is the Nyquist point, where the
- * wheel can read as stopped or spinning backward.
+ * (d(sin θ)/d(stop) at the facing angle, θ = 18°). Measured on the glass,
+ * at both 320px and 412px, that pitch is 86px on the facing face, 83.6px
+ * to the face above it, and 88.4px to the face below it. All three reels
+ * share that pitch. The viewport is 258px tall.
  *
- * That half-stop limit is 30 stops/s at 60Hz, 45 at 90Hz, and 60 at 120Hz.
- * The cap is a third of a stop per 60Hz frame (20 stops/s). The same reel
- * then travels 0.222 stops/frame at 90Hz and 0.167 at 120Hz, all safely
- * under half a stop, so the faces keep rolling toward the viewer.
+ * A frame that travels a whole stop looks frozen. Half a stop is where the
+ * direction flips. For a 1-stop cell that is 30 stops/s at 60Hz, 45 at 90Hz,
+ * and 60 at 120Hz. The cap is a third of a stop per 60Hz frame (20 stops/s):
+ * 0.222 stops/frame at 90Hz and 0.167 at 120Hz.
+ *
+ * The metal reel is the one that looked like it ran backward. Its strip is
+ * only five faces (Au, Ag, Pt, Pd, Cu), and Ag, Pt, and Pd are all pale, so
+ * a half-cell jump is easy to read as the wrong direction. The tick used to
+ * catch up as much as 50ms after the pull's price update and clicks. At the
+ * left reel's old cruise of about 12 stops/s that one paint moved ~0.59
+ * stops, just past the half-stop flip. The faster reels jumped closer to a
+ * whole cell, so the backward read was weaker. A frame is now capped at
+ * 1/60s, which keeps every reel under a third of a stop even at its cap.
  */
 export const REEL_ALIAS_FRACTION = 0.5;
 export const REEL_CAP_FRACTION = 1 / 3;
 export const REEL_REFERENCE_HZ = 60;
 export const REEL_CHECK_HZ = [60, 90, 120] as const;
+export const REEL_MAX_FRAME_DT = 1 / REEL_REFERENCE_HZ;
 export const REEL_SPEED_CAP = REEL_CAP_FRACTION * REEL_REFERENCE_HZ;
-/** Heavy flywheel. A launch at the cap takes half a second to get there. */
+/** Facing-face height. The payline pitch measured above is this, in CSS pixels. */
+export const PAYLINE_STOP_PX = 86;
+
+export type ReelProfile = {
+  order: number;
+  name: "metal" | "weight" | "count";
+  stops: number;
+  /** Stops between repeats of the pattern that aliases first. The cell is 1. */
+  patternStops: number;
+  itemHeightPx: number;
+};
+
+export const REEL_PROFILES: readonly ReelProfile[] = [
+  { order: 0, name: "metal", stops: 5, patternStops: 1, itemHeightPx: PAYLINE_STOP_PX },
+  { order: 1, name: "weight", stops: 16, patternStops: 1, itemHeightPx: PAYLINE_STOP_PX },
+  { order: 2, name: "count", stops: 8, patternStops: 1, itemHeightPx: PAYLINE_STOP_PX },
+];
+
+/** Stops per second where one frame covers half of this reel's pattern. */
+export function reelAliasSpeed(patternStops: number, hz: number): number {
+  return REEL_ALIAS_FRACTION * patternStops * hz;
+}
+
+/** One third of this reel's pattern per 60Hz frame. */
+export function reelSpeedCap(patternStops: number): number {
+  return REEL_CAP_FRACTION * patternStops * REEL_REFERENCE_HZ;
+}
+
+export const REEL_SPEED_CAPS = REEL_PROFILES.map((profile) => reelSpeedCap(profile.patternStops));
+
+/** Heavy flywheel. A launch at the shared cap takes half a second to get there. */
 export const REEL_SPINUP_ACCEL = REEL_SPEED_CAP / 0.5;
 
 /** Symbol heights the payline travels per stop, measured on the facing face. */
@@ -104,10 +145,6 @@ export function paylineSpacing(): number {
 /** Stops per second at which one frame covers `fraction` of a stop. */
 export function stopsPerSecond(fraction: number, hz: number): number {
   return fraction * hz;
-}
-
-export function reelAliasSpeed(hz: number): number {
-  return stopsPerSecond(REEL_ALIAS_FRACTION, hz);
 }
 
 /** Constant deceleration, stops per second squared. Same brake on every reel and every stop. */
@@ -170,9 +207,11 @@ export function flywheelAdvance(
   dt: number,
   decel = brakeDecel(),
   accel = REEL_SPINUP_ACCEL,
+  cap = REEL_SPEED_CAP,
 ): { position: number; velocity: number; target: number } {
   if (dt <= 0) return { position, velocity, target };
-  const goal = Math.min(REEL_SPEED_CAP, Math.abs(target));
+  const stepDt = Math.min(dt, REEL_MAX_FRAME_DT);
+  const goal = Math.min(cap, Math.abs(target));
   const sign = target === 0 ? Math.sign(velocity) : Math.sign(target);
   const speed = Math.abs(velocity);
   const winding =
@@ -182,15 +221,15 @@ export function flywheelAdvance(
     speed < goal - 1e-9 &&
     accel > 0;
   if (winding) {
-    const next = Math.min(goal, speed + accel * dt);
-    const distance = ((speed + next) / 2) * dt;
+    const next = Math.min(goal, speed + accel * stepDt);
+    const distance = ((speed + next) / 2) * stepDt;
     return {
       position: position + sign * distance,
       velocity: sign * next,
       target: next >= goal ? 0 : sign * goal,
     };
   }
-  const braked = coastAdvance(position, velocity, dt, () => true, 1, decel);
+  const braked = coastAdvance(position, velocity, stepDt, () => true, 1, decel);
   return { position: braked.position, velocity: braked.velocity, target: 0 };
 }
 
