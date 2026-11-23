@@ -112,6 +112,14 @@ export function removeLine(lines: readonly StackLine[], id: string): StackLine[]
   return lines.filter((line) => line.id !== id);
 }
 
+/** TEMP_CLEAR_ALL: drop every card. Remove with the scrap-plate button. */
+export const TEMP_CLEAR_ALL = true;
+export const CLEAR_STACK_EVENT = "bull-lion-clear-stack";
+
+export function clearAllLines(): StackLine[] {
+  return [];
+}
+
 export function renameLine(lines: readonly StackLine[], id: string, description: string): StackLine[] {
   const next = description.trim();
   if (!next) return [...lines];

@@ -13,6 +13,7 @@ import {
   insertCascade,
   proposeAdd,
   readStack,
+  clearAllLines,
   removeLine,
   renameLine,
   resolveAdd,
@@ -60,6 +61,19 @@ test("split flaps walk forward and jump when motion is reduced", () => {
   assert.ok(flapText(long).length > FLAP_DESCRIPTION);
   assert.equal(padFlap(long, FLAP_DESCRIPTION), "POCKET COIN FROM TH");
   assert.equal(padFlap("Gold 1 oz", FLAP_DESCRIPTION).trimEnd(), "GOLD 1 OZ");
+});
+
+test("TEMP_CLEAR_ALL empties every card", () => {
+  assert.deepEqual(clearAllLines(), []);
+  const kept = removeLine(
+    [
+      { id: "a", symbol: "XAU", mark: "Au", weightLabel: "1 oz", grams: TROY_OUNCE_GRAMS, qty: 1, description: "Gold" },
+      { id: "b", symbol: "XAG", mark: "Ag", weightLabel: "1 oz", grams: TROY_OUNCE_GRAMS, qty: 2, description: "Silver" },
+    ],
+    "a",
+  );
+  assert.equal(kept.length, 1);
+  assert.deepEqual(clearAllLines(), []);
 });
 
 test("adding a line asks before combining the same metal and weight", () => {
