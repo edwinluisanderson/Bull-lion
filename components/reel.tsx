@@ -14,6 +14,7 @@ import {
   commitIndex,
   cylinderPose,
   glideSettleNotch,
+  grayGlidePlan,
   nearestEnabledNotch,
   shouldApplyGuard,
   STOP_DEGREES,
@@ -47,7 +48,11 @@ import {
   originFor,
   pressHitsCenter,
   projectGuest,
+  releasePlacement,
   sequenceFrom,
+  STRETCH_SNAP_MS,
+  stretchLandingGate,
+  stretchSnap,
   settledPlateStyle,
   stretchLayout,
   stretchRowClip,
@@ -188,6 +193,7 @@ function createEngine(options: {
   let pullStarted = 0;
   let alternated = 0;
   let landingWatch: LandingWatch = clearLandingWatch();
+  let glideTarget: number | null = null;
   let iceFrom = 0;
   let iceVelocity = 0;
   let iceHandoff = 0;
@@ -384,6 +390,23 @@ function createEngine(options: {
     animateTo(past, duration);
   }
 
+  function animateSnap(target: number) {
+    stop();
+    if (options.isReduced() || Math.abs(target - position) < 0.0001) {
+      velocity = 0;
+      position = target;
+      options.setKinetics(target, 0);
+      setPhase("idle");
+      return;
+    }
+    animFrom = position;
+    animTo = target;
+    animStart = performance.now();
+    animDur = STRETCH_SNAP_MS;
+    setPhase("snap");
+    schedule();
+  }
+
   function tick(now: number) {
     raf = 0;
     if (phase === "idle" || phase === "drag") return;
@@ -408,7 +431,16 @@ function createEngine(options: {
       const count = options.getCount();
       const incoming = velocity;
       const decel = pullSpin ? pullDecel(pullOrder) : brakeDecel();
-      const step = flywheelAdvance(position, velocity, dt, decel, options.speedCap);
+      const glide = grayGlidePlan({
+        position,
+        velocity,
+        decel,
+        count,
+        isEnabled: options.isEnabled,
+        locked: glideTarget,
+      });
+      glideTarget = glide.fallback ? null : glide.target;
+      const step = flywheelAdvance(position, velocity, dt, glide.fallback ? decel : glide.decel, options.speedCap);
       velocity = step.velocity;
       setPos(step.position);
       if (Math.abs(velocity) < COAST_SETTLE_SPEED) {
@@ -421,8 +453,12 @@ function createEngine(options: {
     if (phase === "snap" || phase === "script") {
       const progress = Math.min(1, (now - animStart) / animDur);
       const power = phase === "script" ? 4 : 3;
-      const eased = 1 - (1 - progress) ** power;
-      const next = progress >= 1 ? animTo : animFrom + (animTo - animFrom) * eased;
+      const next =
+        progress >= 1
+          ? animTo
+          : phase === "snap"
+            ? stretchSnap(animFrom, animTo, progress)
+            : animFrom + (animTo - animFrom) * (1 - (1 - progress) ** power);
       velocity = (next - position) / Math.max(dt, 0.001);
       setPos(next);
       if (progress >= 1) {
@@ -590,7 +626,8 @@ function createEngine(options: {
       setPhase("idle");
       return;
     }
-    const between = origin ? sequenceNow(origin, direction).includes(centered) : false;
+    const sequence = origin ? sequenceNow(origin, direction) : [];
+    const between = sequence.includes(centered);
     if (!between) {
       publishStretch(null);
       stretchOrigin = null;
@@ -603,17 +640,39 @@ function createEngine(options: {
       setPhase("idle");
       return;
     }
-    const slot =
-      origin?.slot ??
-      (direction === "down" ? (origin?.lowerIndex ?? anchorIndex) + 0.5 : anchorIndex + 0.5);
-    guest = { value: centered, slot };
-    position = slot;
+    const placed =
+      origin && layout
+        ? releasePlacement({
+            direction,
+            origin,
+            sequence,
+            travel: stretchTravel,
+            itemHeight: REEL_ITEM_HEIGHT,
+            centered,
+          })
+        : null;
+    if (placed) {
+      guest = placed.guest;
+      position = placed.position;
+    } else {
+      const slot =
+        origin?.slot ??
+        (direction === "down" ? (origin?.lowerIndex ?? anchorIndex) + 0.5 : anchorIndex + 0.5);
+      guest = { value: centered, slot };
+      position = slot;
+    }
     velocity = 0;
-    options.setKinetics(slot, 0);
+    options.setKinetics(position, 0);
     options.onPieces(centered);
     options.onGuest(guest);
     publishStretch(null);
     stretchOrigin = null;
+    const cue = stretchLandingGate({ played: false });
+    if (cue.play) playSettledLanding();
+    if (placed) {
+      animateSnap(placed.center);
+      return;
+    }
     setPhase("idle");
   }
 
@@ -694,6 +753,7 @@ function createEngine(options: {
         return;
       }
       landingWatch = armLandingWatch();
+      glideTarget = null;
       velocity = speed;
       setAudioSpin(true);
       setPhase("coast");
@@ -738,6 +798,7 @@ function createEngine(options: {
       options.onGuest(null);
       hapticClick();
       landingWatch = armLandingWatch();
+      glideTarget = null;
       pullSpin = true;
       pullStarted = performance.now();
       alternated = 0;

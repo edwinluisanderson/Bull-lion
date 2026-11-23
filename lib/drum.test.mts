@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { armLandingWatch, commitReelStop, settleReelLanding } from "@/lib/reel-landing";
+
 import {
   basinIndex,
   camPastNotch,
@@ -12,6 +14,8 @@ import {
   flywheelAdvance,
   getBrakePreset,
   glideSettleNotch,
+  grayGlidePlan,
+  COAST_SETTLE_SPEED,
   paylineSpacing,
   REEL_CAP_FRACTION,
   REEL_CHECK_HZ,
@@ -186,6 +190,132 @@ test("a late frame cannot jump half a stop", () => {
 
 test("the light brake is the one the reels start on", () => {
   assert.equal(getBrakePreset(), "light");
+});
+
+test("a gray landing retargets the brake onto the nearest lit face ahead", () => {
+  const count = 8;
+  const enabled = (index: number) => {
+    const face = modStop(index, count);
+    return face !== 2 && face !== 3 && face !== 4;
+  };
+  let position = 1.2;
+  let velocity = 6;
+  const decel = 6;
+  let locked: number | null = null;
+  for (let frame = 0; frame < 400 && Math.abs(velocity) >= COAST_SETTLE_SPEED; frame += 1) {
+    const plan = grayGlidePlan({ position, velocity, decel, count, isEnabled: enabled, locked });
+    if (!plan.fallback) locked = plan.target;
+    if (frame === 0) {
+      assert.equal(plan.fallback, false);
+      assert.equal(plan.target, 5);
+    }
+    const step = flywheelAdvance(position, velocity, 1 / 60, plan.decel);
+    assert.ok(Math.abs(step.position - position) < 0.5);
+    assert.ok((step.position - position) * Math.sign(velocity) >= -1e-9);
+    position = step.position;
+    velocity = step.velocity;
+  }
+  const land = glideSettleNotch(position, velocity === 0 ? 1 : velocity, count, enabled);
+  assert.equal(modStop(land, count), 5);
+  assert.ok(Math.abs(position - land) < 0.75);
+});
+
+test("a retargeted gray coast still lands exactly once", () => {
+  const count = 8;
+  const enabled = (index: number) => {
+    const face = modStop(index, count);
+    return face !== 2 && face !== 3 && face !== 4;
+  };
+  let position = 1.2;
+  let velocity = 6;
+  const decel = 6;
+  let watch = armLandingWatch();
+  let landings = 0;
+  let committed: number | null = null;
+  let locked: number | null = null;
+  for (let frame = 0; frame < 500 && Math.abs(velocity) >= COAST_SETTLE_SPEED; frame += 1) {
+    const plan = grayGlidePlan({ position, velocity, decel, count, isEnabled: enabled, locked });
+    if (!plan.fallback) locked = plan.target;
+    const step = flywheelAdvance(position, velocity, 1 / 60, plan.fallback ? decel : plan.decel);
+    for (const stop of stopsCrossed(position, step.position)) {
+      if (!enabled(modStop(stop, count)) || modStop(stop, count) === committed) continue;
+      committed = modStop(stop, count);
+      const noted = commitReelStop(watch, false);
+      watch = noted.watch;
+      if (noted.playLanding) landings += 1;
+    }
+    position = step.position;
+    velocity = step.velocity;
+  }
+  const settled = settleReelLanding(watch);
+  if (settled.playLanding) landings += 1;
+  assert.equal(settleReelLanding(settled.watch).playLanding, false);
+  assert.equal(landings, 1);
+  const land = glideSettleNotch(position, velocity === 0 ? 1 : velocity, count, enabled);
+  assert.equal(enabled(modStop(land, count)), true);
+  assert.ok(Math.abs(position - land) < 0.75);
+});
+
+test("a lit landing keeps the original brake", () => {
+  const count = 8;
+  const enabled = () => true;
+  const plan = grayGlidePlan({ position: 0, velocity: 4, decel: 8, count, isEnabled: enabled });
+  assert.equal(plan.decel, 8);
+  assert.equal(plan.target, null);
+  assert.equal(plan.fallback, false);
+});
+
+test("a gray target this frame cannot reach falls back to a short roll", () => {
+  const count = 8;
+  const enabled = (index: number) => {
+    const face = modStop(index, count);
+    return face === 6 || face === 0;
+  };
+  const plan = grayGlidePlan({ position: 5.85, velocity: 20, decel: 200, count, isEnabled: enabled });
+  assert.equal(plan.fallback, true);
+  assert.equal(plan.target, 6);
+  const start = 5.85;
+  let position = start;
+  const land = glideSettleNotch(position, 1, count, enabled);
+  assert.equal(modStop(land, count), 6);
+  const frames = 8;
+  for (let frame = 1; frame <= frames; frame += 1) {
+    const next = start + ((land - start) * frame) / frames;
+    assert.ok(Math.abs(next - position) < 0.2);
+    position = next;
+  }
+  assert.ok(Math.abs(position - land) < 1e-9);
+});
+
+test("thirty gray coasts rest on a lit face without a position jump", () => {
+  const count = 8;
+  const enabled = (index: number) => modStop(index, count) % 2 === 0;
+  for (let spin = 0; spin < 30; spin += 1) {
+    let position = (spin % count) + 0.2;
+    let velocity = 3 + (spin % 5);
+    const decel = 4 + (spin % 3);
+    let fallback = false;
+    let locked: number | null = null;
+    let retargeted = false;
+    for (let frame = 0; frame < 500 && Math.abs(velocity) >= COAST_SETTLE_SPEED; frame += 1) {
+      const plan = grayGlidePlan({ position, velocity, decel, count, isEnabled: enabled, locked });
+      fallback = plan.fallback;
+      if (plan.target !== null && !plan.fallback) {
+        locked = plan.target;
+        retargeted = true;
+      }
+      const used = plan.fallback ? decel : plan.decel;
+      const step = flywheelAdvance(position, velocity, 1 / 60, used);
+      assert.ok(Math.abs(step.position - position) < 0.5, `spin ${spin} jumped`);
+      position = step.position;
+      velocity = step.velocity;
+    }
+    const land = glideSettleNotch(position, velocity === 0 ? 1 : velocity, count, enabled);
+    assert.equal(enabled(modStop(land, count)), true, `spin ${spin} landed gray`);
+    if (retargeted && !fallback) {
+      assert.ok(Math.abs(position - land) < 0.75, `spin ${spin} needed a second move`);
+    }
+  }
 });
 
 test("cylinder faces shrink and crowd toward the edges", () => {
