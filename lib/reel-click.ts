@@ -237,19 +237,22 @@ function startVoice(ctx: AudioContext, clip: AudioBuffer, gainValue: number, rat
  * Play one snap. `spin` routes it through the shared lowpass bus.
  * Stopped clicks, the lock, and the pull's stage B stay on the dry output.
  * Ticks closer than 40ms, or any tick after the reels have stopped, are dropped.
- * `force` always plays. `landing` is the reel coming to rest: last pawl, louder and deeper, with the knock.
+ * `force` skips that spacing. `landing` is the reel coming to rest: last pawl,
+ * louder and deeper, with the knock. It skips the 40ms spacing and the
+ * per-frame cap, and it does not take a slot in either.
  */
 export function playReelClick(spin = false, dull = false, force = false, landing = false): void {
   const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-  if (!force && !landing && (!reelTicksOpen() || now - lastClickAt < HAPTIC_CLICK_MS)) return;
-  lastClickAt = now;
+  if (!landing && !force && (!reelTicksOpen() || now - lastClickAt < HAPTIC_CLICK_MS)) return;
+  if (!landing) lastClickAt = now;
   try {
     const ctx = getContext();
     if (!ctx || pawlBuffers.length === 0) {
       if (ctx) void load(ctx);
       return;
     }
-    if (!allowThisFrame()) return;
+    if (!landing && !allowThisFrame()) return;
+    if (landing) lastClickAt = now;
     if (ctx.state === "suspended") void ctx.resume().catch(() => {});
     const index = landing ? pawlBuffers.length - 1 : pickPawlIndex(pawlBuffers.length, lastPawl);
     lastPawl = index;

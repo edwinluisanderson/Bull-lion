@@ -249,6 +249,34 @@ test("gray stops are a quieter pawl with no knock, and a landing is louder and d
   assert.equal(fake.buffers.at(-2), fake.buffers[PAWL_URLS.length - 1]);
 });
 
+test("the landing tick and knock play through a full frame and a tick inside 40ms", async () => {
+  const fake = installAudio();
+  let now = 8_000;
+  Object.defineProperty(performance, "now", { configurable: true, value: () => now });
+  await loadReelClick();
+
+  playReelClick();
+  now += 20;
+  playReelClick(false, false, true, true);
+  assert.equal(fake.starts, 4);
+  assert.equal(fake.gains.at(-2), LANDING_PAWL_GAIN);
+  assert.equal(fake.gains.at(-1), LANDING_KNOCK_GAIN);
+  assert.equal(fake.buffers.at(-2), fake.buffers[PAWL_URLS.length - 1]);
+
+  now += 100;
+  const before = fake.starts;
+  playReelClick(false, false, true);
+  playReelClick(false, false, true);
+  playReelClick(false, false, true, true);
+  assert.equal(fake.starts, before + 6);
+  assert.equal(fake.gains.at(-2), LANDING_PAWL_GAIN);
+  assert.equal(fake.gains.at(-1), LANDING_KNOCK_GAIN);
+  playReelClick(false, false, true);
+  assert.equal(fake.starts, before + 8);
+  playReelClick(false, false, true);
+  assert.equal(fake.starts, before + 8);
+});
+
 test("passing ticks vary the pawl and never repeat the same slice twice", () => {
   let previous = -1;
   const seen = new Set<number>();
