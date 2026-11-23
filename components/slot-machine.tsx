@@ -6,7 +6,7 @@ import { Gauge } from "@/components/gauge";
 import { WeightDial } from "@/components/weight-dial";
 import { GaugeSurround } from "@/components/gauge-surround";
 import { Gear } from "@/components/gear";
-import { SteampunkLight, SteampunkLightCast } from "@/components/steampunk-light";
+import { SteampunkLight } from "@/components/steampunk-light";
 import { WheelLamps } from "@/components/wheel-lamps";
 import { pulseWheelLamp } from "@/lib/wheel-lamp";
 import { RollingPrice } from "@/components/rolling-price";
@@ -39,7 +39,7 @@ import { getBrakePreset, setBrakePreset, type BrakePreset } from "@/lib/drum";
 import { DIVIDER_BRIGHT, dividerLevels } from "@/lib/reel-dividers";
 import { CLEAR_STACK_EVENT, TEMP_CLEAR_ALL } from "@/lib/stack-board";
 import { meltValue } from "@/lib/value";
-import { LAMP_FULL, LAMP_LOW, LAMP_MEDIUM, LAMP_OFF, STEAMPUNK_LIGHT_COUNT } from "@/lib/steampunk-light";
+import { LAMP_FULL, LAMP_LOW, LAMP_MEDIUM, LAMP_OFF } from "@/lib/steampunk-light";
 import {
   weightStretchBetween,
   weightStretchLabel,
@@ -95,7 +95,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const motionRef = useRef(motion);
   const [countGuard, setCountGuard] = useState(0);
   const [countGuardHold, setCountGuardHold] = useState(false);
-  const [lampBrightness, setLampBrightness] = useState<number | undefined>(undefined);
   const [lampCompare, setLampCompare] = useState(false);
   const pullHold = useRef(IDLE_COUNT_GUARD);
   const lastPull = useRef(0);
@@ -185,13 +184,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
 
   useEffect(() => {
     const raw = new URLSearchParams(window.location.search).get("lamps");
-    if (raw === "compare") {
-      setLampCompare(true);
-      return;
-    }
-    if (raw === null) return;
-    const next = Number(raw);
-    if (Number.isFinite(next)) setLampBrightness(next);
+    if (raw === "compare") setLampCompare(true);
   }, []);
 
   useEffect(() => {
@@ -452,22 +445,8 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           <span className="rivet" data-corner="bl" />
           <span className="rivet" data-corner="br" />
           <div className="gear-panel-stage" aria-hidden="true">
-          <div className="gear-panel-lights">
-            {Array.from({ length: STEAMPUNK_LIGHT_COUNT }, (_, index) => (
-              <SteampunkLight key={index} brightness={lampBrightness} />
-            ))}
-          </div>
           <Gear className="gear bg-gear gear-panel-bg gear-panel-bg-left" />
           <Gear className="gear bg-gear gear-panel-bg gear-panel-bg-right" />
-          <div className="gear-panel-row">
-            <Gear className="gear marquee-gear" />
-            <Gear className="gear marquee-gear gear-reverse" />
-          </div>
-          <div className="gear-panel-lighthouse">
-            <div className="lighthouse-beam" />
-            <SteampunkLight className="lighthouse-lamp" />
-          </div>
-          <SteampunkLightCast />
           </div>
           <div className="scrap-readout-gap" aria-hidden="true" />
           <div className="scrap-readout">

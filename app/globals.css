@@ -1243,94 +1243,10 @@ html[data-ball="cobalt"] .pull-ball {
   margin-left: 0;
 }
 
-.gear-panel-lights {
-  position: absolute;
-  z-index: 2;
-  top: 14px;
-  right: 12%;
-  left: 12%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  pointer-events: none;
-}
-
 .steampunk-light {
   display: block;
   flex: none;
   overflow: visible;
-}
-
-/* Same cage as the three lamps under the wheels. */
-.gear-panel .steampunk-light {
-  width: 36px;
-  height: 36px;
-}
-
-.gear-panel-lighthouse {
-  position: absolute;
-  z-index: 2;
-  bottom: 14px;
-  left: 50%;
-  width: 36px;
-  height: 36px;
-  transform: translateX(-50%);
-  pointer-events: none;
-}
-
-.lighthouse-beam {
-  position: absolute;
-  z-index: 0;
-  top: 50%;
-  left: 50%;
-  width: 880px;
-  height: 880px;
-  margin-top: -440px;
-  margin-left: -440px;
-  background: conic-gradient(
-    from -16deg,
-    transparent 0deg 318deg,
-    rgba(255, 196, 96, 0) 326deg,
-    rgba(255, 210, 120, 0.55) 344deg,
-    rgba(255, 236, 190, 0.18) 356deg,
-    transparent 360deg
-  );
-  mask-image: radial-gradient(circle, transparent 0 2.3%, #000 3.8%, rgba(0, 0, 0, 0.72) 34%, transparent 68%);
-  transform-origin: center;
-  animation: lighthouse-sweep 5s linear infinite;
-  pointer-events: none;
-}
-
-.lighthouse-lamp {
-  position: relative;
-  z-index: 1;
-}
-
-.gear-panel-cast {
-  position: absolute;
-  z-index: 2;
-  bottom: 20px;
-  left: 22%;
-  width: 36px;
-  height: 36px;
-  pointer-events: none;
-}
-
-.cast-pool {
-  position: absolute;
-  z-index: 0;
-  top: 50%;
-  left: 50%;
-  width: 130px;
-  height: 130px;
-  margin-top: -65px;
-  margin-left: -65px;
-  pointer-events: none;
-}
-
-.cast-lamp {
-  position: relative;
-  z-index: 1;
 }
 
 .gear-panel-stage {
@@ -2037,8 +1953,10 @@ html[data-ball="cobalt"] .pull-ball {
 .scrap-clear {
   position: absolute;
   z-index: 4;
-  top: 6px;
-  right: 8px;
+  top: auto;
+  right: auto;
+  bottom: -18px;
+  left: 36px;
   margin: 0;
   padding: 3px 7px;
   border: 0;
@@ -2261,12 +2179,6 @@ html[data-ball="cobalt"] .pull-ball {
   to { transform: rotate(360deg); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .lighthouse-beam {
-    animation: none;
-  }
-}
-
 .lamp-compare {
   position: fixed;
   z-index: 30;
@@ -2317,16 +2229,6 @@ html[data-ball="cobalt"] .pull-ball {
   top: auto;
   right: -42px;
   bottom: -8px;
-}
-
-.gear-panel-row {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 132px;
-  padding: 1.4rem 18%;
 }
 
 .melt-heading {
@@ -2639,17 +2541,6 @@ html[data-ball="cobalt"] .pull-ball {
   color: #e6cb82;
   transform-origin: 50% 50%;
   animation: turn 36s linear infinite;
-}
-
-.marquee-gear {
-  width: 36px;
-  height: 36px;
-  animation-duration: 22s;
-  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.35));
-}
-
-.gear-reverse {
-  animation-direction: reverse;
 }
 
 .bg-gear {

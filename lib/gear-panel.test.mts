@@ -11,10 +11,10 @@ test("the decorative gears sit in the holding panel under the machine", () => {
   assert.equal(cabinet.includes("<Gear"), false);
   assert.equal(cabinet.includes("bg-gear-left"), false);
   assert.equal(cabinet.includes("bg-gear-right"), false);
-  assert.equal((panel.match(/<Gear /g) ?? []).length, 4);
+  assert.equal((panel.match(/<Gear /g) ?? []).length, 2);
   assert.match(panel, /gear-panel-bg-left/);
   assert.match(panel, /gear-panel-bg-right/);
-  assert.match(panel, /marquee-gear gear-reverse/);
+  assert.equal(panel.includes("marquee-gear"), false);
   assert.match(css, /\.gear-panel \{[^}]*border-radius:\s*var\(--cabinet-radius\)/);
   assert.match(css, /\.nameplate \{[^}]*border-radius:\s*14px/);
   assert.match(css, /\.nameplate \{[^}]*inset 0 1px 0 rgba\(255, 255, 255, 0\.7\)/);
