@@ -23,3 +23,31 @@ card is locked open on the delete button.
 Card lock (public/sounds/lock-start.mp3, lock-middle.mp3, lock-end.mp3)
 
 "door bolt 5.wav" by FenrirFangs, https://freesound.org/people/FenrirFangs/sounds/213996/, CC0, split into three parts.
+
+Reel stop pawls (public/sounds/pawl-1.wav through pawl-6.wav)
+
+Source: Freewheel clicks by donkpow
+URL: https://freesound.org/people/donkpow/sounds/156996/
+License: CC0 1.0 Universal
+License URL: https://creativecommons.org/publicdomain/zero/1.0/
+
+The original WAV is behind a Freesound login, so these slices are cut from
+the HQ preview. Only the slow opening is used, from 0.09s to 1.85s.
+Each file is one pawl transient:
+
+  pawl-1.wav  0.2874-0.3105s
+  pawl-2.wav  0.5208-0.5420s
+  pawl-3.wav  0.7926-0.8130s
+  pawl-4.wav  1.0669-1.0865s
+  pawl-5.wav  1.2997-1.3160s
+  pawl-6.wav  1.6880-1.7031s  (landing tick)
+
+Reel stop knock (public/sounds/wood-knock.wav)
+
+Source: Wood Knock by Mrguff
+URL: https://freesound.org/people/Mrguff/sounds/369710/
+License: CC0 1.0 Universal
+License URL: https://creativecommons.org/publicdomain/zero/1.0/
+
+HQ preview, one knock trimmed to 0.006-0.082s. It plays under lit ticks
+and, louder, under the landing tick. Gray stops do not use it.

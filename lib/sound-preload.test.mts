@@ -12,11 +12,11 @@ const preload = readFileSync(new URL("./sound-preload.ts", import.meta.url), "ut
 
 test("app open decodes every sound without touching the flap level", () => {
   const files = readdirSync(new URL("../public/sounds", import.meta.url))
-    .filter((name) => name.endsWith(".mp3"))
+    .filter((name) => name.endsWith(".mp3") || name.endsWith(".wav"))
     .map((name) => `/sounds/${name}`)
     .sort();
   assert.deepEqual([...APP_SOUND_URLS].sort(), files);
-  assert.equal(APP_SOUND_URLS.length, 18);
+  assert.equal(APP_SOUND_URLS.length, 24);
   assert.equal(FLAP_LEVEL_DB, -11);
   assert.match(machine, /preloadAppSounds\(\)/);
   assert.match(machine, /installAppAudioUnlock\(\)/);
@@ -37,7 +37,7 @@ test("a clip that fails to decode stays null and does not throw", async () => {
   const original = globalThis.fetch;
   globalThis.fetch = (() => Promise.reject(new Error("offline"))) as unknown as typeof fetch;
   try {
-    assert.equal(await decodeSoundClip(ctx, "/sounds/reel-click.mp3"), null);
+    assert.equal(await decodeSoundClip(ctx, "/sounds/pawl-1.wav"), null);
     globalThis.fetch = (() =>
       Promise.resolve({
         ok: true,

@@ -293,7 +293,7 @@ function createEngine(options: {
     committed = index;
     options.onIndex(index);
     if (detent.haptic) hapticClick(landing);
-    if (detent.sound) playReelClick(audioSpin && !landing, false, landing);
+    if (detent.sound) playReelClick(audioSpin && !landing, false, landing, landing);
   }
 
   function stop() {
