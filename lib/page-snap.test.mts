@@ -28,6 +28,7 @@ import {
   notePageScroll,
   notePageTouchMove,
   pageGestureVelocity,
+  pageOwnsTouch,
   passStopPositions,
   planFling,
   snapStops,
@@ -443,12 +444,96 @@ test("the page eases after scrollend and the plates are marked", () => {
   assert.equal(snapSource.includes('addEventListener("pointerup"'), false);
   assert.equal(snapSource.includes('addEventListener("pointercancel"'), false);
   assert.match(snapSource, /prefers-reduced-motion: reduce/);
-  assert.equal(snapSource.includes("preventDefault"), false);
+  assert.match(snapSource, /preventDefault\(\)/);
+  assert.match(snapSource, /passive:\s*false/);
+  assert.match(snapSource, /pageOwnsTouch/);
   assert.equal(snapSource.includes("actual - placed"), false);
   assert.match(snapSource, /wheel/);
   assert.match(snapSource, /get\("magnet"\) !== "1"/);
   assert.match(snapSource, /pointer-events:\s*none/);
   assert.match(snapSource, /aimedSpeed/);
-  assert.match(snapSource, /sealScroll/);
   assert.match(snapSource, /passStopPositions/);
+  assert.match(snapSource, /reel-viewport/);
+  assert.match(snapSource, /pull-ball/);
+  assert.match(snapSource, /stack-swipe/);
+});
+
+test("the page owns a vertical drag and leaves pull-to-refresh, sideways, and controls alone", () => {
+  assert.equal(
+    pageOwnsTouch({ reduced: false, interactive: false, scrollTop: 200, originX: 0, originY: 100, x: 2, y: 40 }),
+    true,
+  );
+  assert.equal(
+    pageOwnsTouch({ reduced: false, interactive: false, scrollTop: 0, originX: 0, originY: 100, x: 0, y: 130 }),
+    false,
+  );
+  assert.equal(
+    pageOwnsTouch({ reduced: false, interactive: false, scrollTop: 0, originX: 0, originY: 100, x: 0, y: 70 }),
+    true,
+  );
+  assert.equal(
+    pageOwnsTouch({ reduced: false, interactive: false, scrollTop: 200, originX: 0, originY: 100, x: 40, y: 104 }),
+    false,
+  );
+  assert.equal(
+    pageOwnsTouch({ reduced: true, interactive: false, scrollTop: 200, originX: 0, originY: 100, x: 0, y: 40 }),
+    false,
+  );
+  assert.equal(
+    pageOwnsTouch({ reduced: false, interactive: true, scrollTop: 200, originX: 0, originY: 100, x: 0, y: 40 }),
+    false,
+  );
+});
+
+test("owned frames do not reverse and obey both speed caps", () => {
+  const dt = 0.016;
+  let state = startOwnedGlide(100, 540, 900, null, 2000);
+  let previous = 100;
+  for (const frame of [0.012, 0.015, 0.017]) {
+    const next = advanceOwnedGlide(state, frame, state.y);
+    const delta = next.state.y - previous;
+    assert.ok(delta > 0, `frame reversed by ${delta}`);
+    assert.ok(Math.abs(delta - 540 * Math.min(frame, 0.032)) < 0.75);
+    previous = next.state.y;
+    state = next.state;
+  }
+
+  const capped = startOwnedGlide(100, 2700, 900, null, 2000);
+  assert.ok(capped.speed <= FLING_SPEED_CAP);
+  const first = advanceOwnedGlide(capped, dt, capped.y);
+  assert.ok((first.state.y - 100) / dt <= FLING_SPEED_CAP + 1);
+
+  for (const [distance, limit] of [
+    [25, zoneEntryCap(25)],
+    [15, zoneEntryCap(15)],
+    [5, zoneEntryCap(5)],
+  ] as const) {
+    const near = startOwnedGlide(190 - distance, 2000, 190, null, 800);
+    assert.ok(near.speed <= limit + 1, `${distance}px started at ${near.speed} over ${limit}`);
+    const step = advanceOwnedGlide(near, dt, near.y);
+    assert.ok(step.state.y <= 190);
+    assert.ok((step.state.y - (190 - distance)) / dt <= limit + 1);
+  }
+});
+
+test("a normal upward fling from mid page lands on melt once", () => {
+  const plan = planFling({
+    scrollTop: 400,
+    velocity: -700,
+    maxScroll: 1500,
+    points: page,
+    reduced: false,
+  });
+  assert.equal(plan.target, 190);
+  assert.equal(plan.skipped, null);
+  let state = startOwnedGlide(400, aimedSpeed(-700, 400, 190), plan.target ?? 190, plan.skipped, 1500);
+  let cues = 0;
+  for (let frame = 0; frame < 500 && !state.done; frame += 1) {
+    const next = advanceOwnedGlide(state, 0.016, state.y);
+    if (next.landed) cues += 1;
+    state = next.state;
+    assert.ok(state.y >= 190 - 0.01, `passed melt at ${state.y}`);
+  }
+  assert.equal(cues, 1);
+  assert.ok(Math.abs(state.y - 190) <= LAND_EPS_PX);
 });

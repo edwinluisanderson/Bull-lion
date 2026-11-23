@@ -342,6 +342,32 @@ export function landsOnStop(y: number, target: number): boolean {
   return target > LAND_EPS_PX && Math.abs(y - target) <= LAND_EPS_PX;
 }
 
+/** How far the finger must travel before the gesture is vertical, horizontal, or a pull. */
+export const PAGE_GESTURE_SLOP_PX = 8;
+
+/**
+ * Whether this touch should move the page itself.
+ * Pull-to-refresh (already at the top, finger moving down), a horizontal
+ * swipe, reduced motion, and controls that drag on their own stay native.
+ */
+export function pageOwnsTouch(input: {
+  reduced: boolean;
+  interactive: boolean;
+  scrollTop: number;
+  originX: number;
+  originY: number;
+  x: number;
+  y: number;
+}): boolean {
+  if (input.reduced || input.interactive) return false;
+  const dx = input.x - input.originX;
+  const dy = input.y - input.originY;
+  if (Math.hypot(dx, dy) < PAGE_GESTURE_SLOP_PX) return false;
+  if (Math.abs(dx) > Math.abs(dy)) return false;
+  if (input.scrollTop <= 0 && dy > 0) return false;
+  return true;
+}
+
 export type OwnedGlide = {
   y: number;
   /** Release speed. Kept for the free stretch; the catch does not speed back up to it. */
