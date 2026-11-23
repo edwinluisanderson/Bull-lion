@@ -133,9 +133,6 @@ export function reelSpeedCap(patternStops: number): number {
 
 export const REEL_SPEED_CAPS = REEL_PROFILES.map((profile) => reelSpeedCap(profile.patternStops));
 
-/** Heavy flywheel. A launch at the shared cap takes half a second to get there. */
-export const REEL_SPINUP_ACCEL = REEL_SPEED_CAP / 0.5;
-
 /** Symbol heights the payline travels per stop, measured on the facing face. */
 export function paylineSpacing(): number {
   const radians = (STOP_DEGREES * Math.PI) / 180;
@@ -197,40 +194,21 @@ export function coastAdvance(
 }
 
 /**
- * Spin up toward `target` at a limited acceleration, then brake.
- * The target is already inside the speed cap. A release does not jump there.
+ * Brake from the speed the reel already has. A flick and a pull both start
+ * at that speed. One step never covers more than a 60Hz frame.
  */
 export function flywheelAdvance(
   position: number,
   velocity: number,
-  target: number,
   dt: number,
   decel = brakeDecel(),
-  accel = REEL_SPINUP_ACCEL,
   cap = REEL_SPEED_CAP,
-): { position: number; velocity: number; target: number } {
-  if (dt <= 0) return { position, velocity, target };
+): { position: number; velocity: number } {
+  if (dt <= 0 || velocity === 0) return { position, velocity };
   const stepDt = Math.min(dt, REEL_MAX_FRAME_DT);
-  const goal = Math.min(cap, Math.abs(target));
-  const sign = target === 0 ? Math.sign(velocity) : Math.sign(target);
-  const speed = Math.abs(velocity);
-  const winding =
-    goal > 0 &&
-    sign !== 0 &&
-    (velocity === 0 || Math.sign(velocity) === sign) &&
-    speed < goal - 1e-9 &&
-    accel > 0;
-  if (winding) {
-    const next = Math.min(goal, speed + accel * stepDt);
-    const distance = ((speed + next) / 2) * stepDt;
-    return {
-      position: position + sign * distance,
-      velocity: sign * next,
-      target: next >= goal ? 0 : sign * goal,
-    };
-  }
-  const braked = coastAdvance(position, velocity, stepDt, () => true, 1, decel);
-  return { position: braked.position, velocity: braked.velocity, target: 0 };
+  const limited = Math.min(cap, Math.abs(velocity));
+  const signed = Math.sign(velocity) * limited;
+  return coastAdvance(position, signed, stepDt, () => true, 1, decel);
 }
 
 /**

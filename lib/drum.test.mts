@@ -168,29 +168,18 @@ test("the speed cap stays under the wagon-wheel limit at 60, 90, and 120Hz", () 
   assert.equal(Math.abs(flingVelocity(flung, 86)), REEL_SPEED_CAP);
 });
 
-test("a launch winds up to the target instead of jumping there", () => {
-  const target = -REEL_SPEED_CAP;
-  const first = flywheelAdvance(0, 0, target, 1 / 60);
+test("a launch leaves at its speed and the brake slows it", () => {
+  const first = flywheelAdvance(0, -REEL_SPEED_CAP, 1 / 60, BRAKE_PRESETS.light);
   assert.ok(first.velocity < 0);
-  assert.ok(Math.abs(first.velocity) < Math.abs(target) / 2);
+  assert.ok(Math.abs(first.velocity) < REEL_SPEED_CAP);
+  assert.ok(Math.abs(first.velocity) > REEL_SPEED_CAP - 1);
   assert.ok(first.position < 0);
-  let velocity = 0;
-  let position = 0;
-  let goal = target;
-  for (let frame = 0; frame < 120; frame += 1) {
-    const step = flywheelAdvance(position, velocity, goal, 1 / 60, BRAKE_PRESETS.light);
-    position = step.position;
-    velocity = step.velocity;
-    goal = step.target;
-    assert.ok(Math.abs(velocity) <= REEL_SPEED_CAP + 1e-9);
-  }
-  assert.equal(goal, 0);
-  assert.ok(Math.abs(velocity) < REEL_SPEED_CAP);
-  assert.ok(position < 0);
+  const over = flywheelAdvance(0, -REEL_SPEED_CAP - 8, 1 / 60, BRAKE_PRESETS.light);
+  assert.ok(Math.abs(over.velocity) <= REEL_SPEED_CAP);
 });
 
 test("a late frame cannot jump half a stop", () => {
-  const step = flywheelAdvance(0, -REEL_SPEED_CAP, 0, 0.05, BRAKE_PRESETS.light);
+  const step = flywheelAdvance(0, -REEL_SPEED_CAP, 0.05, BRAKE_PRESETS.light);
   assert.ok(Math.abs(step.position) <= REEL_CAP_FRACTION + 1e-9);
   assert.ok(Math.abs(step.position) > 0);
 });

@@ -43,6 +43,9 @@ test("a fast pull and a slow pull launch the same speeds", () => {
 test("the three reels stop left to right on the light brake", () => {
   const decel = BRAKE_PRESETS.light;
   const speeds = pullLaunchSpeeds(decel);
+  assert.ok(Math.abs(speeds[0] - 8) < 1e-9);
+  assert.ok(Math.abs(speeds[1] - 11.2) < 1e-9);
+  assert.ok(Math.abs(speeds[2] - 14.4) < 1e-9);
   const lands = speeds.map((speed) => pullStopSeconds(speed, decel));
   assert.ok(lands[0] < lands[1] && lands[1] < lands[2]);
   const gap = lands[1] - lands[0];

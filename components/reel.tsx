@@ -147,7 +147,6 @@ function createEngine(options: {
   let position = options.initialIndex;
   let phase: Phase = "idle";
   let velocity = 0;
-  let launchTarget = 0;
   let committed = options.initialIndex;
   let raf = 0;
   let last = 0;
@@ -375,20 +374,11 @@ function createEngine(options: {
 
     if (phase === "coast") {
       const count = options.getCount();
-      const incoming = velocity === 0 ? launchTarget : velocity;
-      const step = flywheelAdvance(
-        position,
-        velocity,
-        launchTarget,
-        dt,
-        brakeDecel(),
-        undefined,
-        options.speedCap,
-      );
+      const incoming = velocity;
+      const step = flywheelAdvance(position, velocity, dt, brakeDecel(), options.speedCap);
       velocity = step.velocity;
-      launchTarget = step.target;
       setPos(step.position);
-      if (launchTarget === 0 && Math.abs(velocity) < COAST_SETTLE_SPEED) {
+      if (Math.abs(velocity) < COAST_SETTLE_SPEED) {
         const direction = velocity !== 0 ? velocity : incoming;
         camToNotch(glideSettleNotch(position, direction, count, options.isEnabled), 180);
         return;
@@ -600,7 +590,6 @@ function createEngine(options: {
       stop();
       clearHold();
       velocity = 0;
-      launchTarget = 0;
       setPhase("drag");
       publishStretch(null);
       drag = {
@@ -667,8 +656,7 @@ function createEngine(options: {
         camToNotch(notch, 180);
         return;
       }
-      velocity = 0;
-      launchTarget = speed;
+      velocity = speed;
       setAudioSpin(true);
       setPhase("coast");
       schedule();
@@ -720,8 +708,7 @@ function createEngine(options: {
         return;
       }
       stop();
-      velocity = 0;
-      launchTarget = pullLaunchVelocity({
+      velocity = pullLaunchVelocity({
         order,
         decel: brakeDecel(),
       });
