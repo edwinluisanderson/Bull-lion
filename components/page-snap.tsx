@@ -7,6 +7,7 @@ import { pageLandClick, pagePassClick } from "@/lib/lever-sound";
 import {
   ALWAYS_SNAP_NAMES,
   advanceOwnedGlide,
+  aimedSpeed,
   beginPageGesture,
   gestureLift,
   magnetCaption,
@@ -49,32 +50,10 @@ function landCue(): void {
 }
 
 /**
- * Kill Android Chrome's compositor fling, then hand scrollTop to the caller.
- * Overflow and touch-action stay locked for one frame so the fling cannot
- * start, then the owned glide writes scrollTop itself. Listeners stay passive,
- * so a pull at the top of the page can still refresh.
- */
-function takeOverScroll(root: Element, start: (y: number) => void) {
-  const node = root instanceof HTMLElement ? root : document.documentElement;
-  const y = root.scrollTop;
-  const previousOverflow = node.style.overflowY;
-  const previousTouch = node.style.touchAction;
-  node.style.overflowY = "hidden";
-  node.style.touchAction = "none";
-  node.scrollTop = y;
-  node.scrollTo(0, y);
-  return requestAnimationFrame(() => {
-    node.style.overflowY = previousOverflow;
-    node.style.touchAction = previousTouch;
-    node.scrollTop = y;
-    start(y);
-  });
-}
-
-/**
- * Owned fling. Full release speed until the cushion, then catch, glide, and settle.
- * A drifted scrollTop from the native fling is ignored. A new touch, wheel, or
- * key is what stops the glide.
+ * Owned fling from the position and speed at release.
+ * Each frame continues from the position this glide wrote. It does not read
+ * scrollTop back, and it does not toggle overflow, so the handoff does not jump.
+ * Touching the top or bottom edge ends the glide and holds there.
  */
 function glide(
   root: Element,
@@ -82,9 +61,10 @@ function glide(
   target: number,
   skipped: number | null,
   origin: number,
+  maxScroll: number,
   onDone: () => void,
 ) {
-  let state = startOwnedGlide(origin, velocity, target, skipped);
+  let state = startOwnedGlide(origin, velocity, target, skipped, maxScroll);
   let frame = 0;
   let last = performance.now();
   let stopped = false;
@@ -97,15 +77,12 @@ function glide(
     if (stopped) return;
     const dt = Math.max(0, (now - last) / 1000);
     last = now;
-    const next = advanceOwnedGlide(state, dt, root.scrollTop);
+    const next = advanceOwnedGlide(state, dt, state.y);
     state = next.state;
-    const limit = Math.max(0, root.scrollHeight - root.clientHeight);
-    const y = Math.min(limit, Math.max(0, state.y));
-    root.scrollTop = y;
+    root.scrollTop = state.y;
     if (next.pass) passCue();
-    if (next.landed) {
-      root.scrollTop = Math.min(limit, Math.max(0, target));
-      landCue();
+    if (state.done) {
+      if (next.landed) landCue();
       finishOnce();
       return;
     }
@@ -211,14 +188,10 @@ export function PageSnap() {
     let gliding = false;
     let gesture: PageGesture | null = null;
     let fingers = 0;
-    let glideToken = 0;
-    let takeoverFrame = 0;
     let lastDrag = root.scrollTop;
 
     const stop = () => {
-      glideToken += 1;
       gliding = false;
-      cancelAnimationFrame(takeoverFrame);
       cancelGlide();
       cancelGlide = () => {};
     };
@@ -267,19 +240,15 @@ export function PageSnap() {
         reduced,
       });
       if (plan.target == null) return;
-      const token = glideToken;
       const committedTarget = plan.target;
       const committedSkip = plan.skipped;
+      const origin = root.scrollTop;
+      const speed = aimedSpeed(velocity, origin, committedTarget);
       gliding = true;
-      cancelAnimationFrame(takeoverFrame);
-      takeoverFrame = takeOverScroll(root, (y) => {
-        if (token !== glideToken) return;
-        gliding = true;
-        cancelGlide();
-        cancelGlide = glide(root, velocity, committedTarget, committedSkip, y, () => {
-          gliding = false;
-          cancelGlide = () => {};
-        });
+      cancelGlide();
+      cancelGlide = glide(root, speed, committedTarget, committedSkip, origin, measured.maxScroll, () => {
+        gliding = false;
+        cancelGlide = () => {};
       });
     };
     const onWheel = () => {

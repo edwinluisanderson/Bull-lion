@@ -13,11 +13,13 @@ export const FLING_MIN_PX_PER_SEC = 280;
 export const HARD_FLING_PX_PER_SEC = 1600;
 
 /** Distance before the target where the cushion takes over from the fling. */
-export const CUSHION_ZONE_PX = 120;
+export const CUSHION_ZONE_PX = 60;
 /** First stretch of the cushion. Ease from the fling speed down to the glide. */
-export const CATCH_PX = 40;
+export const CATCH_PX = 20;
 /** Last stretch. Ease from the glide speed down to zero on the stop. */
-export const SETTLE_PX = 15;
+export const SETTLE_PX = 10;
+/** The page never travels faster than this, in either direction. */
+export const FLING_SPEED_CAP = 1500;
 /**
  * The owned glide has arrived. A device pixel can round scrollTop a full
  * pixel off a fractional stop, so the settle ends here rather than on equality.
@@ -42,8 +44,8 @@ export const RELEASE_SAMPLE_MS = 90;
  */
 export const COINCIDENT_STOP_PX = 8;
 
-/** Page top, melt plate, wheel window, and page bottom are never removed. */
-export const ALWAYS_SNAP_NAMES = ["top", "melt", "wheels", "bottom"] as const;
+/** The melt plate is the only content stop that is always measured. */
+export const ALWAYS_SNAP_NAMES = ["melt"] as const;
 
 export type SnapMark = {
   at: number;
@@ -211,7 +213,9 @@ export function clusterTarget(cluster: StopCluster, y: number, dir: 1 | -1): num
 /**
  * Where a release is going.
  * No fling stays put. A normal fling takes the next stop in its direction.
- * A hard fling skips that stop and takes the one after, and never a further one.
+ * A hard fling skips that one stop. Skipping melt upward lands on the natural
+ * top. Skipping the last stop downward lands on the bottom edge.
+ * The choice is made once, from the release velocity, and is not revised.
  * Reduced motion never starts a glide.
  */
 export function planFling(input: {
@@ -230,10 +234,46 @@ export function planFling(input: {
     .map((cluster) => clusterTarget(cluster, y, dir))
     .filter((at): at is number => at != null)
     .sort((a, b) => dir * (a - b));
-  if (ahead.length === 0) return stay;
-  const hard = Math.abs(input.velocity) >= HARD_FLING_PX_PER_SEC && ahead.length >= 2;
-  if (!hard) return { target: ahead[0], skipped: null, hard: false };
-  return { target: ahead[1], skipped: ahead[0], hard: true };
+  const edge = dir > 0 ? limit : 0;
+  if (ahead.length === 0) {
+    if (Math.abs(y - edge) <= 0.5) return stay;
+    return { target: edge, skipped: null, hard: false };
+  }
+  const hard = Math.abs(input.velocity) >= HARD_FLING_PX_PER_SEC;
+  if (!hard || (ahead.length < 2 && Math.abs(ahead[0] - edge) <= 0.5)) {
+    return { target: ahead[0], skipped: null, hard: false };
+  }
+  if (ahead.length >= 2) return { target: ahead[1], skipped: ahead[0], hard: true };
+  return { target: edge, skipped: ahead[0], hard: true };
+}
+
+/**
+ * Speed cap inside the cushion for a fling that is already heading toward the stop.
+ * About 600px/s at 30px out, and the glide speed in the last {@link SETTLE_PX}.
+ */
+export function zoneEntryCap(remainingPx: number): number {
+  const remaining = Math.max(0, remainingPx);
+  if (remaining >= CUSHION_ZONE_PX) return FLING_SPEED_CAP;
+  if (remaining <= SETTLE_PX) return GLIDE_SPEED;
+  const u = (remaining - SETTLE_PX) / (CUSHION_ZONE_PX - SETTLE_PX);
+  const shaped = u ** 1.065;
+  return GLIDE_SPEED + (FLING_SPEED_CAP - GLIDE_SPEED) * shaped;
+}
+
+/**
+ * Release speed. Never faster than {@link FLING_SPEED_CAP}.
+ * Inside the cushion and heading toward the stop, the sliding cap applies.
+ * Heading away keeps the full cap and the plan's next stop.
+ */
+export function aimedSpeed(velocity: number, scrollTop: number, target: number): number {
+  const magnitude = Math.min(FLING_SPEED_CAP, Math.abs(velocity));
+  const sign = Math.sign(velocity) || (target >= scrollTop ? 1 : -1);
+  const remaining = Math.abs(target - scrollTop);
+  const toward = (target - scrollTop) * sign >= -0.5;
+  if (toward && remaining < CUSHION_ZONE_PX) {
+    return sign * Math.min(magnitude, zoneEntryCap(remaining));
+  }
+  return sign * magnitude;
 }
 
 /**
@@ -294,6 +334,8 @@ export type OwnedGlide = {
   settleFrom: number | null;
   settleTotal: number;
   settleElapsed: number;
+  /** Bottom edge. Touching it, or the top, ends the glide and holds there. */
+  maxScroll: number;
 };
 
 export function startOwnedGlide(
@@ -301,24 +343,34 @@ export function startOwnedGlide(
   velocity: number,
   target: number,
   skipped: number | null,
+  maxScroll = Number.POSITIVE_INFINITY,
 ): OwnedGlide {
+  const aimed = aimedSpeed(velocity, y, target);
   const remaining = Math.abs(target - y);
-  const inside = remaining <= CUSHION_ZONE_PX;
+  const inside = remaining <= CUSHION_ZONE_PX && (target - y) * aimed >= -0.5;
+  const speed = Math.abs(aimed);
   return {
     y,
-    speed: Math.abs(velocity),
-    entrySpeed: inside ? Math.abs(velocity) : null,
+    speed,
+    entrySpeed: inside ? speed : null,
     dir: target >= y ? 1 : -1,
     target,
     catchFrom: inside ? remaining : CUSHION_ZONE_PX,
     skipped,
     passed: false,
     done: false,
-    pace: Math.abs(velocity),
+    pace: speed,
     settleFrom: null,
     settleTotal: 0,
     settleElapsed: 0,
+    maxScroll,
   };
+}
+
+function edgeHit(from: number, to: number, maxScroll: number): number | null {
+  if (from > 0 && to <= 0) return 0;
+  if (Number.isFinite(maxScroll) && from < maxScroll && to >= maxScroll) return maxScroll;
+  return null;
 }
 
 function settleEase(unit: number): number {
@@ -361,10 +413,10 @@ export function advanceOwnedGlide(
   let settleElapsed = state.settleElapsed;
   let left = stepDt;
   const slice = 0.004;
-  const finish = (didPass: boolean) => ({
+  const finishAt = (at: number, didPass: boolean, landed: boolean) => ({
     state: {
       ...state,
-      y: state.target,
+      y: at,
       entrySpeed,
       catchFrom,
       passed,
@@ -375,8 +427,14 @@ export function advanceOwnedGlide(
       settleElapsed: settleTotal,
     },
     pass: didPass,
-    landed: true,
+    landed,
   });
+  const finish = (didPass: boolean) => finishAt(state.target, didPass, true);
+  const holdEdge = (from: number, to: number, didPass: boolean) => {
+    const edge = edgeHit(from, to, state.maxScroll);
+    if (edge == null) return null;
+    return finishAt(edge, didPass, Math.abs(edge - state.target) <= LAND_EPS_PX);
+  };
   while (left > 1e-6) {
     const remaining = Math.abs(state.target - y);
     if (remaining <= LAND_EPS_PX) return finish(pass);
@@ -395,6 +453,8 @@ export function advanceOwnedGlide(
         pass = true;
       }
       if (u >= 1 || Math.abs(state.target - next) <= LAND_EPS_PX) return finish(pass);
+      const held = holdEdge(y, next, pass);
+      if (held) return held;
       const previous = y;
       y = next;
       pace = step > 0 ? Math.abs(y - previous) / step : 0;
@@ -407,7 +467,10 @@ export function advanceOwnedGlide(
     const dist = speed * step;
     if (outside && remaining - dist <= CUSHION_ZONE_PX) {
       const toZone = remaining - CUSHION_ZONE_PX;
-      y += state.dir * toZone;
+      const boundary = y + state.dir * toZone;
+      const held = holdEdge(y, boundary, pass);
+      if (held) return held;
+      y = boundary;
       left -= state.speed > 0 ? toZone / state.speed : step;
       entrySpeed = state.speed;
       catchFrom = CUSHION_ZONE_PX;
@@ -421,6 +484,8 @@ export function advanceOwnedGlide(
     }
     const crossed = (state.target - y) * (state.target - next) <= 0;
     if (crossed || Math.abs(state.target - next) <= LAND_EPS_PX) return finish(pass);
+    const held = holdEdge(y, next, pass);
+    if (held) return held;
     y = next;
     pace = speed;
     left -= step;
@@ -454,50 +519,35 @@ export function magnetCaption(distancePx: number, stopName: string): string {
 }
 
 /**
- * Stops measured after layout.
- * Always-stops are kept even when they sit closer than {@link SNAP_MIN_GAP_PX}.
- * If two stops land within half a pixel they are one stop. A My Stack that
- * shares that stop is named `stack/<other>`, so the caption shows both.
- * My Stack is kept when its top can be scrolled to the top of the screen,
- * which is when its unclamped offset is at most `maxScroll`. It is not dropped
- * for sitting near the wheels or the page bottom. An offset past `maxScroll`
- * means the page bottoms out first, so that stack is not a stop.
- * Any other optional stop still has to clear {@link SNAP_MIN_GAP_PX}.
+ * Two stops only. The melt plate, and My Stack or the bottom edge, whichever
+ * the finger reaches first. The page top and the wheel window are not stops.
+ * A stack past `maxScroll` cannot be reached, so the bottom edge is the stop.
  */
-export function collectStops(points: readonly SnapMark[], maxScroll: number, minGap = SNAP_MIN_GAP_PX): Stop[] {
+export function collectStops(points: readonly SnapMark[], maxScroll: number, _minGap = SNAP_MIN_GAP_PX): Stop[] {
   const limit = Math.max(0, maxScroll);
-  const always: Stop[] = [
-    { at: 0, name: "top" },
-    { at: limit, name: "bottom" },
-  ];
-  const optional: { raw: number; name: string }[] = [];
+  let melt: number | null = null;
+  let stack: number | null = null;
   for (const point of points) {
     const name = point.name ?? "";
-    if (point.always) always.push({ at: clampScroll(point.at, limit), name });
-    else optional.push({ raw: point.at, name });
+    if (name === "melt" || (point.always && name === "melt")) melt = point.at;
+    if (name === "stack") stack = point.at;
   }
   const stops: Stop[] = [];
-  const absorb = (at: number, name: string) => {
+  const push = (at: number, name: string) => {
     const twin = stops.find((stop) => Math.abs(stop.at - at) <= 0.5);
     if (twin) {
-      if (name === "stack" && twin.name !== "stack" && !twin.name.startsWith("stack/")) {
-        twin.name = twin.name ? `stack/${twin.name}` : "stack";
-      } else if (!twin.name && name) twin.name = name;
-      return true;
+      if (name && !twin.name.includes(name)) twin.name = twin.name ? `${name}/${twin.name}` : name;
+      return;
     }
-    return false;
+    stops.push({ at, name });
   };
-  for (const mark of always.sort((a, b) => a.at - b.at)) {
-    if (absorb(mark.at, mark.name)) continue;
-    stops.push({ at: mark.at, name: mark.name });
-  }
-  for (const mark of optional.sort((a, b) => a.raw - b.raw)) {
-    if (!(mark.raw <= limit)) continue;
-    const at = clampScroll(mark.raw, limit);
-    if (absorb(at, mark.name)) continue;
-    const stack = mark.name === "stack";
-    if (!stack && stops.some((stop) => Math.abs(stop.at - at) < minGap)) continue;
-    stops.push({ at, name: mark.name });
+  if (melt != null && Number.isFinite(melt)) push(clampScroll(melt, limit), "melt");
+  const stackReachable = stack != null && stack <= limit + 0.5;
+  if (stackReachable && stack != null) {
+    const at = clampScroll(stack, limit);
+    push(at, Math.abs(at - limit) <= 0.5 ? "stack/bottom" : "stack");
+  } else if (limit > 0) {
+    push(limit, "bottom");
   }
   stops.sort((a, b) => a.at - b.at);
   return stops;
