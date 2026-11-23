@@ -18,6 +18,13 @@ export const CUSHION_ZONE_PX = 120;
 export const CATCH_PX = 40;
 /** Last stretch. Ease from the glide speed down to zero on the stop. */
 export const SETTLE_PX = 15;
+/**
+ * The owned glide has arrived. A device pixel can round scrollTop a full
+ * pixel off a fractional stop, so the settle ends here rather than on equality.
+ */
+export const LAND_EPS_PX = 1;
+/** A hitch longer than this is clamped so one late frame cannot jump the catch. */
+export const GLIDE_MAX_FRAME_SEC = 0.032;
 /** Middle of the cushion. The zone minus the catch and the settle. */
 export const GLIDE_PX = CUSHION_ZONE_PX - CATCH_PX - SETTLE_PX;
 /** Constant speed through the glide, in pixels per second. */
@@ -270,13 +277,23 @@ export function stopsPassed(from: number, to: number, stops: readonly number[]):
 
 export type OwnedGlide = {
   y: number;
+  /** Release speed. Kept for the free stretch; the catch does not speed back up to it. */
   speed: number;
+  /** Speed locked on the frame the cushion is entered. */
+  entrySpeed: number | null;
   dir: 1 | -1;
+  /** Chosen once at release. A later sample must not replace it. */
   target: number;
   catchFrom: number;
   skipped: number | null;
   passed: boolean;
   done: boolean;
+  /** Commanded speed of the latest slice, for the catch continuity check. */
+  pace: number;
+  /** Set when the settle phase begins. The phase runs to the target on its own clock. */
+  settleFrom: number | null;
+  settleTotal: number;
+  settleElapsed: number;
 };
 
 export function startOwnedGlide(
@@ -286,23 +303,41 @@ export function startOwnedGlide(
   skipped: number | null,
 ): OwnedGlide {
   const remaining = Math.abs(target - y);
+  const inside = remaining <= CUSHION_ZONE_PX;
   return {
     y,
     speed: Math.abs(velocity),
+    entrySpeed: inside ? Math.abs(velocity) : null,
     dir: target >= y ? 1 : -1,
     target,
-    catchFrom: remaining <= CUSHION_ZONE_PX ? remaining : CUSHION_ZONE_PX,
+    catchFrom: inside ? remaining : CUSHION_ZONE_PX,
     skipped,
     passed: false,
     done: false,
+    pace: Math.abs(velocity),
+    settleFrom: null,
+    settleTotal: 0,
+    settleElapsed: 0,
   };
+}
+
+function settleEase(unit: number): number {
+  const t = clamp01(unit);
+  return 1 - (1 - t) ** 3;
+}
+
+function sliceSpeed(state: OwnedGlide, remaining: number): number {
+  if (remaining > CUSHION_ZONE_PX) return state.speed;
+  return cushionSpeed(remaining, state.entrySpeed ?? state.speed, state.catchFrom);
 }
 
 /**
  * One owned frame. Full release speed until the cushion, then catch, glide, and settle.
- * `observed` is the scroller's scrollTop. A native fling can leave it somewhere else.
- * That drift does not abort the glide and does not move `y`; only a new touch, wheel,
- * or key, outside this step, stops it.
+ * The plan's target stays put. `observed` is the scroller's scrollTop and may be an
+ * integer a pixel off the stop; it does not move `y` or end the glide.
+ * Landing is the settle finishing, once, within {@link LAND_EPS_PX} of the target.
+ * A long frame is clamped, then the catch is integrated in short slices so the
+ * speed on entry is the speed of the slice that reached the zone.
  */
 export function advanceOwnedGlide(
   state: OwnedGlide,
@@ -311,25 +346,90 @@ export function advanceOwnedGlide(
 ): { state: OwnedGlide; pass: boolean; landed: boolean } {
   void observed;
   if (state.done) return { state, pass: false, landed: false };
-  const remaining = Math.abs(state.target - state.y);
-  if (remaining <= 0.4) {
-    return { state: { ...state, y: state.target, done: true }, pass: false, landed: true };
+  const stepDt = Math.min(GLIDE_MAX_FRAME_SEC, Math.max(0, dt));
+  if (Math.abs(state.target - state.y) <= LAND_EPS_PX) {
+    return { state: { ...state, y: state.target, done: true, pace: 0 }, pass: false, landed: true };
   }
-  const stepDt = Math.min(0.05, Math.max(0, dt));
-  const nextSpeed =
-    remaining > CUSHION_ZONE_PX ? state.speed : cushionSpeed(remaining, state.speed, state.catchFrom);
-  const next = state.y + state.dir * nextSpeed * stepDt;
-  let pass = false;
+  let y = state.y;
+  let entrySpeed = state.entrySpeed;
+  let catchFrom = state.catchFrom;
   let passed = state.passed;
-  if (state.skipped != null && !passed && stopsPassed(state.y, next, [state.skipped]).length > 0) {
-    passed = true;
-    pass = true;
+  let pass = false;
+  let pace = state.pace;
+  let settleFrom = state.settleFrom;
+  let settleTotal = state.settleTotal;
+  let settleElapsed = state.settleElapsed;
+  let left = stepDt;
+  const slice = 0.004;
+  const finish = (didPass: boolean) => ({
+    state: {
+      ...state,
+      y: state.target,
+      entrySpeed,
+      catchFrom,
+      passed,
+      done: true,
+      pace: 0,
+      settleFrom,
+      settleTotal,
+      settleElapsed: settleTotal,
+    },
+    pass: didPass,
+    landed: true,
+  });
+  while (left > 1e-6) {
+    const remaining = Math.abs(state.target - y);
+    if (remaining <= LAND_EPS_PX) return finish(pass);
+    if (settleFrom != null || remaining <= SETTLE_PX) {
+      if (settleFrom == null) {
+        settleFrom = y;
+        settleTotal = Math.max(0.05, (3 * remaining) / GLIDE_SPEED);
+        settleElapsed = 0;
+      }
+      const step = Math.min(left, slice);
+      settleElapsed += step;
+      const u = settleTotal > 0 ? Math.min(1, settleElapsed / settleTotal) : 1;
+      const next = settleFrom + (state.target - settleFrom) * settleEase(u);
+      if (!passed && state.skipped != null && stopsPassed(y, next, [state.skipped]).length > 0) {
+        passed = true;
+        pass = true;
+      }
+      if (u >= 1 || Math.abs(state.target - next) <= LAND_EPS_PX) return finish(pass);
+      const previous = y;
+      y = next;
+      pace = step > 0 ? Math.abs(y - previous) / step : 0;
+      left -= step;
+      continue;
+    }
+    const outside = remaining > CUSHION_ZONE_PX;
+    const speed = outside ? state.speed : sliceSpeed({ ...state, entrySpeed, catchFrom }, remaining);
+    const step = Math.min(left, slice);
+    const dist = speed * step;
+    if (outside && remaining - dist <= CUSHION_ZONE_PX) {
+      const toZone = remaining - CUSHION_ZONE_PX;
+      y += state.dir * toZone;
+      left -= state.speed > 0 ? toZone / state.speed : step;
+      entrySpeed = state.speed;
+      catchFrom = CUSHION_ZONE_PX;
+      pace = state.speed;
+      continue;
+    }
+    const next = y + state.dir * dist;
+    if (!passed && state.skipped != null && stopsPassed(y, next, [state.skipped]).length > 0) {
+      passed = true;
+      pass = true;
+    }
+    const crossed = (state.target - y) * (state.target - next) <= 0;
+    if (crossed || Math.abs(state.target - next) <= LAND_EPS_PX) return finish(pass);
+    y = next;
+    pace = speed;
+    left -= step;
   }
-  const crossed = (state.target - state.y) * (state.target - next) <= 0;
-  if (crossed || Math.abs(state.target - next) <= 0.4) {
-    return { state: { ...state, y: state.target, passed, done: true }, pass, landed: true };
-  }
-  return { state: { ...state, y: next, passed }, pass, landed: false };
+  return {
+    state: { ...state, y, entrySpeed, catchFrom, passed, pace, settleFrom, settleTotal, settleElapsed },
+    pass,
+    landed: false,
+  };
 }
 
 export type PageCue = "pass" | "land";

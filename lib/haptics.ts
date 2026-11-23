@@ -96,6 +96,15 @@ export function hapticPageTick(): boolean {
   return true;
 }
 
+/**
+ * Page landing. Always the 15ms stop pulse, including inside the tick gap,
+ * so a pass tick a moment earlier cannot swallow the landing.
+ */
+export function hapticPageLand(): void {
+  lastAt = nowMs();
+  play(HAPTIC_STOP_MS);
+}
+
 /** One pulse. A tick closer than the gap is dropped. `force` is the landing thump. */
 export function hapticClick(force = false): boolean {
   const now = nowMs();

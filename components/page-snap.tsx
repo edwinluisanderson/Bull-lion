@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { hapticClick, hapticPageTick } from "@/lib/haptics";
+import { hapticPageLand, hapticPageTick } from "@/lib/haptics";
 import { pageLandClick, pagePassClick } from "@/lib/lever-sound";
 import {
   ALWAYS_SNAP_NAMES,
@@ -42,8 +42,9 @@ function passCue(): void {
   pagePassClick();
 }
 
+/** Once, when the settle finishes. The click is not gated on the haptic gap. */
 function landCue(): void {
-  if (!hapticClick()) return;
+  hapticPageLand();
   pageLandClick();
 }
 
@@ -94,13 +95,12 @@ function glide(
   };
   const step = (now: number) => {
     if (stopped) return;
-    const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+    const dt = Math.max(0, (now - last) / 1000);
     last = now;
     const next = advanceOwnedGlide(state, dt, root.scrollTop);
     state = next.state;
     const limit = Math.max(0, root.scrollHeight - root.clientHeight);
     const y = Math.min(limit, Math.max(0, state.y));
-    state = { ...state, y };
     root.scrollTop = y;
     if (next.pass) passCue();
     if (next.landed) {
@@ -268,12 +268,15 @@ export function PageSnap() {
       });
       if (plan.target == null) return;
       const token = glideToken;
+      const committedTarget = plan.target;
+      const committedSkip = plan.skipped;
+      gliding = true;
       cancelAnimationFrame(takeoverFrame);
       takeoverFrame = takeOverScroll(root, (y) => {
         if (token !== glideToken) return;
         gliding = true;
         cancelGlide();
-        cancelGlide = glide(root, velocity, plan.target ?? y, plan.skipped, y, () => {
+        cancelGlide = glide(root, velocity, committedTarget, committedSkip, y, () => {
           gliding = false;
           cancelGlide = () => {};
         });

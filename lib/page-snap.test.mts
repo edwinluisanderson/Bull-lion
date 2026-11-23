@@ -10,6 +10,7 @@ import {
   GLIDE_PX,
   GLIDE_SPEED,
   HARD_FLING_PX_PER_SEC,
+  LAND_EPS_PX,
   RELEASE_SAMPLE_MS,
   SETTLE_PX,
   SNAP_MIN_GAP_PX,
@@ -264,7 +265,7 @@ test("an owned glide keeps going when the scroller drifts and holds 56 in the cu
     const remaining = Math.abs(state.target - before);
     const drifted = before + 40;
     const next = advanceOwnedGlide(state, 0.016, drifted);
-    if (remaining <= 80 && remaining > 15 && !next.landed) {
+    if (remaining <= 80 && remaining > 20 && !next.landed) {
       const moved = Math.abs(next.state.y - before) / 0.016;
       assert.ok(Math.abs(moved - GLIDE_SPEED) < 1.5, `glide speed ${moved}`);
       sawGlide = true;
@@ -275,6 +276,105 @@ test("an owned glide keeps going when the scroller drifts and holds 56 in the cu
   assert.equal(sawGlide, true);
   assert.equal(state.done, true);
   assert.equal(state.y, 400);
+});
+
+test("the land cue fires once when scrollTop rounds off a fractional stop", () => {
+  assert.equal(LAND_EPS_PX, 1);
+  const target = 189.97;
+  let state = startOwnedGlide(80, 700, target, null);
+  let cues = 0;
+  for (let frame = 0; frame < 800 && !state.done; frame += 1) {
+    const scrollTop = Math.round(state.y);
+    const next = advanceOwnedGlide(state, frame % 4 === 0 ? 0.031 : 0.016, scrollTop);
+    if (next.landed) cues += 1;
+    state = next.landed ? next.state : { ...next.state, y: Math.round(next.state.y) };
+  }
+  assert.equal(cues, 1);
+  assert.equal(state.done, true);
+  assert.ok(Math.abs(state.y - target) <= LAND_EPS_PX);
+  assert.equal(advanceOwnedGlide(state, 0.016, Math.round(state.y)).landed, false);
+
+  const packed = [
+    { at: 0, always: true, name: "top" },
+    { at: 838, always: true, name: "wheels" },
+    { at: 844, always: true, name: "bottom" },
+  ];
+  const plan = planFling({ scrollTop: 600, velocity: 900, maxScroll: 844, points: packed, reduced: false });
+  assert.equal(plan.skipped, null);
+  assert.equal(plan.target, 838);
+  let cluster = startOwnedGlide(600, 900, plan.target ?? 838, plan.skipped);
+  let clusterLands = 0;
+  let clusterPasses = 0;
+  for (let frame = 0; frame < 800 && !cluster.done; frame += 1) {
+    const next = advanceOwnedGlide(cluster, 0.016, Math.round(cluster.y));
+    if (next.landed) clusterLands += 1;
+    if (next.pass) clusterPasses += 1;
+    cluster = next.state;
+  }
+  assert.equal(clusterLands, 1);
+  assert.equal(clusterPasses, 0);
+  assert.equal(cluster.y, 838);
+});
+
+test("a planned skip keeps its target through to the end", () => {
+  const points = [
+    { at: 0, always: true, name: "top" },
+    { at: 190, always: true, name: "melt" },
+    { at: 500, always: true, name: "wheels" },
+    { at: 900, always: true, name: "bottom" },
+  ];
+  const plan = planFling({
+    scrollTop: 420,
+    velocity: -1618,
+    maxScroll: 900,
+    points,
+    reduced: false,
+  });
+  assert.equal(plan.hard, true);
+  assert.equal(plan.skipped, 190);
+  assert.equal(plan.target, 0);
+  let state = startOwnedGlide(420, -1618, plan.target ?? 420, plan.skipped);
+  let lands = 0;
+  let passes = 0;
+  const dts = [0.016, 0.008, 0.04, 0.02];
+  for (let frame = 0; frame < 800 && !state.done; frame += 1) {
+    const next = advanceOwnedGlide(state, dts[frame % dts.length], Math.round(state.y));
+    if (next.landed) lands += 1;
+    if (next.pass) passes += 1;
+    state = next.state;
+    assert.notEqual(state.target, 190);
+  }
+  assert.equal(lands, 1);
+  assert.equal(passes, 1);
+  assert.equal(state.y, 0);
+  assert.equal(state.target, 0);
+});
+
+test("catch speed stays continuous when frame times are uneven", () => {
+  let state = startOwnedGlide(0, 1000, 500, null);
+  let prev = state.speed;
+  let entered = false;
+  const dts = [0.016, 0.005, 0.04, 0.008, 0.028, 0.016];
+  for (let frame = 0; frame < 500 && !state.done; frame += 1) {
+    const before = state.y;
+    const dt = dts[frame % dts.length];
+    const remaining = Math.abs(state.target - before);
+    const next = advanceOwnedGlide(state, dt, Math.round(before));
+    const used = dt > 0 ? Math.abs(next.state.y - before) / Math.min(dt, 0.032) : 0;
+    if (!entered && remaining > CUSHION_ZONE_PX && Math.abs(state.target - next.state.y) <= CUSHION_ZONE_PX) {
+      entered = true;
+      assert.ok(Math.abs((next.state.entrySpeed ?? 0) - 1000) < 1);
+    }
+    if (remaining <= CUSHION_ZONE_PX && remaining > SETTLE_PX) {
+      assert.ok(used >= -1, `catch reversed at ${used}`);
+      assert.ok(used <= prev + 24, `catch spiked from ${prev} to ${used}`);
+    }
+    prev = used;
+    state = next.state;
+  }
+  assert.equal(entered, true);
+  assert.equal(state.done, true);
+  assert.equal(state.y, 500);
 });
 
 test("the cushion keeps the fling speed at the catch, glides at 56, and stops at zero", () => {
