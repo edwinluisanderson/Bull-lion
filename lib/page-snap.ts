@@ -6,8 +6,11 @@ export const SNAP_MIN_GAP_PX = 200;
 
 /** A lift slower than this is not a fling. The page stays where the finger left it. */
 export const FLING_MIN_PX_PER_SEC = 280;
-/** At this speed and above, the fling skips exactly one stop. */
-export const HARD_FLING_PX_PER_SEC = 2200;
+/**
+ * At this speed and above, the fling skips exactly one stop.
+ * A deliberate flick on a phone lands around 1600–2000 px/s.
+ */
+export const HARD_FLING_PX_PER_SEC = 1600;
 
 /** Distance before the target where the cushion takes over from the fling. */
 export const CUSHION_ZONE_PX = 120;
@@ -19,6 +22,18 @@ export const SETTLE_PX = 15;
 export const GLIDE_PX = CUSHION_ZONE_PX - CATCH_PX - SETTLE_PX;
 /** Constant speed through the glide, in pixels per second. */
 export const GLIDE_SPEED = 56;
+
+/**
+ * Release speed uses the last moments of the finger, inside this window.
+ * Long enough to be a real flick, short enough to ignore the slow start.
+ */
+export const RELEASE_SAMPLE_MS = 90;
+
+/**
+ * Always-stops closer than this are one stop for targeting and pass ticks.
+ * A short screen can park the wheels and the page bottom a few pixels apart.
+ */
+export const COINCIDENT_STOP_PX = 8;
 
 /** Page top, melt plate, wheel window, and page bottom are never removed. */
 export const ALWAYS_SNAP_NAMES = ["top", "melt", "wheels", "bottom"] as const;
@@ -62,18 +77,93 @@ function smoothstep(unit: number): number {
   return u * u * (3 - 2 * u);
 }
 
-/** Speed from the last moments of a drag. Too short a sample is not a fling. */
+/** Speed from the last moments of a drag. `y` grows as the page moves down. Too short a sample is not a fling. */
 export function releaseVelocity(samples: readonly { t: number; y: number }[]): number {
   if (samples.length < 2) return 0;
   const last = samples[samples.length - 1];
   let first = samples[0];
   for (let index = samples.length - 1; index >= 0; index -= 1) {
     first = samples[index];
-    if (last.t - samples[index].t >= 70) break;
+    if (last.t - samples[index].t >= RELEASE_SAMPLE_MS) break;
   }
   const dt = (last.t - first.t) / 1000;
   if (dt < 0.016) return 0;
   return (last.y - first.y) / dt;
+}
+
+/**
+ * Finger samples. `y` is clientY, so a finger moving up is a downward fling.
+ * The window is the same {@link RELEASE_SAMPLE_MS} as a scroll sample.
+ */
+export function touchScrollVelocity(samples: readonly { t: number; y: number }[]): number {
+  return releaseVelocity(samples.map((sample) => ({ t: sample.t, y: -sample.y })));
+}
+
+export type PageGesture = {
+  /** The finger is still down. A pointercancel does not clear this. */
+  active: boolean;
+  scrollSamples: { t: number; y: number }[];
+  /** `y` is clientY. */
+  touchSamples: { t: number; y: number }[];
+};
+
+const SAMPLE_KEEP_MS = 140;
+
+function remember(samples: readonly { t: number; y: number }[], sample: { t: number; y: number }) {
+  const next = [...samples, sample];
+  const cutoff = sample.t - SAMPLE_KEEP_MS;
+  while (next.length > 2 && next[0].t < cutoff) next.shift();
+  return next;
+}
+
+function sampleSpan(samples: readonly { t: number; y: number }[]): number {
+  if (samples.length < 2) return 0;
+  return samples[samples.length - 1].t - samples[0].t;
+}
+
+function sampleTravel(samples: readonly { t: number; y: number }[]): number {
+  if (samples.length < 2) return 0;
+  return Math.abs(samples[samples.length - 1].y - samples[0].y);
+}
+
+export function beginPageGesture(t: number, scrollTop: number, clientY: number): PageGesture {
+  return {
+    active: true,
+    scrollSamples: [{ t, y: scrollTop }],
+    touchSamples: [{ t, y: clientY }],
+  };
+}
+
+export function notePageTouchMove(gesture: PageGesture, t: number, clientY: number): PageGesture {
+  if (!gesture.active) return gesture;
+  return { ...gesture, touchSamples: remember(gesture.touchSamples, { t, y: clientY }) };
+}
+
+export function notePageScroll(gesture: PageGesture, t: number, scrollTop: number): PageGesture {
+  if (!gesture.active) return gesture;
+  return { ...gesture, scrollSamples: remember(gesture.scrollSamples, { t, y: scrollTop }) };
+}
+
+/** Chrome fires this mid-pan. The finger is still down, so the gesture stays open. */
+export function notePagePointerCancel(gesture: PageGesture): PageGesture {
+  return gesture;
+}
+
+/** Only the touch stream ends the gesture. pointerup and pointercancel do not. */
+export function gestureLift(type: string): boolean {
+  return type === "touchend" || type === "touchcancel";
+}
+
+/**
+ * Page speed at lift.
+ * A finger that never moved the page (a reel, the lever) is not a fling.
+ * Touch samples cover the last 90ms when the browser kept delivering them.
+ * When a pan cancels those and only scroll positions remain, the scroll deltas win.
+ */
+export function pageGestureVelocity(gesture: PageGesture): number {
+  if (sampleTravel(gesture.scrollSamples) <= 1) return 0;
+  if (sampleSpan(gesture.touchSamples) >= 80) return touchScrollVelocity(gesture.touchSamples);
+  return releaseVelocity(gesture.scrollSamples);
 }
 
 export type FlingPlan = {
@@ -83,6 +173,33 @@ export type FlingPlan = {
   skipped: number | null;
   hard: boolean;
 };
+
+export type StopCluster = { from: number; to: number };
+
+/** Stops a few pixels apart are one cluster. The pair is not two targets. */
+export function clusterStops(stops: readonly number[], gap = COINCIDENT_STOP_PX): StopCluster[] {
+  const sorted = [...stops].filter((at) => Number.isFinite(at)).sort((a, b) => a - b);
+  const clusters: StopCluster[] = [];
+  for (const at of sorted) {
+    const last = clusters[clusters.length - 1];
+    if (last && at - last.to <= gap) {
+      last.to = at;
+      continue;
+    }
+    clusters.push({ from: at, to: at });
+  }
+  return clusters;
+}
+
+/** The edge of a cluster still ahead of `y`. Null when the whole cluster is behind. */
+export function clusterTarget(cluster: StopCluster, y: number, dir: 1 | -1): number | null {
+  if (dir > 0) {
+    if (cluster.to <= y + 0.5) return null;
+    return cluster.from > y + 0.5 ? cluster.from : cluster.to;
+  }
+  if (cluster.from >= y - 0.5) return null;
+  return cluster.to < y - 0.5 ? cluster.to : cluster.from;
+}
 
 /**
  * Where a release is going.
@@ -101,10 +218,10 @@ export function planFling(input: {
   if (input.reduced || Math.abs(input.velocity) < FLING_MIN_PX_PER_SEC) return stay;
   const limit = Math.max(0, input.maxScroll);
   const y = clampScroll(input.scrollTop, limit);
-  const dir = input.velocity > 0 ? 1 : -1;
-  const ahead = collectStops(input.points, limit)
-    .map((stop) => stop.at)
-    .filter((at) => (dir > 0 ? at > y + 0.5 : at < y - 0.5))
+  const dir: 1 | -1 = input.velocity > 0 ? 1 : -1;
+  const ahead = clusterStops(collectStops(input.points, limit).map((stop) => stop.at))
+    .map((cluster) => clusterTarget(cluster, y, dir))
+    .filter((at): at is number => at != null)
     .sort((a, b) => dir * (a - b));
   if (ahead.length === 0) return stay;
   const hard = Math.abs(input.velocity) >= HARD_FLING_PX_PER_SEC && ahead.length >= 2;
@@ -135,12 +252,84 @@ export function cushionSpeed(remainingPx: number, flingSpeed: number, catchFrom 
   return GLIDE_SPEED * (1 - smoothstep(u));
 }
 
-/** Stops strictly between two scroll positions, in the direction of travel. */
+/**
+ * Stops strictly between two scroll positions, in the direction of travel.
+ * A coincident cluster counts once, at the edge the finger reaches first.
+ */
 export function stopsPassed(from: number, to: number, stops: readonly number[]): number[] {
   const dir = to >= from ? 1 : -1;
-  return stops
-    .filter((at) => (dir > 0 ? at > from + 0.5 && at < to - 0.5 : at < from - 0.5 && at > to + 0.5))
-    .sort((a, b) => dir * (a - b));
+  const hits: number[] = [];
+  for (const cluster of clusterStops(stops)) {
+    const edge = dir > 0 ? cluster.from : cluster.to;
+    const crossed =
+      dir > 0 ? edge > from + 0.5 && edge < to - 0.5 : edge < from - 0.5 && edge > to + 0.5;
+    if (crossed) hits.push(edge);
+  }
+  return hits.sort((a, b) => dir * (a - b));
+}
+
+export type OwnedGlide = {
+  y: number;
+  speed: number;
+  dir: 1 | -1;
+  target: number;
+  catchFrom: number;
+  skipped: number | null;
+  passed: boolean;
+  done: boolean;
+};
+
+export function startOwnedGlide(
+  y: number,
+  velocity: number,
+  target: number,
+  skipped: number | null,
+): OwnedGlide {
+  const remaining = Math.abs(target - y);
+  return {
+    y,
+    speed: Math.abs(velocity),
+    dir: target >= y ? 1 : -1,
+    target,
+    catchFrom: remaining <= CUSHION_ZONE_PX ? remaining : CUSHION_ZONE_PX,
+    skipped,
+    passed: false,
+    done: false,
+  };
+}
+
+/**
+ * One owned frame. Full release speed until the cushion, then catch, glide, and settle.
+ * `observed` is the scroller's scrollTop. A native fling can leave it somewhere else.
+ * That drift does not abort the glide and does not move `y`; only a new touch, wheel,
+ * or key, outside this step, stops it.
+ */
+export function advanceOwnedGlide(
+  state: OwnedGlide,
+  dt: number,
+  observed: number,
+): { state: OwnedGlide; pass: boolean; landed: boolean } {
+  void observed;
+  if (state.done) return { state, pass: false, landed: false };
+  const remaining = Math.abs(state.target - state.y);
+  if (remaining <= 0.4) {
+    return { state: { ...state, y: state.target, done: true }, pass: false, landed: true };
+  }
+  const stepDt = Math.min(0.05, Math.max(0, dt));
+  const nextSpeed =
+    remaining > CUSHION_ZONE_PX ? state.speed : cushionSpeed(remaining, state.speed, state.catchFrom);
+  const next = state.y + state.dir * nextSpeed * stepDt;
+  let pass = false;
+  let passed = state.passed;
+  if (state.skipped != null && !passed && stopsPassed(state.y, next, [state.skipped]).length > 0) {
+    passed = true;
+    pass = true;
+  }
+  const crossed = (state.target - state.y) * (state.target - next) <= 0;
+  if (crossed || Math.abs(state.target - next) <= 0.4) {
+    return { state: { ...state, y: state.target, passed, done: true }, pass, landed: true };
+  }
+  return { state: { ...state, y: next, passed }, pass, landed: false };
 }
 
 export type PageCue = "pass" | "land";

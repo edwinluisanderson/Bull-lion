@@ -4,22 +4,33 @@ import test from "node:test";
 
 import {
   CATCH_PX,
+  COINCIDENT_STOP_PX,
   CUSHION_ZONE_PX,
   FLING_MIN_PX_PER_SEC,
   GLIDE_PX,
   GLIDE_SPEED,
   HARD_FLING_PX_PER_SEC,
+  RELEASE_SAMPLE_MS,
   SETTLE_PX,
   SNAP_MIN_GAP_PX,
+  advanceOwnedGlide,
+  beginPageGesture,
   collectStops,
   cushionSpeed,
   dragCues,
   flingCues,
+  gestureLift,
   magnetCaption,
   nearestStop,
+  notePagePointerCancel,
+  notePageScroll,
+  notePageTouchMove,
+  pageGestureVelocity,
   planFling,
   snapStops,
+  startOwnedGlide,
   stopsPassed,
+  touchScrollVelocity,
 } from "@/lib/page-snap";
 
 const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
@@ -169,6 +180,101 @@ test("a lift with no fling stays, a normal fling takes the next stop, a hard fli
   assert.equal(onlyOne.target, 1500);
   assert.equal(onlyOne.skipped, null);
   assert.equal(planFling({ ...input, scrollTop: 15, velocity: 900, reduced: true }).target, null);
+
+  assert.equal(HARD_FLING_PX_PER_SEC, 1600);
+  const phoneFlick = planFling({ ...input, scrollTop: 210, velocity: 1800 });
+  assert.equal(phoneFlick.hard, true);
+  assert.equal(phoneFlick.skipped, 538);
+  assert.equal(phoneFlick.target, 946);
+  const firm = planFling({ ...input, scrollTop: 210, velocity: 1500 });
+  assert.equal(firm.hard, false);
+  assert.equal(firm.target, 538);
+  assert.equal(firm.skipped, null);
+});
+
+test("wheels and the page bottom a few pixels apart are one stop", () => {
+  assert.equal(COINCIDENT_STOP_PX, 8);
+  const packed = [
+    { at: 0, always: true, name: "top" },
+    { at: 200, always: true, name: "melt" },
+    { at: 838, always: true, name: "wheels" },
+    { at: 844, always: true, name: "bottom" },
+  ];
+  const input = { maxScroll: 844, points: packed, reduced: false };
+  const hard = planFling({ ...input, scrollTop: 100, velocity: 1800 });
+  assert.equal(hard.skipped, 200);
+  assert.equal(hard.target, 838);
+  const atThePair = planFling({ ...input, scrollTop: 700, velocity: 1900 });
+  assert.equal(atThePair.skipped, null);
+  assert.equal(atThePair.target, 838);
+  assert.deepEqual(stopsPassed(700, 860, [838, 844]), [838]);
+  assert.equal(stopsPassed(700, 860, [838, 844]).length, 1);
+});
+
+test("a pointercancel in the middle of a pan still flings from the later samples", () => {
+  assert.equal(gestureLift("pointercancel"), false);
+  assert.equal(gestureLift("pointerup"), false);
+  assert.equal(gestureLift("touchend"), true);
+  assert.equal(gestureLift("touchcancel"), true);
+  assert.ok(RELEASE_SAMPLE_MS >= 80 && RELEASE_SAMPLE_MS <= 100);
+
+  let gesture = beginPageGesture(0, 100, 500);
+  gesture = notePageTouchMove(gesture, 16, 490);
+  gesture = notePagePointerCancel(gesture);
+  assert.equal(gesture.active, true);
+  gesture = notePageScroll(gesture, 40, 120);
+  gesture = notePageScroll(gesture, 80, 150);
+  gesture = notePageScroll(gesture, 130, 190);
+  const velocity = pageGestureVelocity(gesture);
+  assert.ok(velocity > FLING_MIN_PX_PER_SEC);
+  assert.ok(velocity < HARD_FLING_PX_PER_SEC);
+  const plan = planFling({
+    scrollTop: 190,
+    velocity,
+    maxScroll: 1500,
+    points: page,
+    reduced: false,
+  });
+  assert.equal(plan.target, 538);
+  assert.equal(plan.skipped, null);
+});
+
+test("touch samples over the last 90ms are the release velocity", () => {
+  const samples = [
+    { t: 0, y: 400 },
+    { t: 50, y: 390 },
+    { t: 100, y: 380 },
+    { t: 190, y: 200 },
+  ];
+  const velocity = touchScrollVelocity(samples);
+  assert.ok(Math.abs(velocity - 2000) < 1);
+  let gesture = beginPageGesture(0, 210, 400);
+  for (const sample of samples) {
+    gesture = notePageTouchMove(gesture, sample.t, sample.y);
+    gesture = notePageScroll(gesture, sample.t, 210 + (400 - sample.y));
+  }
+  assert.ok(Math.abs(pageGestureVelocity(gesture) - 2000) < 1);
+});
+
+test("an owned glide keeps going when the scroller drifts and holds 56 in the cushion", () => {
+  let state = startOwnedGlide(0, 900, 400, null);
+  let sawGlide = false;
+  for (let frame = 0; frame < 500 && !state.done; frame += 1) {
+    const before = state.y;
+    const remaining = Math.abs(state.target - before);
+    const drifted = before + 40;
+    const next = advanceOwnedGlide(state, 0.016, drifted);
+    if (remaining <= 80 && remaining > 15 && !next.landed) {
+      const moved = Math.abs(next.state.y - before) / 0.016;
+      assert.ok(Math.abs(moved - GLIDE_SPEED) < 1.5, `glide speed ${moved}`);
+      sawGlide = true;
+    }
+    assert.notEqual(next.state.y, drifted);
+    state = next.state;
+  }
+  assert.equal(sawGlide, true);
+  assert.equal(state.done, true);
+  assert.equal(state.y, 400);
 });
 
 test("the cushion keeps the fling speed at the catch, glides at 56, and stops at zero", () => {
@@ -237,12 +343,18 @@ test("the page eases after scrollend and the plates are marked", () => {
   assert.match(lever, /preventDefault\(\)/);
   assert.match(swipe, /onPointerDown/);
   assert.match(snapSource, /planFling/);
-  assert.match(snapSource, /cushionSpeed/);
+  assert.match(snapSource, /advanceOwnedGlide/);
   assert.match(snapSource, /scrollingElement/);
-  assert.equal(snapSource.includes("touchmove"), false);
+  assert.match(snapSource, /touchstart/);
+  assert.match(snapSource, /touchmove/);
+  assert.match(snapSource, /touchend/);
+  assert.match(snapSource, /touchcancel/);
+  assert.equal(snapSource.includes('addEventListener("pointerdown"'), false);
+  assert.equal(snapSource.includes('addEventListener("pointerup"'), false);
+  assert.equal(snapSource.includes('addEventListener("pointercancel"'), false);
   assert.match(snapSource, /prefers-reduced-motion: reduce/);
   assert.equal(snapSource.includes("preventDefault"), false);
-  assert.match(snapSource, /pointerdown/);
+  assert.equal(snapSource.includes("actual - placed"), false);
   assert.match(snapSource, /wheel/);
   assert.match(snapSource, /get\("magnet"\) !== "1"/);
   assert.match(snapSource, /pointer-events:\s*none/);

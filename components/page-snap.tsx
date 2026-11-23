@@ -6,13 +6,18 @@ import { hapticClick, hapticPageTick } from "@/lib/haptics";
 import { pageLandClick, pagePassClick } from "@/lib/lever-sound";
 import {
   ALWAYS_SNAP_NAMES,
-  CUSHION_ZONE_PX,
-  cushionSpeed,
+  advanceOwnedGlide,
+  beginPageGesture,
+  gestureLift,
   magnetCaption,
   nearestStop,
+  notePageScroll,
+  notePageTouchMove,
+  pageGestureVelocity,
   planFling,
-  releaseVelocity,
+  startOwnedGlide,
   stopsPassed,
+  type PageGesture,
   type SnapMark,
 } from "@/lib/page-snap";
 
@@ -43,41 +48,43 @@ function landCue(): void {
 }
 
 /**
- * Drop a native fling without touching the touch stream.
- * Writing scrollTop alone loses to Android Chrome's compositor fling.
- * Hiding overflow for one frame cancels that fling, then we own scrollTop.
- * Touch listeners stay passive, so a pull at the top can still refresh.
+ * Kill Android Chrome's compositor fling, then hand scrollTop to the caller.
+ * Overflow and touch-action stay locked for one frame so the fling cannot
+ * start, then the owned glide writes scrollTop itself. Listeners stay passive,
+ * so a pull at the top of the page can still refresh.
  */
-function takeOverScroll(root: Element) {
-  const y = root.scrollTop;
+function takeOverScroll(root: Element, start: (y: number) => void) {
   const node = root instanceof HTMLElement ? root : document.documentElement;
-  const previous = node.style.overflow;
-  node.style.overflow = "hidden";
-  void node.offsetHeight;
-  node.style.overflow = previous;
+  const y = root.scrollTop;
+  const previousOverflow = node.style.overflowY;
+  const previousTouch = node.style.touchAction;
+  node.style.overflowY = "hidden";
+  node.style.touchAction = "none";
   node.scrollTop = y;
+  node.scrollTo(0, y);
+  return requestAnimationFrame(() => {
+    node.style.overflowY = previousOverflow;
+    node.style.touchAction = previousTouch;
+    node.scrollTop = y;
+    start(y);
+  });
 }
 
 /**
  * Owned fling. Full release speed until the cushion, then catch, glide, and settle.
- * A finger that moves the scroll out from under the glide stops it.
+ * A drifted scrollTop from the native fling is ignored. A new touch, wheel, or
+ * key is what stops the glide.
  */
 function glide(
   root: Element,
   velocity: number,
   target: number,
   skipped: number | null,
+  origin: number,
   onDone: () => void,
 ) {
-  let y = root.scrollTop;
-  let speed = Math.abs(velocity);
-  const dir = target >= y ? 1 : -1;
-  let catchFrom: number | null = null;
-  let passed = false;
-  const startRemaining = Math.abs(target - y);
-  if (startRemaining <= CUSHION_ZONE_PX) catchFrom = startRemaining;
+  let state = startOwnedGlide(origin, velocity, target, skipped);
   let frame = 0;
-  let placed = y;
   let last = performance.now();
   let stopped = false;
   const finishOnce = () => {
@@ -87,36 +94,17 @@ function glide(
   };
   const step = (now: number) => {
     if (stopped) return;
-    const actual = root.scrollTop;
-    if (Math.abs(actual - placed) > 3) {
-      finishOnce();
-      return;
-    }
     const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
     last = now;
-    const remaining = Math.abs(target - y);
-    if (remaining <= 0.4) {
-      root.scrollTop = target;
-      placed = root.scrollTop;
-      landCue();
-      finishOnce();
-      return;
-    }
-    const nextSpeed =
-      remaining > CUSHION_ZONE_PX ? speed : cushionSpeed(remaining, speed, catchFrom ?? CUSHION_ZONE_PX);
-    const next = y + dir * nextSpeed * dt;
-    if (skipped != null && !passed && stopsPassed(y, next, [skipped]).length > 0) {
-      passed = true;
-      passCue();
-    }
-    const crossedTarget = (target - y) * (target - next) <= 0;
+    const next = advanceOwnedGlide(state, dt, root.scrollTop);
+    state = next.state;
     const limit = Math.max(0, root.scrollHeight - root.clientHeight);
-    y = crossedTarget ? target : Math.min(limit, Math.max(0, next));
+    const y = Math.min(limit, Math.max(0, state.y));
+    state = { ...state, y };
     root.scrollTop = y;
-    placed = root.scrollTop;
-    if (crossedTarget || Math.abs(target - y) <= 0.4) {
+    if (next.pass) passCue();
+    if (next.landed) {
       root.scrollTop = Math.min(limit, Math.max(0, target));
-      placed = root.scrollTop;
       landCue();
       finishOnce();
       return;
@@ -210,6 +198,10 @@ function mountMagnetCaption(): () => void {
  * Full speed until 120px before the target, then catch, glide, and settle.
  * A new touch, wheel, or scroll key stops the glide. Touch listeners stay
  * passive, so a pull down at the top can still refresh.
+ *
+ * Once a touch pans, Chrome fires pointercancel and drops the pointer stream.
+ * The finger is still down, so the gesture follows touchstart, touchmove,
+ * touchend, and scroll positions. pointercancel is not a lift.
  */
 export function PageSnap() {
   useEffect(() => {
@@ -217,39 +209,55 @@ export function PageSnap() {
     if (!root) return;
     let cancelGlide = () => {};
     let gliding = false;
-    let touching = 0;
-    let samples: { t: number; y: number }[] = [];
+    let gesture: PageGesture | null = null;
+    let fingers = 0;
+    let glideToken = 0;
+    let takeoverFrame = 0;
     let lastDrag = root.scrollTop;
 
     const stop = () => {
+      glideToken += 1;
       gliding = false;
+      cancelAnimationFrame(takeoverFrame);
       cancelGlide();
       cancelGlide = () => {};
     };
 
-    const onDown = () => {
-      touching += 1;
-      samples = [{ t: performance.now(), y: root.scrollTop }];
+    const onTouchStart = (event: TouchEvent) => {
+      const touch = event.changedTouches[0] ?? event.touches[0];
+      if (!touch) return;
+      fingers = event.touches.length;
+      gesture = beginPageGesture(performance.now(), root.scrollTop, touch.clientY);
       lastDrag = root.scrollTop;
       stop();
     };
+    const onTouchMove = (event: TouchEvent) => {
+      if (!gesture) return;
+      const touch = event.touches[0];
+      if (!touch) return;
+      const now = performance.now();
+      gesture = notePageTouchMove(gesture, now, touch.clientY);
+      gesture = notePageScroll(gesture, now, root.scrollTop);
+    };
     const onScroll = () => {
-      if (!touching || gliding) return;
+      if (!gesture || gliding) return;
       const y = root.scrollTop;
-      samples.push({ t: performance.now(), y });
-      if (samples.length > 12) samples.shift();
+      gesture = notePageScroll(gesture, performance.now(), y);
       const measured = snapPoints(root);
       const stops = measured.points.map((point) => point.at);
       const passed = stopsPassed(lastDrag, y, stops);
       lastDrag = y;
       for (const _stop of passed) passCue();
     };
-    const onUp = () => {
-      touching = Math.max(0, touching - 1);
-      if (touching > 0) return;
+    const onLift = (event: TouchEvent) => {
+      if (!gestureLift(event.type)) return;
+      fingers = event.touches.length;
+      if (fingers > 0) return;
+      const current = gesture;
+      gesture = null;
+      if (!current) return;
       const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const velocity = releaseVelocity(samples);
-      samples = [];
+      const velocity = pageGestureVelocity(current);
       const measured = snapPoints(root);
       const plan = planFling({
         scrollTop: root.scrollTop,
@@ -259,12 +267,16 @@ export function PageSnap() {
         reduced,
       });
       if (plan.target == null) return;
-      takeOverScroll(root);
-      gliding = true;
-      cancelGlide();
-      cancelGlide = glide(root, velocity, plan.target, plan.skipped, () => {
-        gliding = false;
-        cancelGlide = () => {};
+      const token = glideToken;
+      cancelAnimationFrame(takeoverFrame);
+      takeoverFrame = takeOverScroll(root, (y) => {
+        if (token !== glideToken) return;
+        gliding = true;
+        cancelGlide();
+        cancelGlide = glide(root, velocity, plan.target ?? y, plan.skipped, y, () => {
+          gliding = false;
+          cancelGlide = () => {};
+        });
       });
     };
     const onWheel = () => {
@@ -276,17 +288,19 @@ export function PageSnap() {
       if (SCROLL_KEYS.has(event.key)) stop();
     };
     document.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("pointerdown", onDown);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("touchend", onLift, { passive: true });
+    window.addEventListener("touchcancel", onLift, { passive: true });
     window.addEventListener("wheel", onWheel, { passive: true });
     window.addEventListener("keydown", onKey);
     return () => {
       stop();
       document.removeEventListener("scroll", onScroll);
-      window.removeEventListener("pointerdown", onDown);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onLift);
+      window.removeEventListener("touchcancel", onLift);
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("keydown", onKey);
     };
