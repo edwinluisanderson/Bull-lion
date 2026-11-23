@@ -12,7 +12,6 @@ import {
   LAMP_REST,
   lampPaint,
   RIVET_PX,
-  STEAMPUNK_LIGHT_COUNT,
   STEAMPUNK_LIGHT_PX,
   WHEEL_LAMP_COUNT,
   WHEEL_LAMP_PX,
@@ -42,15 +41,13 @@ test("a light is a caged bulb larger than a rivet", () => {
   assert.equal(light.includes("feGaussianBlur"), false);
 });
 
-test("two lights stay spaced across the temporary bottom plate", () => {
-  assert.equal(STEAMPUNK_LIGHT_COUNT, 2);
-  const panel = machine.slice(machine.indexOf('className="gear-panel"'));
-  const row = panel.indexOf('className="gear-panel-lights"');
-  const gears = panel.indexOf("gear-panel-bg-left");
-  assert.ok(row > 0 && row < gears);
-  assert.match(panel, /STEAMPUNK_LIGHT_COUNT/);
-  assert.match(panel, /<SteampunkLight /);
-  assert.match(css, /\.gear-panel-lights \{[^}]*justify-content:\s*space-between/);
+test("the scrap plate has no caged lights", () => {
+  const start = machine.indexOf('className="gear-panel"');
+  const panel = machine.slice(start, machine.indexOf("{lampCompare ?", start));
+  assert.equal(panel.includes("gear-panel-lights"), false);
+  assert.equal(panel.includes("gear-panel-lighthouse"), false);
+  assert.equal(panel.includes("SteampunkLightCast"), false);
+  assert.equal(panel.includes("<SteampunkLight "), false);
   assert.match(css, /\.rivet \{[^}]*width:\s*12px/);
 });
 
@@ -66,10 +63,6 @@ test("three full caged lamps replace the dots under the wheels", () => {
   assert.match(machine, /pulseWheelLamp\(2\)/);
   assert.match(css, /\.wheel-lamps \{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
   assert.match(css, /\.wheel-lamps \.steampunk-light \{[^}]*width:\s*36px/);
-  assert.match(css, /\.gear-panel \.steampunk-light \{[^}]*width:\s*36px/);
-  assert.match(css, /\.gear-panel \.steampunk-light \{[^}]*height:\s*36px/);
-  assert.match(css, /\.gear-panel-lighthouse \{[^}]*width:\s*36px/);
-  assert.match(css, /\.gear-panel-cast \{[^}]*width:\s*36px/);
   assert.match(lamps, /prefers-reduced-motion: reduce/);
   assert.match(lamps, /REDUCED_LEVEL = 1/);
 });
@@ -100,37 +93,11 @@ test("brightness runs from an unlit bulb to a full warm halo", () => {
   assert.equal(light.includes("feGaussianBlur"), false);
 });
 
-test("one lighthouse sweeps a beam across the bottom plate", () => {
-  const panel = machine.slice(machine.indexOf('className="gear-panel"'));
-  const lights = panel.indexOf('className="gear-panel-lights"');
-  const house = panel.indexOf('className="gear-panel-lighthouse"');
-  assert.ok(lights > 0 && house > lights);
-  assert.equal((panel.match(/gear-panel-lighthouse/g) ?? []).length, 1);
-  assert.match(panel, /className="lighthouse-beam"/);
-  assert.match(css, /\.gear-panel-lighthouse \{[^}]*bottom:\s*14px/);
-  assert.match(css, /\.gear-panel-lighthouse \{[^}]*left:\s*50%/);
-  assert.match(css, /\.lighthouse-beam \{[^}]*conic-gradient\(/);
-  assert.match(css, /\.lighthouse-beam \{[^}]*mask-image:\s*radial-gradient\(circle, transparent 0 2\.3%/);
-  assert.match(css, /\.lighthouse-beam \{[^}]*animation:\s*lighthouse-sweep 5s linear infinite/);
-  const reduced = css
-    .split("@media (prefers-reduced-motion: reduce)")
-    .slice(1)
-    .find((part) => part.includes(".lighthouse-beam"));
-  assert.ok(reduced);
-  assert.match(reduced ?? "", /\.lighthouse-beam \{[^}]*animation:\s*none/);
-});
-
-test("the bottom plate is taller and a lower lamp casts its cage", () => {
+test("the scrap plate keeps its height without the test lamps", () => {
   assert.match(css, /\.gear-panel \{[^}]*min-height:\s*360px/);
-  assert.match(css, /\.gear-panel-stage \{[^}]*min-height:\s*250px/);
-  assert.match(css, /\.gear-panel-row \{[^}]*min-height:\s*132px/);
   assert.equal(css.includes("min-height: 540px"), false);
-  assert.equal(css.includes("min-height: 480px"), false);
-  const panel = machine.slice(machine.indexOf('className="gear-panel"'));
-  assert.match(panel, /<SteampunkLightCast \/>/);
-  assert.match(css, /\.gear-panel-cast \{[^}]*left:\s*22%/);
-  assert.match(css, /\.gear-panel-cast \{[^}]*bottom:\s*20px/);
-  assert.match(light, /scale\(1\.65\)/);
-  assert.match(light, /scale\(2\.45\)/);
+  assert.equal(css.includes(".gear-panel-lights"), false);
+  assert.equal(css.includes(".lighthouse-beam"), false);
+  assert.equal(css.includes(".gear-panel-cast"), false);
   assert.equal(light.includes("feGaussianBlur"), false);
 });

@@ -2,8 +2,6 @@
 export const RIVET_PX = 12;
 /** Decorative lamp, viewed from above. Larger than a rivet so the cage reads. */
 export const STEAMPUNK_LIGHT_PX = 30;
-/** How many lamps sit across the temporary bottom plate. */
-export const STEAMPUNK_LIGHT_COUNT = 2;
 /** Caged lamps that replaced the dot row under the wheels. */
 export const WHEEL_LAMP_COUNT = 3;
 /** Fits the shorter cabinet-gears band (about 69px on a phone). */
