@@ -150,7 +150,7 @@ function mod(value: number, count: number): number {
   return ((value % count) + count) % count;
 }
 
-function createEngine(options: {
+export function createReelEngine(options: {
   initialIndex: number;
   setKinetics: (position: number, velocity: number) => void;
   getCount: () => number;
@@ -188,6 +188,8 @@ function createEngine(options: {
   let stretchOrigin: StretchOrigin | null = null;
   let slideDirection: StretchDirection | null = null;
   let stretchTravel = 0;
+  /** This drag began as a stretch that ran out of in-between faces. */
+  let handedOff = false;
   let guest: GuestCount | null = null;
   let popDirection: StretchDirection | null = null;
   let popsPlayed = 0;
@@ -481,8 +483,20 @@ function createEngine(options: {
   }
 
   function clearHold() {
-    if (holdTimer) window.clearTimeout(holdTimer);
+    if (holdTimer) clearTimeout(holdTimer);
     holdTimer = 0;
+  }
+
+  /** Stretch is over. The next drag or fling is an ordinary reel gesture. */
+  function handBack() {
+    handedOff = false;
+    gesture = "drag";
+    slideDirection = null;
+    stretchTravel = 0;
+    stretchOrigin = null;
+    drag = null;
+    clearHold();
+    publishStretch(null);
   }
 
   function publishStretch(frame: StretchFrame | null) {
@@ -599,6 +613,7 @@ function createEngine(options: {
       });
       guest = rolled.guest;
       const nextPos = rolled.position;
+      handedOff = true;
       gesture = "drag";
       slideDirection = null;
       stretchTravel = 0;
@@ -643,9 +658,7 @@ function createEngine(options: {
     const layout = layoutNow(direction, stretchTravel);
     const centered = layout?.centered ?? anchor;
     const enabled = config?.isValueEnabled ?? (() => true);
-    drag = null;
-    gesture = "drag";
-    slideDirection = null;
+    handBack();
     if (!enabled(centered)) {
       const fallback = valueAfterRelease(anchor, centered, stops, enabled);
       const index = stops.indexOf(fallback);
@@ -719,6 +732,7 @@ function createEngine(options: {
       pullSpin = false;
       landingWatch = clearLandingWatch();
       stop();
+      handedOff = false;
       clearHold();
       velocity = 0;
       setPhase("drag");
@@ -733,7 +747,7 @@ function createEngine(options: {
       const stretch = options.getStretch();
       if (stretch && pressHitsCenter(localY, height)) {
         gesture = "pending";
-        holdTimer = window.setTimeout(() => {
+        holdTimer = setTimeout(() => {
           if (!drag || gesture !== "pending") return;
           engageStretch();
         }, STRETCH_HOLD_MS);
@@ -773,14 +787,15 @@ function createEngine(options: {
         releaseStretch();
         return;
       }
-      if (guest?.run?.length && guest.insertAfter != null && phase === "drag" && drag) {
-        drag = null;
+      if (handedOff && guest?.run?.length && guest.insertAfter != null && phase === "drag" && drag) {
         const notch = releaseNotch(position);
+        handBack();
         const cue = stretchLandingGate({ played: false });
         if (cue.play) playSettledLanding();
         animateSnap(notch);
         return;
       }
+      handedOff = false;
       if (phase !== "drag" || !drag) return;
       const samples = drag.samples;
       drag = null;
@@ -945,7 +960,7 @@ export function Reel({
   }, [onIndex, onMotion, onPieces]);
 
   useEffect(() => {
-    const engine = createEngine({
+    const engine = createReelEngine({
       initialIndex,
       setKinetics: (next, speed) => {
         setKinetics({ position: next, velocity: speed });
@@ -1053,6 +1068,24 @@ export function Reel({
           viewport.focus({ preventScroll: true });
           const bounds = viewport.getBoundingClientRect();
           const pointerId = event.pointerId;
+          let closed = false;
+          const endGesture = () => {
+            if (closed) return;
+            closed = true;
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", onUp);
+            window.removeEventListener("pointercancel", onUp);
+            window.removeEventListener("lostpointercapture", onUp);
+            if (viewport.hasPointerCapture?.(pointerId)) {
+              try {
+                viewport.releasePointerCapture(pointerId);
+              } catch {
+                /* The pointer is already gone. */
+              }
+            }
+            engineRef.current?.pointerUp();
+            viewport.blur();
+          };
           const onMove = (moveEvent: PointerEvent) => {
             if (moveEvent.pointerId !== pointerId) return;
             if (moveEvent.cancelable) moveEvent.preventDefault();
@@ -1060,15 +1093,17 @@ export function Reel({
           };
           const onUp = (upEvent: PointerEvent) => {
             if (upEvent.pointerId !== pointerId) return;
-            window.removeEventListener("pointermove", onMove);
-            window.removeEventListener("pointerup", onUp);
-            window.removeEventListener("pointercancel", onUp);
-            engineRef.current?.pointerUp();
-            viewport.blur();
+            endGesture();
           };
           window.addEventListener("pointermove", onMove);
           window.addEventListener("pointerup", onUp);
           window.addEventListener("pointercancel", onUp);
+          window.addEventListener("lostpointercapture", onUp);
+          try {
+            viewport.setPointerCapture(pointerId);
+          } catch {
+            /* Capture is optional. The window listeners still follow the finger. */
+          }
           engineRef.current?.pointerDown(
             event.clientY,
             event.timeStamp,
