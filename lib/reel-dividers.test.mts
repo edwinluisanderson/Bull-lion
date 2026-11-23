@@ -24,10 +24,11 @@ test("a moving reel lights only the dividers beside it", () => {
   assert.ok(dividerLevels([true, true, true]).right <= DIVIDER_BRIGHT);
   assert.match(css, new RegExp(`opacity:\\s*${DIVIDER_DIM}`));
   assert.match(css, new RegExp(`opacity:\\s*${DIVIDER_BRIGHT}`));
-  const lens = css.match(/\.reel-column \+ \.reel-column::after\s*\{([^}]*)\}/)?.[1] ?? "";
-  assert.match(lens, /top:\s*var\(--reel-name\)/);
-  assert.match(lens, /height:\s*var\(--reel-window\)/);
-  assert.match(lens, /clip-path:\s*polygon\(50% 0, 100% 50%, 50% 100%, 0 50%\)/);
-  assert.match(lens, /linear-gradient\(to bottom, transparent 0%, #c6a15a 50%, transparent 100%\)/);
-  assert.equal(lens.includes("bottom:"), false);
+  const seam = css.match(/\.reel-column \+ \.reel-column::after\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.match(seam, /top:\s*var\(--reel-name\)/);
+  assert.match(seam, /height:\s*var\(--reel-window\)/);
+  assert.match(seam, /width:\s*1px/);
+  assert.match(seam, /background:\s*#c6a15a/);
+  assert.equal(seam.includes("clip-path"), false);
+  assert.equal(seam.includes("linear-gradient"), false);
 });
