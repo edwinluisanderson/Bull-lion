@@ -50,6 +50,9 @@ import {
   projectGuest,
   releasePlacement,
   sequenceFrom,
+  STRETCH_SNAP_MS,
+  stretchLandingGate,
+  stretchSnap,
   settledPlateStyle,
   stretchLayout,
   stretchRowClip,
@@ -387,6 +390,23 @@ function createEngine(options: {
     animateTo(past, duration);
   }
 
+  function animateSnap(target: number) {
+    stop();
+    if (options.isReduced() || Math.abs(target - position) < 0.0001) {
+      velocity = 0;
+      position = target;
+      options.setKinetics(target, 0);
+      setPhase("idle");
+      return;
+    }
+    animFrom = position;
+    animTo = target;
+    animStart = performance.now();
+    animDur = STRETCH_SNAP_MS;
+    setPhase("snap");
+    schedule();
+  }
+
   function tick(now: number) {
     raf = 0;
     if (phase === "idle" || phase === "drag") return;
@@ -433,8 +453,12 @@ function createEngine(options: {
     if (phase === "snap" || phase === "script") {
       const progress = Math.min(1, (now - animStart) / animDur);
       const power = phase === "script" ? 4 : 3;
-      const eased = 1 - (1 - progress) ** power;
-      const next = progress >= 1 ? animTo : animFrom + (animTo - animFrom) * eased;
+      const next =
+        progress >= 1
+          ? animTo
+          : phase === "snap"
+            ? stretchSnap(animFrom, animTo, progress)
+            : animFrom + (animTo - animFrom) * (1 - (1 - progress) ** power);
       velocity = (next - position) / Math.max(dt, 0.001);
       setPos(next);
       if (progress >= 1) {
@@ -643,6 +667,12 @@ function createEngine(options: {
     options.onGuest(guest);
     publishStretch(null);
     stretchOrigin = null;
+    const cue = stretchLandingGate({ played: false });
+    if (cue.play) playSettledLanding();
+    if (placed) {
+      animateSnap(placed.center);
+      return;
+    }
     setPhase("idle");
   }
 

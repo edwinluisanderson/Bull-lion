@@ -18,7 +18,11 @@ import {
   settledPlateStyle,
   guestWindow,
   releasePlacement,
+  snapEase,
+  STRETCH_SNAP_MS,
+  stretchLandingGate,
   stretchLayout,
+  stretchSnap,
   stretchRowClip,
   stretchSequence,
   valueAfterRelease,
@@ -454,6 +458,86 @@ test("releasing an upward stretch keeps the in-between that is still beside cent
   assert.ok(placed);
   assert.deepEqual(placed.guest.run, [21, 22]);
   assert.deepEqual(guestWindow(COUNTS, placed.position, placed.guest), [21, 22, 25]);
+});
+
+test("a release snap eases past center and settles on it", () => {
+  assert.ok(STRETCH_SNAP_MS >= 90 && STRETCH_SNAP_MS <= 140);
+  assert.ok(Math.abs(snapEase(0)) < 1e-9);
+  assert.ok(Math.abs(snapEase(1) - 1) < 1e-9);
+  let peak = 0;
+  for (let step = 0; step <= 40; step += 1) peak = Math.max(peak, snapEase(step / 40));
+  assert.ok(peak > 1.02 && peak < 1.12);
+
+  const origin = originFor(COUNTS, 20);
+  const sequence = sequenceFrom(origin, "down");
+  const travel = 2 * HEIGHT + 24;
+  const layout = stretchLayout({
+    direction: "down",
+    anchor: 20,
+    pin: origin.lower,
+    pushed: origin.upper,
+    sequence,
+    travel,
+    itemHeight: HEIGHT,
+  });
+  const placed = releasePlacement({
+    direction: "down",
+    origin,
+    sequence,
+    travel,
+    itemHeight: HEIGHT,
+    centered: layout.centered,
+  });
+  assert.ok(placed);
+  assert.ok(Math.abs(placed.position - placed.center) > 0.05);
+  const start = guestWindow(COUNTS, placed.position, placed.guest);
+  assert.deepEqual(guestWindow(COUNTS, placed.center, placed.guest), start);
+  let far = 0;
+  for (let step = 0; step <= 20; step += 1) {
+    const at = stretchSnap(placed.position, placed.center, step / 20);
+    far = Math.max(far, Math.abs(at - placed.center));
+    assert.deepEqual(guestWindow(COUNTS, at, placed.guest), start);
+  }
+  assert.ok(far > 0);
+  assert.equal(stretchSnap(placed.position, placed.center, 1), placed.center);
+});
+
+test("twenty stretch releases each knock once and finish centered", () => {
+  const origin = originFor(COUNTS, 20);
+  const sequence = sequenceFrom(origin, "down");
+  let knocks = 0;
+  for (let i = 0; i < 20; i += 1) {
+    const travel = 1.6 * HEIGHT + i * 3;
+    const layout = stretchLayout({
+      direction: "down",
+      anchor: 20,
+      pin: origin.lower,
+      pushed: origin.upper,
+      sequence,
+      travel,
+      itemHeight: HEIGHT,
+    });
+    const placed = releasePlacement({
+      direction: "down",
+      origin,
+      sequence,
+      travel,
+      itemHeight: HEIGHT,
+      centered: layout.centered,
+    });
+    assert.ok(placed);
+    let gate = { played: false };
+    const cue = stretchLandingGate(gate);
+    gate = cue.state;
+    if (cue.play) knocks += 1;
+    assert.equal(stretchLandingGate(gate).play, false);
+    assert.equal(stretchSnap(placed.position, placed.center, 1), placed.center);
+    assert.deepEqual(
+      guestWindow(COUNTS, placed.center, placed.guest),
+      guestWindow(COUNTS, placed.position, placed.guest),
+    );
+  }
+  assert.equal(knocks, 20);
 });
 
 test("the ends of the count list have no invented numbers", () => {

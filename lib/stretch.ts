@@ -3,6 +3,31 @@ import { REEL_ITEM_HEIGHT } from "@/lib/metals";
 
 /** Long-press a count, then pull. The near stop stays pinned; the pressed number moves with the finger. */
 
+/** Release snap. Long enough to read as a mechanical ease, short of a second move. */
+export const STRETCH_SNAP_MS = 110;
+
+/**
+ * Ease-out that passes the center by a little, then settles on it.
+ * 0 and 1 are exact, so the face ends dead center.
+ */
+export function snapEase(progress: number): number {
+  const t = Math.min(1, Math.max(0, progress));
+  const overshoot = 0.85;
+  const cubic = overshoot + 1;
+  return 1 + cubic * (t - 1) ** 3 + overshoot * (t - 1) ** 2;
+}
+
+/** Position along a release snap. `center` is the integer slot of the chosen face. */
+export function stretchSnap(from: number, center: number, progress: number): number {
+  return from + (center - from) * snapEase(progress);
+}
+
+/** One landing cue per release. A second call in the same release stays quiet. */
+export function stretchLandingGate(state: { played: boolean }): { state: { played: boolean }; play: boolean } {
+  if (state.played) return { state, play: false };
+  return { state: { played: true }, play: true };
+}
+
 export const STRETCH_HOLD_MS = 400;
 export const STRETCH_SLOP_PX = 10;
 
@@ -250,7 +275,7 @@ export function releasePlacement(input: {
   travel: number;
   itemHeight: number;
   centered: number;
-}): { position: number; guest: GuestCount } | null {
+}): { position: number; center: number; guest: GuestCount } | null {
   const { direction, origin, sequence, travel, itemHeight, centered } = input;
   if (!(itemHeight > 0) || sequence.length === 0) return null;
   const visible: number[] = [];
@@ -269,8 +294,10 @@ export function releasePlacement(input: {
   if (at < 0 || insertAfter == null) return null;
   const payline = itemHeight * 1.5;
   const delta = (centeredTop + itemHeight / 2 - payline) / itemHeight;
+  const center = insertAfter + 1 + at;
   return {
-    position: insertAfter + 1 + at - delta,
+    position: center - delta,
+    center,
     guest: {
       value: centered,
       slot: origin.slot ?? (direction === "down" ? origin.lowerIndex + 0.5 : insertAfter + 0.5),
