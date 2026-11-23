@@ -22,6 +22,7 @@ import { hapticClick } from "@/lib/haptics";
 import { noteReelSpinning, playReelClick, reelSnap, unlockReelClick } from "@/lib/reel-click";
 import { detentForStop } from "@/lib/spin-gate";
 import { pullDecel, pullLaunchVelocity } from "@/lib/pull-spin";
+import { createReelMotion } from "@/lib/reel-motion";
 import { setWheelLampSpeed } from "@/lib/wheel-lamp";
 import { playStretchPop, unlockStretchPops } from "@/lib/stretch-pop";
 import { stretchPopCount } from "@/lib/stretch-pops";
@@ -201,16 +202,16 @@ function createEngine(options: {
     }
   }
 
+  const motion = createReelMotion((moving) => options.onMotion(moving));
+
   function setPhase(next: Phase) {
-    if (phase === next) return;
-    const wasMoving = phase !== "idle";
+    const changed = motion.set(phase, next);
+    if (!changed) return;
     phase = next;
     if (next === "idle") {
       setAudioSpin(false);
       pullSpin = false;
     }
-    const moving = next !== "idle";
-    if (wasMoving !== moving) options.onMotion(moving);
   }
 
   function enabledIndex(index: number): boolean {
@@ -721,7 +722,7 @@ function createEngine(options: {
       clearHold();
       stop();
       drag = null;
-      phase = "idle";
+      setPhase("idle");
     },
   };
 }

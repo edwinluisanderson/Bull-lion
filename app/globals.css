@@ -400,7 +400,7 @@ button,
   height: var(--reel-window);
   pointer-events: none;
   background: #c6a15a;
-  opacity: 0.28;
+  opacity: 0.32;
   transition: opacity 280ms ease;
 }
 

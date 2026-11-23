@@ -1,9 +1,10 @@
 /**
  * The two brass lines between the reels.
- * Bright is the old seam, rgba(198, 161, 90, 0.35). Dim sits just under it.
+ * Bright is the seam as it renders while a reel is moving: #c6a15a at 0.35.
+ * Rest sits just under that, still clearly on.
  */
 export const DIVIDER_BRIGHT = 0.35;
-export const DIVIDER_DIM = 0.28;
+export const DIVIDER_DIM = 0.32;
 
 export type DividerLevels = { left: number; right: number };
 
