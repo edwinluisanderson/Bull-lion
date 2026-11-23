@@ -7,26 +7,16 @@ import { DIVIDER_BRIGHT, DIVIDER_DIM } from "@/lib/reel-dividers";
 
 const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 
-test("the rest drum leaves a 15px housing gap", () => {
+test("the drum band is locked to the rest silhouette", () => {
   assert.equal(DRUM_RIM, REST_FACE_EDGE - HOUSING_GAP);
   assert.equal(DRUM_RIM, 5.710493);
-  const skin = drumSkin(0);
+  const skin = drumSkin();
+  assert.equal(skin.top, 15);
+  assert.equal(skin.bottom, 243);
   assert.equal(skin.top, HOUSING_GAP);
   assert.equal(skin.bottom, DRUM_WINDOW - HOUSING_GAP);
   assert.equal(skin.height, DRUM_WINDOW - HOUSING_GAP * 2);
-});
-
-test("the body follows the faces and stays inside the window", () => {
-  const moving = drumSkin(0.35);
-  assert.ok(moving.top < HOUSING_GAP || DRUM_WINDOW - moving.bottom < HOUSING_GAP);
-  for (let step = 0; step <= 40; step += 1) {
-    const skin = drumSkin(step / 40);
-    assert.ok(skin.top >= 0 && skin.bottom <= DRUM_WINDOW);
-    assert.ok(skin.top <= HOUSING_GAP + 1e-6, `top opened to ${skin.top}`);
-    assert.ok(DRUM_WINDOW - skin.bottom <= HOUSING_GAP + 1e-6, `bottom opened to ${DRUM_WINDOW - skin.bottom}`);
-    assert.ok(skin.height > 0);
-  }
-  assert.equal(DRUM_RIM, REST_FACE_EDGE - HOUSING_GAP);
+  assert.equal(drumSkin(), skin);
 });
 
 test("the housing is symmetric bronze and the seam matches the rest drum", () => {
@@ -53,6 +43,8 @@ test("the housing is symmetric bronze and the seam matches the rest drum", () =>
   assert.match(seam, new RegExp(`opacity:\\s*${DIVIDER_DIM}`));
   assert.equal(DIVIDER_BRIGHT, 1);
   assert.equal(DIVIDER_DIM, 0.8);
+  const band = css.match(/\.reel-drum-band\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.match(band, /overflow:\s*hidden/);
   const shade = css.match(/\.reel-drum-shade\s*\{([^}]*)\}/)?.[1] ?? "";
   assert.match(shade, /z-index:\s*3/);
   assert.match(shade, /pointer-events:\s*none/);

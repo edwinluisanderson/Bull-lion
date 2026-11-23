@@ -469,6 +469,16 @@ button,
     inset 0 -3px 4px rgba(0, 0, 0, 0.55);
 }
 
+.reel-drum-band {
+  position: absolute;
+  z-index: 1;
+  right: 0;
+  left: 0;
+  overflow: hidden;
+  border-radius: 0;
+  pointer-events: none;
+}
+
 .reel-drum-shade {
   position: absolute;
   z-index: 3;

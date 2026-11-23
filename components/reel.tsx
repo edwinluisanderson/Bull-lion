@@ -26,7 +26,7 @@ import { createReelMotion } from "@/lib/reel-motion";
 import { setWheelLampSpeed } from "@/lib/wheel-lamp";
 import { playStretchPop, unlockStretchPops } from "@/lib/stretch-pop";
 import { stretchPopCount } from "@/lib/stretch-pops";
-import { DRUM_WINDOW, drumSkin } from "@/lib/drum-housing";
+import { DRUM_WINDOW, REST_DRUM } from "@/lib/drum-housing";
 import { REEL_ITEM_HEIGHT } from "@/lib/metals";
 import {
   STRETCH_HOLD_MS,
@@ -854,7 +854,6 @@ export function Reel({
   const shown = viewPosition - bendDegrees / STOP_DEGREES;
   const base = Math.floor(shown);
   const fraction = shown - base;
-  const skin = drumSkin(fraction);
   const active = mod(Math.round(viewPosition), count);
   const facing = mod(Math.round(shown), count);
   const activeSymbol = viewItems[active];
@@ -950,11 +949,9 @@ export function Reel({
           }
         }}
       >
-        <div className="reel-drum" style={{ top: skin.top, height: skin.height }} />
-        <div
-          className="reel-cylinder"
-          style={{ clipPath: `inset(${skin.top}px 0 ${DRUM_WINDOW - skin.bottom}px 0)` }}
-        >
+        <div className="reel-drum" style={{ top: REST_DRUM.top, height: REST_DRUM.height }} />
+        <div className="reel-drum-band" style={{ top: REST_DRUM.top, height: REST_DRUM.height }}>
+        <div className="reel-cylinder" style={{ top: -REST_DRUM.top, height: DRUM_WINDOW, bottom: "auto" }}>
         {stretchFrame
           ? stretchFrame.rows.map((row) => {
               const clip = stretchRowClip(row.screenTop, REEL_ITEM_HEIGHT, stretchFrame.direction, row.role);
@@ -1055,7 +1052,8 @@ export function Reel({
           );
         })}
         </div>
-        <div className="reel-drum-shade" style={{ top: skin.top, height: skin.height }} />
+        </div>
+        <div className="reel-drum-shade" style={{ top: REST_DRUM.top, height: REST_DRUM.height }} />
       </div>
       <div className="reel-nudge">
         <button
