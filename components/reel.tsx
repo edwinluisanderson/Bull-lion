@@ -50,6 +50,7 @@ import {
   projectGuest,
   guestWindow,
   originFromWindow,
+  releaseNotch,
   releasePlacement,
   rollGuestWindow,
   sequenceFrom,
@@ -770,6 +771,14 @@ function createEngine(options: {
       clearHold();
       if (gesture === "stretch") {
         releaseStretch();
+        return;
+      }
+      if (guest?.run?.length && guest.insertAfter != null && phase === "drag" && drag) {
+        drag = null;
+        const notch = releaseNotch(position);
+        const cue = stretchLandingGate({ played: false });
+        if (cue.play) playSettledLanding();
+        animateSnap(notch);
         return;
       }
       if (phase !== "drag" || !drag) return;

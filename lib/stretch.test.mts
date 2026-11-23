@@ -20,6 +20,7 @@ import {
   sequenceFrom,
   settledPlateStyle,
   guestWindow,
+  releaseNotch,
   releasePlacement,
   snapEase,
   STRETCH_SNAP_MS,
@@ -686,6 +687,40 @@ test("consecutive faces roll off-screen instead of jumping to the main stops", (
   assert.deepEqual(upward[0], [18, 19, 20]);
   assert.deepEqual(upward[1], [19, 20, 25]);
   assert.ok(upward[2].includes(20));
+});
+
+test("a dead-stop release after one face keeps that window, and a moving release does not step again", () => {
+  const insertAfter = COUNTS.indexOf(10);
+  const guest = { value: 18, slot: insertAfter + 0.5, run: [17, 18, 19], insertAfter };
+  const rest = insertAfter + 2;
+  assert.deepEqual(guestWindow(COUNTS, rest, guest), [17, 18, 19]);
+
+  const down = rollGuestWindow({ position: rest, guest, direction: "down", travel: HEIGHT, itemHeight: HEIGHT });
+  assert.deepEqual(guestWindow(COUNTS, down.position, down.guest), [10, 17, 18]);
+  assert.equal(releaseNotch(down.position), down.position);
+  assert.deepEqual(guestWindow(COUNTS, releaseNotch(down.position), down.guest), [10, 17, 18]);
+  assert.equal(releaseNotch(down.position - 0.4), down.position);
+  assert.notEqual(releaseNotch(down.position - 0.4), down.position - 1);
+
+  const up = rollGuestWindow({ position: rest, guest, direction: "up", travel: HEIGHT, itemHeight: HEIGHT });
+  assert.deepEqual(guestWindow(COUNTS, up.position, up.guest), [18, 19, 20]);
+  assert.equal(releaseNotch(up.position), up.position);
+  assert.deepEqual(guestWindow(COUNTS, releaseNotch(up.position), up.guest), [18, 19, 20]);
+  assert.equal(releaseNotch(up.position + 0.4), up.position);
+});
+
+test("crossing 100 does not swap a face in the middle of the window", () => {
+  const insertAfter = COUNTS.indexOf(50);
+  const guest = { value: 100, slot: insertAfter + 0.5, run: [100], insertAfter };
+  const at100 = insertAfter + 1;
+  assert.equal(guestWindow(COUNTS, at100, guest)[1], 100);
+  assert.equal(releaseNotch(at100 + 0.2), at100);
+  const held = guestWindow(COUNTS, releaseNotch(at100 + 0.2), guest);
+  assert.equal(held[1], 100);
+  assert.ok(!held.includes(2));
+  const edge = guestWindow(COUNTS, at100 + 1, guest);
+  assert.equal(edge[0], 100);
+  assert.notEqual(edge[1], 2);
 });
 
 test("the ends of the count list have no invented numbers", () => {

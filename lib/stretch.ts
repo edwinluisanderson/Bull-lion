@@ -386,6 +386,15 @@ export function guestWindow(stops: readonly number[], position: number, guest: G
 }
 
 /**
+ * Nearest index of the faces on screen. Release snaps here and does not
+ * step onward in the drag direction, and it does not wrap the index.
+ */
+export function releaseNotch(position: number): number {
+  if (!Number.isFinite(position)) return 0;
+  return Math.round(position);
+}
+
+/**
  * Slide a resting run when the visible faces are already consecutive.
  * The run stays; travel only changes which face is centered.
  */
