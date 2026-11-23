@@ -722,6 +722,8 @@ html[data-ball="cobalt"] .pull-ball {
   justify-content: center;
   gap: 2px;
   margin: 4px;
+  container-type: inline-size;
+  container-name: symbol;
   border-radius: 8px;
   background:
     radial-gradient(circle at 50% 0%, rgba(255, 220, 150, 0.08), transparent 55%),
@@ -1983,6 +1985,8 @@ html[data-ball="cobalt"] .pull-ball {
   box-sizing: border-box;
   height: 4.8rem;
   padding: 10px;
+  container-type: inline-size;
+  container-name: melt;
   overflow: hidden;
   border-radius: 8px;
   background: #000;
@@ -2271,6 +2275,8 @@ html[data-ball="cobalt"] .pull-ball {
   flex: 1;
   min-width: 0;
   padding: 0.45rem 0.6rem 0.55rem;
+  container-type: inline-size;
+  container-name: plate;
   border-radius: 14px;
   text-align: center;
   background: var(--brass-plate);
@@ -2714,6 +2720,8 @@ html[data-ball="cobalt"] .pull-ball {
 html[data-compact] { --reel-name: 0px; }
 html[data-compact] .reel-name { display: none; }
 html[data-compact] .gauge-row:has(.gauge--round-b) {
+  container-type: inline-size;
+  container-name: gauges;
   padding-left: var(--reel-inset-left);
   padding-right: var(--reel-inset-right);
   padding-top: calc(var(--gauge-top-gap) - var(--gauge-b) * 5.5 / 96);
@@ -2935,4 +2943,38 @@ html[data-compact="3"][data-plate] .window-frame {
 
 .brake-switch button[data-on="true"] {
   color: #f0d78c;
+}
+
+/* Below the 390px machine, keep the price, the long metal name, the reel
+   label, and the brass arch between the gauges inside the row. At 390 and
+   412 the min() stays on the existing sizes. */
+@container melt (min-width: 0px) {
+  .melt-wheels {
+    font-size: min(1.62rem, calc(100cqi / 9.2));
+  }
+}
+
+@container plate (min-width: 0px) {
+  .melt-plate .plate-title {
+    font-size: min(1.55rem, calc((100cqi - 108px) / 6.4));
+  }
+}
+
+@container symbol (min-width: 0px) {
+  .symbol-detail {
+    font-size: min(0.62rem, calc((100cqi - 12px) / 8.2));
+  }
+}
+
+@container gauges (min-width: 0px) {
+  html[data-compact="3"] .gauge.weight-dial {
+    --gauge-b: min(75px, calc((100cqi - 72px) / 3));
+  }
+}
+
+@media (max-width: 389px) {
+  .brake-switch {
+    left: auto;
+    right: 10px;
+  }
 }
