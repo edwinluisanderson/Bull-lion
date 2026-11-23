@@ -53,4 +53,10 @@ test("the housing is symmetric bronze and the seam matches the rest drum", () =>
   assert.match(seam, new RegExp(`opacity:\\s*${DIVIDER_DIM}`));
   assert.equal(DIVIDER_BRIGHT, 1);
   assert.equal(DIVIDER_DIM, 0.8);
+  const shade = css.match(/\.reel-drum-shade\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.match(shade, /z-index:\s*3/);
+  assert.match(shade, /pointer-events:\s*none/);
+  assert.match(shade, /border-radius:\s*0/);
+  assert.match(shade, /rgba\(0,0,0,0\.72\) 0%.*rgba\(0,0,0,0\) 20%.*rgba\(0,0,0,0\) 75%.*rgba\(0,0,0,0\.85\) 100%/);
+  assert.equal(Number(seam.match(/z-index:\s*(\d+)/)?.[1]) > 3, true);
 });

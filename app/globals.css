@@ -469,6 +469,16 @@ button,
     inset 0 -3px 4px rgba(0, 0, 0, 0.55);
 }
 
+.reel-drum-shade {
+  position: absolute;
+  z-index: 3;
+  right: 0;
+  left: 0;
+  border-radius: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.62) 3%, rgba(0,0,0,0.44) 7%, rgba(0,0,0,0.25) 11%, rgba(0,0,0,0.10) 15%, rgba(0,0,0,0) 20%, rgba(0,0,0,0) 75%, rgba(0,0,0,0.09) 80%, rgba(0,0,0,0.26) 84%, rgba(0,0,0,0.47) 88%, rgba(0,0,0,0.67) 92%, rgba(0,0,0,0.80) 96%, rgba(0,0,0,0.85) 100%);
+}
+
 .reel-viewport::before {
   content: "";
   position: absolute;

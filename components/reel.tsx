@@ -1055,6 +1055,7 @@ export function Reel({
           );
         })}
         </div>
+        <div className="reel-drum-shade" style={{ top: skin.top, height: skin.height }} />
       </div>
       <div className="reel-nudge">
         <button
