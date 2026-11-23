@@ -75,12 +75,47 @@ export function modStop(value: number, count: number): number {
   return ((value % count) + count) % count;
 }
 
+/**
+ * One stop is the pattern period. At the payline the cylinder moves
+ * `paylineSpacing()` symbol heights per stop, which is just over 1
+ * (d(sin θ)/d(stop) at the facing angle, θ = 18°). A frame that travels
+ * a whole stop looks frozen. Half a stop is the Nyquist point, where the
+ * wheel can read as stopped or spinning backward.
+ *
+ * That half-stop limit is 30 stops/s at 60Hz, 45 at 90Hz, and 60 at 120Hz.
+ * The cap is a third of a stop per 60Hz frame (20 stops/s). The same reel
+ * then travels 0.222 stops/frame at 90Hz and 0.167 at 120Hz, all safely
+ * under half a stop, so the faces keep rolling toward the viewer.
+ */
+export const REEL_ALIAS_FRACTION = 0.5;
+export const REEL_CAP_FRACTION = 1 / 3;
+export const REEL_REFERENCE_HZ = 60;
+export const REEL_CHECK_HZ = [60, 90, 120] as const;
+export const REEL_SPEED_CAP = REEL_CAP_FRACTION * REEL_REFERENCE_HZ;
+/** Heavy flywheel. A launch at the cap takes half a second to get there. */
+export const REEL_SPINUP_ACCEL = REEL_SPEED_CAP / 0.5;
+
+/** Symbol heights the payline travels per stop, measured on the facing face. */
+export function paylineSpacing(): number {
+  const radians = (STOP_DEGREES * Math.PI) / 180;
+  return radians / Math.sin(radians);
+}
+
+/** Stops per second at which one frame covers `fraction` of a stop. */
+export function stopsPerSecond(fraction: number, hz: number): number {
+  return fraction * hz;
+}
+
+export function reelAliasSpeed(hz: number): number {
+  return stopsPerSecond(REEL_ALIAS_FRACTION, hz);
+}
+
 /** Constant deceleration, stops per second squared. Same brake on every reel and every stop. */
 export const BRAKE_PRESETS = { light: 8, medium: 16, heavy: 32 } as const;
 export type BrakePreset = keyof typeof BRAKE_PRESETS;
 export const COAST_SETTLE_SPEED = 0.5;
 
-let brakePreset: BrakePreset = "medium";
+let brakePreset: BrakePreset = "light";
 
 export function brakeDecel(preset: BrakePreset = brakePreset): number {
   return BRAKE_PRESETS[preset];
@@ -125,6 +160,41 @@ export function coastAdvance(
 }
 
 /**
+ * Spin up toward `target` at a limited acceleration, then brake.
+ * The target is already inside the speed cap. A release does not jump there.
+ */
+export function flywheelAdvance(
+  position: number,
+  velocity: number,
+  target: number,
+  dt: number,
+  decel = brakeDecel(),
+  accel = REEL_SPINUP_ACCEL,
+): { position: number; velocity: number; target: number } {
+  if (dt <= 0) return { position, velocity, target };
+  const goal = Math.min(REEL_SPEED_CAP, Math.abs(target));
+  const sign = target === 0 ? Math.sign(velocity) : Math.sign(target);
+  const speed = Math.abs(velocity);
+  const winding =
+    goal > 0 &&
+    sign !== 0 &&
+    (velocity === 0 || Math.sign(velocity) === sign) &&
+    speed < goal - 1e-9 &&
+    accel > 0;
+  if (winding) {
+    const next = Math.min(goal, speed + accel * dt);
+    const distance = ((speed + next) / 2) * dt;
+    return {
+      position: position + sign * distance,
+      velocity: sign * next,
+      target: next >= goal ? 0 : sign * goal,
+    };
+  }
+  const braked = coastAdvance(position, velocity, dt, () => true, 1, decel);
+  return { position: braked.position, velocity: braked.velocity, target: 0 };
+}
+
+/**
  * The next lit stop in the direction of travel.
  * Never rounds backward, never stops on a gray face, never stops halfway.
  */
@@ -166,7 +236,7 @@ export function stopsCrossed(previous: number, next: number): number[] {
 export function flingVelocity(
   samples: { t: number; y: number }[],
   itemHeight: number,
-  max = 28,
+  max = REEL_SPEED_CAP,
 ): number {
   if (samples.length < 2 || itemHeight <= 0) return 0;
   const recent = samples.slice(-5);

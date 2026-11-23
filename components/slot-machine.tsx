@@ -54,7 +54,7 @@ const METAL_SEGMENT_FILL: Record<string, string> = {
 };
 
 function BrakeSwitch() {
-  const [preset, setPreset] = useState<BrakePreset>("medium");
+  const [preset, setPreset] = useState<BrakePreset>("light");
   useEffect(() => {
     const query = new URLSearchParams(window.location.search).get("brake");
     if (query === "light" || query === "medium" || query === "heavy") setBrakePreset(query);

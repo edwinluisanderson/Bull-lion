@@ -5,9 +5,10 @@ import { useEffect, useRef, useState } from "react";
 import {
   camPastNotch,
   brakeDecel,
-  coastAdvance,
   COAST_SETTLE_SPEED,
   flingVelocity,
+  flywheelAdvance,
+  REEL_SPEED_CAP,
   stopsCrossed,
   commitIndex,
   cylinderPose,
@@ -82,7 +83,7 @@ function countFace(value: number): StretchFace {
   return { mark: `×${value}`, detail: value === 1 ? "piece" : "pieces" };
 }
 
-const MAX_VELOCITY = 28;
+const MAX_VELOCITY = REEL_SPEED_CAP;
 const WINDOW = [-2, -1, 0, 1, 2, 3];
 
 function guestSymbol(
@@ -145,6 +146,7 @@ function createEngine(options: {
   let position = options.initialIndex;
   let phase: Phase = "idle";
   let velocity = 0;
+  let launchTarget = 0;
   let committed = options.initialIndex;
   let raf = 0;
   let last = 0;
@@ -372,11 +374,12 @@ function createEngine(options: {
 
     if (phase === "coast") {
       const count = options.getCount();
-      const incoming = velocity;
-      const step = coastAdvance(position, velocity, dt, options.isEnabled, count, brakeDecel());
+      const incoming = velocity === 0 ? launchTarget : velocity;
+      const step = flywheelAdvance(position, velocity, launchTarget, dt, brakeDecel());
       velocity = step.velocity;
+      launchTarget = step.target;
       setPos(step.position);
-      if (Math.abs(velocity) < COAST_SETTLE_SPEED) {
+      if (launchTarget === 0 && Math.abs(velocity) < COAST_SETTLE_SPEED) {
         const direction = velocity !== 0 ? velocity : incoming;
         camToNotch(glideSettleNotch(position, direction, count, options.isEnabled), 180);
         return;
@@ -588,6 +591,7 @@ function createEngine(options: {
       stop();
       clearHold();
       velocity = 0;
+      launchTarget = 0;
       setPhase("drag");
       publishStretch(null);
       drag = {
@@ -654,7 +658,8 @@ function createEngine(options: {
         camToNotch(notch, 180);
         return;
       }
-      velocity = speed;
+      velocity = 0;
+      launchTarget = speed;
       setAudioSpin(true);
       setPhase("coast");
       schedule();
@@ -706,7 +711,8 @@ function createEngine(options: {
         return;
       }
       stop();
-      velocity = pullLaunchVelocity({
+      velocity = 0;
+      launchTarget = pullLaunchVelocity({
         order,
         decel: brakeDecel(),
         strength: currentPullStrength(),

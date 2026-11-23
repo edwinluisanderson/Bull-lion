@@ -9,7 +9,14 @@ import {
   commitIndex,
   cylinderPose,
   flingVelocity,
+  flywheelAdvance,
+  getBrakePreset,
   glideSettleNotch,
+  paylineSpacing,
+  REEL_CAP_FRACTION,
+  REEL_CHECK_HZ,
+  REEL_SPEED_CAP,
+  reelAliasSpeed,
   stopsCrossed,
   modStop,
   nearestEnabledNotch,
@@ -140,6 +147,50 @@ test("a fling averages the last pointer samples", () => {
   assert.deepEqual(stopsCrossed(1.2, 2.4), [2]);
   assert.deepEqual(stopsCrossed(2.2, 1.4), [2]);
   assert.deepEqual(stopsCrossed(1.2, 3.1), [2, 3]);
+});
+
+test("the speed cap stays under the wagon-wheel limit at 60, 90, and 120Hz", () => {
+  const spacing = paylineSpacing();
+  assert.ok(spacing > 1 && spacing < 1.04);
+  for (const hz of REEL_CHECK_HZ) {
+    const alias = reelAliasSpeed(hz);
+    assert.equal(alias, 0.5 * hz);
+    assert.ok(REEL_SPEED_CAP < alias);
+    assert.ok(REEL_SPEED_CAP / hz < 0.5);
+  }
+  assert.equal(REEL_SPEED_CAP, REEL_CAP_FRACTION * 60);
+  assert.ok(REEL_SPEED_CAP / 60 <= REEL_CAP_FRACTION + 1e-9);
+  const flung = [
+    { t: 0, y: 0 },
+    { t: 16, y: 80 },
+    { t: 32, y: 160 },
+  ];
+  assert.equal(Math.abs(flingVelocity(flung, 86)), REEL_SPEED_CAP);
+});
+
+test("a launch winds up to the target instead of jumping there", () => {
+  const target = -REEL_SPEED_CAP;
+  const first = flywheelAdvance(0, 0, target, 1 / 60);
+  assert.ok(first.velocity < 0);
+  assert.ok(Math.abs(first.velocity) < Math.abs(target) / 2);
+  assert.ok(first.position < 0);
+  let velocity = 0;
+  let position = 0;
+  let goal = target;
+  for (let frame = 0; frame < 120; frame += 1) {
+    const step = flywheelAdvance(position, velocity, goal, 1 / 60, BRAKE_PRESETS.light);
+    position = step.position;
+    velocity = step.velocity;
+    goal = step.target;
+    assert.ok(Math.abs(velocity) <= REEL_SPEED_CAP + 1e-9);
+  }
+  assert.equal(goal, 0);
+  assert.ok(Math.abs(velocity) < REEL_SPEED_CAP);
+  assert.ok(position < 0);
+});
+
+test("the light brake is the one the reels start on", () => {
+  assert.equal(getBrakePreset(), "light");
 });
 
 test("cylinder faces shrink and crowd toward the edges", () => {

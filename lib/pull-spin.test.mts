@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { BRAKE_PRESETS } from "@/lib/drum";
+import { BRAKE_PRESETS, REEL_SPEED_CAP } from "@/lib/drum";
 import { PULL_STAGGER_S, pullLaunchVelocity, pullStopSeconds, stillAtMs } from "@/lib/pull-spin";
 
 test("later reels launch faster by one stagger of the shared brake", () => {
@@ -18,7 +18,7 @@ test("later reels launch faster by one stagger of the shared brake", () => {
 });
 
 test("jitter stays inside 15 percent and a harder pull is faster", () => {
-  const decel = BRAKE_PRESETS.medium;
+  const decel = BRAKE_PRESETS.light;
   const calm = Math.abs(pullLaunchVelocity({ order: 0, decel, strength: 1, random: 0.5 }));
   const fast = Math.abs(pullLaunchVelocity({ order: 0, decel, strength: 1, random: 1 }));
   const slow = Math.abs(pullLaunchVelocity({ order: 0, decel, strength: 1, random: 0 }));
@@ -35,4 +35,11 @@ test("the three reels still stop left to right", () => {
   assert.ok(lands[0] < lands[1] && lands[1] < lands[2]);
   assert.equal(lands[1] - lands[0], Math.round(PULL_STAGGER_S * 1000));
   assert.ok(stillAtMs(0, "light") > stillAtMs(0, "heavy"));
+  for (const preset of ["light", "medium", "heavy"] as const) {
+    const speeds = [0, 1, 2].map((order) =>
+      Math.abs(pullLaunchVelocity({ order, decel: BRAKE_PRESETS[preset], strength: 1, random: 1 })),
+    );
+    assert.ok(speeds.every((speed) => speed <= REEL_SPEED_CAP + 1e-9));
+    assert.ok(speeds[0] < speeds[1] && speeds[1] < speeds[2]);
+  }
 });
