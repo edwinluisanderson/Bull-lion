@@ -215,6 +215,84 @@ export function stretchLayout(input: {
   };
 }
 
+function emergedScreenTop(
+  direction: StretchDirection,
+  index: number,
+  travel: number,
+  itemHeight: number,
+): number {
+  const sign = direction === "down" ? 1 : -1;
+  const anchorTop = itemHeight + sign * travel;
+  return anchorTop - sign * (index + 1) * itemHeight;
+}
+
+/** An in-between face that still paints inside the reel window, even if partly clipped. */
+export function betweenFaceVisible(
+  screenTop: number,
+  itemHeight: number,
+  direction: StretchDirection,
+): boolean {
+  if (!(itemHeight > 0)) return false;
+  if (screenTop >= itemHeight * 3 || screenTop + itemHeight <= 0) return false;
+  const clip = stretchRowClip(screenTop, itemHeight, direction, "between");
+  return clip.clipTop < itemHeight && clip.clipBottom < itemHeight;
+}
+
+/**
+ * Keep the in-between faces that are on screen when the finger lets go.
+ * The run is pin-side first, and `position` leaves the centered value centered.
+ * Faces that have already left the window are not kept.
+ */
+export function releasePlacement(input: {
+  direction: StretchDirection;
+  origin: StretchOrigin;
+  sequence: readonly number[];
+  travel: number;
+  itemHeight: number;
+  centered: number;
+}): { position: number; guest: GuestCount } | null {
+  const { direction, origin, sequence, travel, itemHeight, centered } = input;
+  if (!(itemHeight > 0) || sequence.length === 0) return null;
+  const visible: number[] = [];
+  let centeredTop = 0;
+  sequence.forEach((value, index) => {
+    if (travel <= index * itemHeight) return;
+    const screenTop = emergedScreenTop(direction, index, travel, itemHeight);
+    if (!betweenFaceVisible(screenTop, itemHeight, direction)) return;
+    if (value === centered) centeredTop = screenTop;
+    visible.push(value);
+  });
+  if (!visible.includes(centered)) return null;
+  const insertAfter = direction === "down" ? origin.lowerIndex : (origin.anchorIndex ?? origin.lowerIndex);
+  const run = direction === "down" ? [...visible].reverse() : [...visible];
+  const at = run.indexOf(centered);
+  if (at < 0 || insertAfter == null) return null;
+  const payline = itemHeight * 1.5;
+  const delta = (centeredTop + itemHeight / 2 - payline) / itemHeight;
+  return {
+    position: insertAfter + 1 + at - delta,
+    guest: {
+      value: centered,
+      slot: origin.slot ?? (direction === "down" ? origin.lowerIndex + 0.5 : insertAfter + 0.5),
+      run,
+      insertAfter,
+    },
+  };
+}
+
+/** The three cylinder faces around `position` after a guest run is inserted. */
+export function guestWindow(stops: readonly number[], position: number, guest: GuestCount): number[] {
+  const items = stops.slice();
+  const at = (guest.insertAfter ?? Math.floor(guest.slot)) + 1;
+  const run = guest.run?.length ? [...guest.run] : [guest.value];
+  items.splice(at, 0, ...run);
+  const center = Math.round(position);
+  return [-1, 0, 1].map((delta) => {
+    const index = center + delta;
+    return items[((index % items.length) + items.length) % items.length] ?? items[0];
+  });
+}
+
 /** Extra travel once the in-betweens are done. Down moves the reel toward lower indexes. */
 export function handoffShift(direction: StretchDirection, remainderPx: number, itemHeight: number): number {
   if (itemHeight <= 0) return 0;

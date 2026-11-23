@@ -16,6 +16,8 @@ import {
   projectGuest,
   sequenceFrom,
   settledPlateStyle,
+  guestWindow,
+  releasePlacement,
   stretchLayout,
   stretchRowClip,
   stretchSequence,
@@ -370,6 +372,88 @@ test("the pinned stop stays opaque and the emerging count is clipped behind it",
   const upPaint = stretchRowClip(eleven.screenTop, HEIGHT, "up", "between");
   assert.equal(upPaint.opacity, 1);
   assert.ok(upPaint.clipBottom > 0);
+});
+
+test("releasing a stretch from 20 keeps 18 centered and 19 beside it", () => {
+  const origin = originFor(COUNTS, 20);
+  const sequence = sequenceFrom(origin, "down");
+  const travel = 2 * HEIGHT;
+  const layout = stretchLayout({
+    direction: "down",
+    anchor: 20,
+    pin: origin.lower,
+    pushed: origin.upper,
+    sequence,
+    travel,
+    itemHeight: HEIGHT,
+  });
+  assert.equal(layout.centered, 18);
+  const placed = releasePlacement({
+    direction: "down",
+    origin,
+    sequence,
+    travel,
+    itemHeight: HEIGHT,
+    centered: layout.centered,
+  });
+  assert.ok(placed);
+  assert.deepEqual(placed.guest.run, [18, 19]);
+  assert.deepEqual(guestWindow(COUNTS, placed.position, placed.guest), [10, 18, 19]);
+  assert.deepEqual(guestWindow(COUNTS, placed.position + 1, placed.guest), [18, 19, 20]);
+});
+
+test("a stretch face that has left the window is not kept on release", () => {
+  const origin = originFor(COUNTS, 20);
+  const sequence = sequenceFrom(origin, "down");
+  const travel = 3 * HEIGHT;
+  const layout = stretchLayout({
+    direction: "down",
+    anchor: 20,
+    pin: origin.lower,
+    pushed: origin.upper,
+    sequence,
+    travel,
+    itemHeight: HEIGHT,
+  });
+  assert.equal(layout.centered, 17);
+  const placed = releasePlacement({
+    direction: "down",
+    origin,
+    sequence,
+    travel,
+    itemHeight: HEIGHT,
+    centered: layout.centered,
+  });
+  assert.ok(placed);
+  assert.equal(placed.guest.run?.includes(19), false);
+  assert.deepEqual(guestWindow(COUNTS, placed.position, placed.guest), [10, 17, 18]);
+});
+
+test("releasing an upward stretch keeps the in-between that is still beside center", () => {
+  const origin = originFor(COUNTS, 20);
+  const sequence = sequenceFrom(origin, "up");
+  const travel = 2 * HEIGHT;
+  const layout = stretchLayout({
+    direction: "up",
+    anchor: 20,
+    pin: origin.upper,
+    pushed: origin.lower,
+    sequence,
+    travel,
+    itemHeight: HEIGHT,
+  });
+  assert.equal(layout.centered, 22);
+  const placed = releasePlacement({
+    direction: "up",
+    origin,
+    sequence,
+    travel,
+    itemHeight: HEIGHT,
+    centered: layout.centered,
+  });
+  assert.ok(placed);
+  assert.deepEqual(placed.guest.run, [21, 22]);
+  assert.deepEqual(guestWindow(COUNTS, placed.position, placed.guest), [21, 22, 25]);
 });
 
 test("the ends of the count list have no invented numbers", () => {

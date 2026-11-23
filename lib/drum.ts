@@ -235,6 +235,75 @@ export function glideSettleNotch(
   return cursor;
 }
 
+export type GrayGlidePlan = {
+  /** Deceleration for this frame. The base brake when the predicted stop is lit. */
+  decel: number;
+  /** Lit stop the retarget is aiming at, or null when the natural stop is already lit. */
+  target: number | null;
+  /**
+   * The predicted stop is gray and no reachable lit stop can be braked onto.
+   * The caller keeps the base brake and rolls through with the settle cam.
+   */
+  fallback: boolean;
+};
+
+/**
+ * Where constant deceleration from here comes to rest.
+ * Speed never reverses, so the sign follows the current velocity.
+ */
+export function coastRestPosition(position: number, velocity: number, decel: number): number {
+  if (velocity === 0 || decel <= 0) return position;
+  const speed = Math.abs(velocity);
+  return position + Math.sign(velocity) * ((speed * speed) / (2 * decel));
+}
+
+/**
+ * Brake so a gray landing rolls onto the nearest lit face still ahead.
+ * One constant deceleration, chosen from the speed the wheel already has.
+ * A target behind the wheel, or one this frame cannot reach, is a fallback.
+ */
+export function grayGlidePlan(input: {
+  position: number;
+  velocity: number;
+  decel: number;
+  count: number;
+  isEnabled: (index: number) => boolean;
+  /** Lit stop already chosen for this coast. Kept until the wheel arrives. */
+  locked?: number | null;
+}): GrayGlidePlan {
+  const { position, velocity, decel, count, isEnabled } = input;
+  const keep = { decel, target: null, fallback: false };
+  if (count <= 0 || velocity === 0 || decel <= 0) return keep;
+  const direction = velocity < 0 ? -1 : 1;
+  let target = input.locked ?? null;
+  if (target === null) {
+    const rest = coastRestPosition(position, velocity, decel);
+    const natural = Math.round(rest);
+    if (isEnabled(modStop(natural, count))) return keep;
+    let best = Number.POSITIVE_INFINITY;
+    const start = direction > 0 ? Math.floor(position) + 1 : Math.ceil(position) - 1;
+    for (let step = 0; step <= count; step += 1) {
+      const index = start + direction * step;
+      if ((index - position) * direction <= 1e-4) continue;
+      if (!isEnabled(modStop(index, count))) continue;
+      const score = Math.abs(index - natural);
+      if (score < best) {
+        best = score;
+        target = index;
+      }
+    }
+  }
+  if (target === null) return { decel, target: null, fallback: true };
+  const distance = (target - position) * direction;
+  const speed = Math.abs(velocity);
+  const frame = speed * REEL_MAX_FRAME_DT;
+  if (distance <= 1e-4) return { decel, target, fallback: true };
+  // Stop short of the face so the settle eases onto it instead of stepping past.
+  const aim = distance > 0.45 ? distance - 0.3 : distance * 0.65;
+  if (!(aim > frame)) return { decel, target, fallback: true };
+  return { decel: (speed * speed) / (2 * aim), target, fallback: false };
+}
+
 /** Integer stops the wheel moved onto between two positions. */
 export function stopsCrossed(previous: number, next: number): number[] {
   if (next === previous) return [];
