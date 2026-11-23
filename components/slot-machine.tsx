@@ -36,6 +36,7 @@ import { pullStartsSpin } from "@/lib/pull-stack";
 import { installAppAudioUnlock, preloadAppSounds } from "@/lib/sound-preload";
 import { playSpinOverlay, spinOverlayFor } from "@/lib/spin-overlay";
 import { getBrakePreset, setBrakePreset, type BrakePreset } from "@/lib/drum";
+import { DIVIDER_BRIGHT, dividerLevels } from "@/lib/reel-dividers";
 import { CLEAR_STACK_EVENT, TEMP_CLEAR_ALL } from "@/lib/stack-board";
 import { meltValue } from "@/lib/value";
 import { LAMP_FULL, LAMP_LOW, LAMP_MEDIUM, LAMP_OFF, STEAMPUNK_LIGHT_COUNT } from "@/lib/steampunk-light";
@@ -108,6 +109,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
       : { id: `stretch-${customGrams}`, face: customFace.mark, detail: customFace.detail, grams: customGrams };
   const pieces = customPieces ?? COUNTS[countIndex] ?? COUNTS[0];
   const spinning = motion.some(Boolean);
+  const dividers = dividerLevels(motion);
 
   const metalItems = useMemo<ReelSymbol[]>(
     () =>
@@ -318,7 +320,11 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
               <span className="rivet frame-rivet" data-corner="bl" />
               <span className="rivet frame-rivet" data-corner="br" />
               <div className="reel-stage">
-                <div className="reel-grid">
+                <div
+                  className="reel-grid"
+                  data-divider-left={dividers.left === DIVIDER_BRIGHT ? "bright" : "dim"}
+                  data-divider-right={dividers.right === DIVIDER_BRIGHT ? "bright" : "dim"}
+                >
                 <Reel
                   lampIndex={0}
                   label="Metal"

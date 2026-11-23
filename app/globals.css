@@ -386,7 +386,26 @@ button,
 }
 
 .reel-column + .reel-column {
-  box-shadow: inset 1px 0 0 rgba(198, 161, 90, 0.35);
+  position: relative;
+}
+
+.reel-column + .reel-column::before {
+  content: "";
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: #c6a15a;
+  opacity: 0.28;
+  pointer-events: none;
+  transition: opacity 280ms ease;
+}
+
+.reel-grid[data-divider-left="bright"] .reel-column:nth-child(2)::before,
+.reel-grid[data-divider-right="bright"] .reel-column:nth-child(3)::before {
+  opacity: 0.35;
 }
 
 .reel-name {
