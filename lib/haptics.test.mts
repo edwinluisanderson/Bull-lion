@@ -1,7 +1,16 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 
-import { hapticClick, resetHapticQueue, settleReels } from "@/lib/haptics";
+import { LEVER_TICK_VIBRATE_MS } from "@/lib/lever-sound";
+import {
+  HAPTIC_LANDING_MS,
+  HAPTIC_LANDING_PATTERN,
+  HAPTIC_MIN_GAP_MS,
+  HAPTIC_STOP_MS,
+  hapticClick,
+  resetHapticQueue,
+  settleReels,
+} from "@/lib/haptics";
 
 type Vibrate = (pattern: number | number[]) => boolean;
 
@@ -45,7 +54,9 @@ test("a reel click asks for a pulse Android motors can produce", () => {
   hapticClick();
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0], 40);
+  assert.equal(calls[0], HAPTIC_STOP_MS);
+  assert.equal(HAPTIC_STOP_MS, 15);
+  assert.equal(HAPTIC_MIN_GAP_MS, 40);
 });
 
 test("rapid stops drop late ticks instead of queueing them", async () => {
@@ -61,22 +72,24 @@ test("rapid stops drop late ticks instead of queueing them", async () => {
   hapticClick();
   hapticClick();
   hapticClick();
-  assert.deepEqual(calls, [40]);
+  assert.deepEqual(calls, [HAPTIC_STOP_MS]);
 
-  now += 39;
+  now += HAPTIC_MIN_GAP_MS - 1;
   hapticClick();
-  assert.deepEqual(calls, [40]);
+  assert.deepEqual(calls, [HAPTIC_STOP_MS]);
 
   now += 1;
   hapticClick();
-  assert.deepEqual(calls, [40, 40]);
+  assert.deepEqual(calls, [HAPTIC_STOP_MS, HAPTIC_STOP_MS]);
 
   now += 10;
   hapticClick(true);
-  assert.deepEqual(calls, [40, 40, 40]);
+  assert.deepEqual(calls, [HAPTIC_STOP_MS, HAPTIC_STOP_MS, HAPTIC_LANDING_PATTERN]);
+  assert.deepEqual([...HAPTIC_LANDING_PATTERN], [40, 40, 40]);
+  assert.equal(HAPTIC_LANDING_MS, 120);
 
   await new Promise((resolve) => setTimeout(resolve, 50));
-  assert.deepEqual(calls, [40, 40, 40]);
+  assert.deepEqual(calls, [HAPTIC_STOP_MS, HAPTIC_STOP_MS, HAPTIC_LANDING_PATTERN]);
 
   if (nowDescriptor) Object.defineProperty(performance, "now", nowDescriptor);
 });
@@ -173,11 +186,15 @@ test("the landing tap is not cancelled by the stop that follows it", () => {
 
   hapticClick(true);
   settleReels([true, false, false], [false, false, false]);
-  assert.deepEqual(calls, [40]);
+  assert.deepEqual(calls, [HAPTIC_LANDING_PATTERN]);
 
-  now += 40;
+  now += HAPTIC_LANDING_MS - 1;
   settleReels([true, false, false], [false, false, false]);
-  assert.deepEqual(calls, [40, 0]);
+  assert.deepEqual(calls, [HAPTIC_LANDING_PATTERN]);
+
+  now += 1;
+  settleReels([true, false, false], [false, false, false]);
+  assert.deepEqual(calls, [HAPTIC_LANDING_PATTERN, 0]);
 
   if (nowDescriptor) Object.defineProperty(performance, "now", nowDescriptor);
 });
@@ -192,11 +209,15 @@ test("settling the last reel clears the queued pulse", async () => {
   hapticClick();
   hapticClick();
   hapticClick();
-  assert.deepEqual(calls, [40]);
+  assert.deepEqual(calls, [HAPTIC_STOP_MS]);
 
   settleReels([true, false, false], [false, false, false]);
-  assert.deepEqual(calls, [40, 0]);
+  assert.deepEqual(calls, [HAPTIC_STOP_MS, 0]);
 
   await new Promise((resolve) => setTimeout(resolve, 180));
-  assert.deepEqual(calls, [40, 0]);
+  assert.deepEqual(calls, [HAPTIC_STOP_MS, 0]);
+});
+
+test("the lever tick stays a 6ms buzz", () => {
+  assert.equal(LEVER_TICK_VIBRATE_MS, 6);
 });
