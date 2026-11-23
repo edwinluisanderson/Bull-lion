@@ -1,13 +1,14 @@
 import { DELETE_AHOOGA_URL, loadDeleteAhooga } from "@/lib/delete-alarm";
 import { FLAP_CLIP_URLS, loadFlapSamples } from "@/lib/flap-sound";
 import { LOCK_SOUND_URLS, loadLockSounds } from "@/lib/lock-sound";
-import { REEL_CLICK_URL, loadReelClick, reelAudioContext } from "@/lib/reel-click";
+import { PAWL_URLS, WOOD_KNOCK_URL, loadReelClick, reelAudioContext } from "@/lib/reel-click";
 import { COINS_FALL_URL, loadCoinsFall } from "@/lib/spin-overlay";
 import { STRETCH_POP_URLS, loadStretchPops } from "@/lib/stretch-pop";
 
 /** Every file in public/sounds, decoded into the shared reel context. */
 export const APP_SOUND_URLS = [
-  REEL_CLICK_URL,
+  ...PAWL_URLS,
+  WOOD_KNOCK_URL,
   ...STRETCH_POP_URLS,
   ...FLAP_CLIP_URLS,
   COINS_FALL_URL,
