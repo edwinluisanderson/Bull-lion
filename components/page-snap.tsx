@@ -15,6 +15,7 @@ import {
   notePageScroll,
   notePageTouchMove,
   pageGestureVelocity,
+  passStopPositions,
   planFling,
   startOwnedGlide,
   stopsPassed,
@@ -50,10 +51,35 @@ function landCue(): void {
 }
 
 /**
- * Owned fling from the position and speed at release.
- * Each frame continues from the position this glide wrote. It does not read
- * scrollTop back, and it does not toggle overflow, so the handoff does not jump.
- * Touching the top or bottom edge ends the glide and holds there.
+ * Stop the compositor fling, then read scrollTop. The read is the position
+ * the owned glide starts from; nothing is allowed to move the page between
+ * the kill and that read. Overflow stays locked until the glide ends, then
+ * the final position is pinned again so a landing cannot drift.
+ */
+function sealScroll(root: Element): { y: number; unlock: (at: number) => void } {
+  const node = root instanceof HTMLElement ? root : document.documentElement;
+  const overflow = node.style.overflowY;
+  const touch = node.style.touchAction;
+  node.style.overflowY = "hidden";
+  node.style.touchAction = "none";
+  void node.offsetHeight;
+  const y = node.scrollTop;
+  node.scrollTop = y;
+  return {
+    y,
+    unlock(at: number) {
+      node.scrollTop = at;
+      node.style.overflowY = overflow;
+      node.style.touchAction = touch;
+      node.scrollTop = at;
+    },
+  };
+}
+
+/**
+ * Owned fling. The first frame steps from `origin` by the clamped speed times
+ * the real dt. It never catches up to an earlier position and never reads
+ * scrollTop back into the integrator.
  */
 function glide(
   root: Element,
@@ -62,7 +88,7 @@ function glide(
   skipped: number | null,
   origin: number,
   maxScroll: number,
-  onDone: () => void,
+  onDone: (at: number) => void,
 ) {
   let state = startOwnedGlide(origin, velocity, target, skipped, maxScroll);
   let frame = 0;
@@ -71,8 +97,9 @@ function glide(
   const finishOnce = () => {
     if (stopped) return;
     stopped = true;
-    onDone();
+    onDone(state.y);
   };
+  root.scrollTop = origin;
   const step = (now: number) => {
     if (stopped) return;
     const dt = Math.max(0, (now - last) / 1000);
@@ -82,6 +109,7 @@ function glide(
     root.scrollTop = state.y;
     if (next.pass) passCue();
     if (state.done) {
+      root.scrollTop = state.y;
       if (next.landed) landCue();
       finishOnce();
       return;
@@ -189,20 +217,33 @@ export function PageSnap() {
     let gesture: PageGesture | null = null;
     let fingers = 0;
     let lastDrag = root.scrollTop;
+    let releaseSeal: ((at: number) => void) | null = null;
 
     const stop = () => {
       gliding = false;
       cancelGlide();
       cancelGlide = () => {};
+      if (releaseSeal) {
+        releaseSeal(root.scrollTop);
+        releaseSeal = null;
+      }
+    };
+
+    const noteDrag = (y: number) => {
+      if (gliding) return;
+      const measured = snapPoints(root);
+      const passed = stopsPassed(lastDrag, y, passStopPositions(measured.points, measured.maxScroll));
+      lastDrag = y;
+      for (const _stop of passed) passCue();
     };
 
     const onTouchStart = (event: TouchEvent) => {
       const touch = event.changedTouches[0] ?? event.touches[0];
       if (!touch) return;
+      stop();
       fingers = event.touches.length;
       gesture = beginPageGesture(performance.now(), root.scrollTop, touch.clientY);
       lastDrag = root.scrollTop;
-      stop();
     };
     const onTouchMove = (event: TouchEvent) => {
       if (!gesture) return;
@@ -211,16 +252,13 @@ export function PageSnap() {
       const now = performance.now();
       gesture = notePageTouchMove(gesture, now, touch.clientY);
       gesture = notePageScroll(gesture, now, root.scrollTop);
+      noteDrag(root.scrollTop);
     };
     const onScroll = () => {
       if (!gesture || gliding) return;
       const y = root.scrollTop;
       gesture = notePageScroll(gesture, performance.now(), y);
-      const measured = snapPoints(root);
-      const stops = measured.points.map((point) => point.at);
-      const passed = stopsPassed(lastDrag, y, stops);
-      lastDrag = y;
-      for (const _stop of passed) passCue();
+      noteDrag(y);
     };
     const onLift = (event: TouchEvent) => {
       if (!gestureLift(event.type)) return;
@@ -231,24 +269,33 @@ export function PageSnap() {
       if (!current) return;
       const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       const velocity = pageGestureVelocity(current);
+      const sealed = sealScroll(root);
+      const origin = sealed.y;
       const measured = snapPoints(root);
       const plan = planFling({
-        scrollTop: root.scrollTop,
+        scrollTop: origin,
         velocity,
         maxScroll: measured.maxScroll,
         points: measured.points,
         reduced,
       });
-      if (plan.target == null) return;
+      if (plan.target == null) {
+        sealed.unlock(origin);
+        return;
+      }
       const committedTarget = plan.target;
       const committedSkip = plan.skipped;
-      const origin = root.scrollTop;
       const speed = aimedSpeed(velocity, origin, committedTarget);
       gliding = true;
+      releaseSeal = sealed.unlock;
       cancelGlide();
-      cancelGlide = glide(root, speed, committedTarget, committedSkip, origin, measured.maxScroll, () => {
+      cancelGlide = glide(root, speed, committedTarget, committedSkip, origin, measured.maxScroll, (at) => {
         gliding = false;
         cancelGlide = () => {};
+        if (releaseSeal) {
+          releaseSeal(at);
+          releaseSeal = null;
+        }
       });
     };
     const onWheel = () => {

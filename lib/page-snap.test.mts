@@ -28,6 +28,7 @@ import {
   notePageScroll,
   notePageTouchMove,
   pageGestureVelocity,
+  passStopPositions,
   planFling,
   snapStops,
   startOwnedGlide,
@@ -264,10 +265,47 @@ test("a planned skip keeps its target through to the end", () => {
     state = next.state;
     assert.notEqual(state.target, 190);
   }
-  assert.equal(lands, 1);
+  assert.equal(lands, 0);
   assert.equal(passes, 1);
   assert.equal(state.y, 0);
   assert.equal(state.target, 0);
+});
+
+test("the first owned frame uses the capped speed and does not reverse or overshoot", () => {
+  const dt = 0.016;
+  const opened = startOwnedGlide(100, 2600, 900, null, 1500);
+  assert.ok(opened.speed <= FLING_SPEED_CAP);
+  const first = advanceOwnedGlide(opened, dt, opened.y);
+  const moved = first.state.y - 100;
+  assert.ok(moved > 0, "a downward fling must not reverse");
+  assert.ok(Math.abs(moved - FLING_SPEED_CAP * dt) < 0.6, `first step ${moved}`);
+
+  const near = startOwnedGlide(165, 1200, 190, null, 700);
+  assert.ok(near.speed <= zoneEntryCap(25) + 1);
+  const nearStep = advanceOwnedGlide(near, dt, near.y);
+  assert.ok(nearStep.state.y <= 190);
+  assert.ok(nearStep.state.y >= 165);
+
+  const close = startOwnedGlide(185, 1000, 190, null, 700);
+  assert.ok(close.speed <= GLIDE_SPEED + 1);
+  const closeStep = advanceOwnedGlide(close, dt, close.y);
+  assert.ok(closeStep.state.y <= 190);
+  assert.ok(closeStep.state.y >= 185);
+  assert.equal(closeStep.landed, false);
+
+  let onto = startOwnedGlide(100, 700, 190, null, 700);
+  let cues = 0;
+  for (let frame = 0; frame < 400 && !onto.done; frame += 1) {
+    const next = advanceOwnedGlide(onto, 0.016, onto.y);
+    if (next.landed) cues += 1;
+    onto = next.state;
+    assert.ok(onto.y <= 190 + 0.01);
+  }
+  assert.equal(cues, 1);
+  assert.ok(Math.abs(onto.y - 190) <= LAND_EPS_PX);
+  const held = advanceOwnedGlide(onto, 0.016, onto.y);
+  assert.equal(held.landed, false);
+  assert.equal(held.state.y, onto.y);
 });
 
 test("catch speed stays continuous when frame times are uneven", () => {
@@ -353,7 +391,11 @@ test("pass and landing cues fire once for the stops they belong to", () => {
   assert.deepEqual(dragCues(2), ["pass", "pass"]);
   assert.deepEqual(stopsPassed(200, 600, [0, 190, 538, 946, 1500]), [538]);
   assert.deepEqual(stopsPassed(1000, 100, [0, 190, 538, 946, 1500]), [946, 538, 190]);
-  assert.deepEqual(stopsPassed(190, 538, [190, 538]), []);
+  assert.deepEqual(stopsPassed(190, 538, [190, 538]), [538]);
+  assert.deepEqual(stopsPassed(189, 190, [190]), [190]);
+  assert.deepEqual(stopsPassed(189.6, 190.4, [190.2]), [190.2]);
+  assert.deepEqual(stopsPassed(190, 191, [190]), []);
+  assert.deepEqual(passStopPositions(page, 1500), [190, 946]);
 });
 
 test("the caption names distance from the nearest stop", () => {
@@ -407,5 +449,6 @@ test("the page eases after scrollend and the plates are marked", () => {
   assert.match(snapSource, /get\("magnet"\) !== "1"/);
   assert.match(snapSource, /pointer-events:\s*none/);
   assert.match(snapSource, /aimedSpeed/);
-  assert.equal(snapSource.includes('overflowY = "hidden"'), false);
+  assert.match(snapSource, /sealScroll/);
+  assert.match(snapSource, /passStopPositions/);
 });

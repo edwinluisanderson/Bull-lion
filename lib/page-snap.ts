@@ -299,20 +299,47 @@ export function cushionSpeed(remainingPx: number, flingSpeed: number, catchFrom 
   return GLIDE_SPEED * (1 - smoothstep(u));
 }
 
+/** A stop counts as crossed when the rounded scroll positions pass it. */
+export const PASS_TOLERANCE_PX = 1;
+
 /**
- * Stops strictly between two scroll positions, in the direction of travel.
- * A coincident cluster counts once, at the edge the finger reaches first.
+ * Stops the finger dragged across, in travel order.
+ * Integer scrollTop values still count when they straddle a fractional stop.
+ * A coincident cluster counts once.
  */
 export function stopsPassed(from: number, to: number, stops: readonly number[]): number[] {
+  if (!(Math.abs(to - from) > 0.01)) return [];
   const dir = to >= from ? 1 : -1;
   const hits: number[] = [];
   for (const cluster of clusterStops(stops)) {
     const edge = dir > 0 ? cluster.from : cluster.to;
-    const crossed =
-      dir > 0 ? edge > from + 0.5 && edge < to - 0.5 : edge < from - 0.5 && edge > to + 0.5;
-    if (crossed) hits.push(edge);
+    const before = Math.round(from);
+    const after = Math.round(to);
+    const at = Math.round(edge);
+    const rounded = dir > 0 ? before < at && after >= at : before > at && after <= at;
+    const spanned =
+      dir > 0
+        ? from < edge && to >= edge - PASS_TOLERANCE_PX
+        : from > edge && to <= edge + PASS_TOLERANCE_PX;
+    if (rounded || spanned) hits.push(edge);
   }
   return hits.sort((a, b) => dir * (a - b));
+}
+
+/**
+ * Drag-pass ticks use only the active stops that sit inside the page.
+ * The natural top, the bottom edge, and marks such as the wheel window do not.
+ */
+export function passStopPositions(points: readonly SnapMark[], maxScroll: number): number[] {
+  const limit = Math.max(0, maxScroll);
+  return collectStops(points, limit)
+    .map((stop) => stop.at)
+    .filter((at) => at > PASS_TOLERANCE_PX && at < limit - PASS_TOLERANCE_PX);
+}
+
+/** A finish on the natural top is an edge, not a stop, so it does not land. */
+export function landsOnStop(y: number, target: number): boolean {
+  return target > LAND_EPS_PX && Math.abs(y - target) <= LAND_EPS_PX;
 }
 
 export type OwnedGlide = {
@@ -429,11 +456,11 @@ export function advanceOwnedGlide(
     pass: didPass,
     landed,
   });
-  const finish = (didPass: boolean) => finishAt(state.target, didPass, true);
+  const finish = (didPass: boolean) => finishAt(state.target, didPass, landsOnStop(state.target, state.target));
   const holdEdge = (from: number, to: number, didPass: boolean) => {
     const edge = edgeHit(from, to, state.maxScroll);
     if (edge == null) return null;
-    return finishAt(edge, didPass, Math.abs(edge - state.target) <= LAND_EPS_PX);
+    return finishAt(edge, didPass, landsOnStop(edge, state.target));
   };
   while (left > 1e-6) {
     const remaining = Math.abs(state.target - y);
@@ -477,7 +504,7 @@ export function advanceOwnedGlide(
       pace = state.speed;
       continue;
     }
-    const next = y + state.dir * dist;
+    const next = y + state.dir * Math.min(dist, remaining);
     if (!passed && state.skipped != null && stopsPassed(y, next, [state.skipped]).length > 0) {
       passed = true;
       pass = true;
