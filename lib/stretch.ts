@@ -358,22 +358,32 @@ export function releasePlacement(input: {
   const anchorTop = itemHeight + sign * travel;
   const painted = visibleStretchFaces({ direction, origin, sequence, travel, itemHeight });
   const permanent = (value: number) => stops.includes(value);
-  const run = painted.filter((value) => !permanent(value));
+  const pushedValue = direction === "down" ? origin.upper : origin.lower;
+  const pushedTop = direction === "down" ? itemHeight * 2 + travel : -travel;
+  const pinValue = direction === "down" ? origin.lower : origin.upper;
+  const pinTop = direction === "down" ? 0 : itemHeight * 2;
+  const topOf = (value: number): number | null => {
+    if (value === origin.anchor) return anchorTop;
+    if (value === pushedValue) return pushedTop;
+    if (value === pinValue) return pinTop;
+    const index = sequence.indexOf(value);
+    if (index >= 0) return emergedScreenTop(direction, index, travel, itemHeight);
+    return null;
+  };
+  const centeredTop = topOf(centered) ?? anchorTop;
+  // The pin stays the outer face. A number still coming out behind it is not
+  // the neighbor yet, so release must not swap the pin for that next face.
+  const run = painted.filter((value) => {
+    if (permanent(value)) return false;
+    if (value === centered) return true;
+    const top = topOf(value);
+    if (top == null) return false;
+    return direction === "down" ? top >= centeredTop - 0.5 : top <= centeredTop + 0.5;
+  });
   const at = run.indexOf(centered);
   if (at < 0 || run.length === 0) return null;
   const insertAfter = direction === "down" ? origin.lowerIndex : (origin.anchorIndex ?? origin.lowerIndex);
   if (insertAfter == null) return null;
-  const pushedValue = direction === "down" ? origin.upper : origin.lower;
-  const pushedTop = direction === "down" ? itemHeight * 2 + travel : -travel;
-  const sequenceIndex = sequence.indexOf(centered);
-  const centeredTop =
-    centered === origin.anchor
-      ? anchorTop
-      : centered === pushedValue
-        ? pushedTop
-        : sequenceIndex >= 0
-          ? emergedScreenTop(direction, sequenceIndex, travel, itemHeight)
-          : anchorTop;
   const payline = itemHeight * 1.5;
   const delta = (centeredTop + itemHeight / 2 - payline) / itemHeight;
   const center = insertAfter + 1 + at;

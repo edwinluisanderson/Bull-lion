@@ -470,6 +470,66 @@ test("releasing an upward stretch keeps the in-between that is still beside cent
   assert.deepEqual(guestWindow(COUNTS, placed.position, placed.guest), [21, 22, 25]);
 });
 
+test("releasing 50 stretched to 49 keeps 25 above it", () => {
+  const origin = originFor(COUNTS, 50);
+  const sequence = sequenceFrom(origin, "down");
+  for (const travel of [HEIGHT, HEIGHT * 1.2, HEIGHT * 1.5]) {
+    const layout = stretchLayout({
+      direction: "down",
+      anchor: 50,
+      pin: origin.lower,
+      pushed: origin.upper,
+      sequence,
+      travel,
+      itemHeight: HEIGHT,
+    });
+    assert.equal(layout.centered, 49, `centered at ${travel}`);
+    const placed = releasePlacement({
+      direction: "down",
+      origin,
+      sequence,
+      stops: COUNTS,
+      travel,
+      itemHeight: HEIGHT,
+      centered: layout.centered,
+    });
+    assert.ok(placed);
+    const window = guestWindow(COUNTS, placed.center, placed.guest);
+    assert.deepEqual(window, [25, 49, 50]);
+    assert.equal(window.includes(48), false);
+  }
+});
+
+test("releasing 50 stretched up to 51 keeps 100 below it", () => {
+  const origin = originFor(COUNTS, 50);
+  const sequence = sequenceFrom(origin, "up");
+  for (const travel of [HEIGHT, HEIGHT * 1.2, HEIGHT * 1.45]) {
+    const layout = stretchLayout({
+      direction: "up",
+      anchor: 50,
+      pin: origin.upper,
+      pushed: origin.lower,
+      sequence,
+      travel,
+      itemHeight: HEIGHT,
+    });
+    assert.equal(layout.centered, 51, `centered at ${travel}`);
+    const placed = releasePlacement({
+      direction: "up",
+      origin,
+      sequence,
+      stops: COUNTS,
+      travel,
+      itemHeight: HEIGHT,
+      centered: layout.centered,
+    });
+    assert.ok(placed);
+    const window = guestWindow(COUNTS, placed.center, placed.guest);
+    assert.deepEqual(window, [50, 51, 100]);
+    assert.equal(window.includes(52), false);
+  }
+});
+
 test("one step from 20 to 21 does not invent 22 beside it", () => {
   const origin = originFor(COUNTS, 20);
   const sequence = sequenceFrom(origin, "up");

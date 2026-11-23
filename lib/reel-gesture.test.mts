@@ -422,3 +422,25 @@ test("wrap stretches keep the lift faces and rest on an exact notch", () => {
     engine.destroy();
   }
 });
+
+test("a one-step stretch from 50 to 49 keeps 25 and then sits still", () => {
+  installFrame();
+  mock.timers.enable({ apis: ["setTimeout"] });
+  const { engine, read } = harness(COUNTS.indexOf(50));
+  const y = 400;
+  const time = 8_000;
+  engine.pointerDown(y, time, 120, 258);
+  mock.timers.tick(STRETCH_HOLD_MS);
+  engine.pointerMove(y + REEL_ITEM_HEIGHT * 1.5, time + STRETCH_HOLD_MS + 300);
+  const held = read().frame?.rows.find((row) => row.centered)?.value;
+  assert.equal(held, 49);
+  engine.pointerUp();
+  settle(read);
+  const rested = read();
+  assert.deepEqual(visibleFaces(rested.position, rested.guest), [25, 49, 50]);
+  const parked = rested.position;
+  settle(read);
+  assert.equal(read().position, parked);
+  assert.deepEqual(visibleFaces(read().position, read().guest), [25, 49, 50]);
+  engine.destroy();
+});
