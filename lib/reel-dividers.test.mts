@@ -11,10 +11,10 @@ test("both dividers rest just under the old lit brightness", () => {
   assert.equal(still.left, DIVIDER_DIM);
   assert.equal(still.right, DIVIDER_DIM);
   assert.ok(DIVIDER_DIM < DIVIDER_BRIGHT);
-  assert.ok(DIVIDER_BRIGHT - DIVIDER_DIM <= 0.25);
-  assert.ok(DIVIDER_DIM >= 0.7);
+  assert.ok(DIVIDER_BRIGHT - DIVIDER_DIM <= 0.35);
+  assert.ok(DIVIDER_DIM >= 0.65);
   assert.equal(DIVIDER_BRIGHT, 1);
-  assert.equal(DIVIDER_DIM, 0.8);
+  assert.equal(DIVIDER_DIM, 0.65);
 });
 
 test("a moving reel lights only the dividers beside it", () => {

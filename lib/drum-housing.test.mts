@@ -42,7 +42,7 @@ test("the housing is symmetric bronze and the seam matches the rest drum", () =>
   assert.match(seam, /background:\s*#f0d78c/);
   assert.match(seam, new RegExp(`opacity:\\s*${DIVIDER_DIM}`));
   assert.equal(DIVIDER_BRIGHT, 1);
-  assert.equal(DIVIDER_DIM, 0.8);
+  assert.equal(DIVIDER_DIM, 0.65);
   const band = css.match(/\.reel-drum-band\s*\{([^}]*)\}/)?.[1] ?? "";
   assert.match(band, /overflow:\s*hidden/);
   const shade = css.match(/\.reel-drum-shade\s*\{([^}]*)\}/)?.[1] ?? "";
