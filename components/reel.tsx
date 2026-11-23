@@ -20,6 +20,16 @@ import {
 } from "@/lib/drum";
 import { hapticClick } from "@/lib/haptics";
 import { noteReelSpinning, playReelClick, reelSnap, unlockReelClick } from "@/lib/reel-click";
+import {
+  armLandingWatch,
+  clearLandingWatch,
+  commitReelStop,
+  FLICK_COAST_SPEED,
+  flickOwesLanding,
+  playSettledLanding,
+  settleReelLanding,
+  type LandingWatch,
+} from "@/lib/reel-landing";
 import { detentForStop } from "@/lib/spin-gate";
 import { pullDecel, pullLaunchVelocity } from "@/lib/pull-spin";
 import { createReelMotion } from "@/lib/reel-motion";
@@ -177,6 +187,7 @@ function createEngine(options: {
   let pullOrder = 0;
   let pullStarted = 0;
   let alternated = 0;
+  let landingWatch: LandingWatch = clearLandingWatch();
   let iceFrom = 0;
   let iceVelocity = 0;
   let iceHandoff = 0;
@@ -274,26 +285,41 @@ function createEngine(options: {
     const index = commitIndex(next, options.getCount(), options.isEnabled);
     if (index === null || index === committed) return;
     const count = options.getCount();
-    const landing =
+    const landingNotch =
       camNotch !== null &&
       Math.abs(position - camNotch) < 0.5 &&
       index === mod(Math.round(camNotch), count);
+    const noted = commitReelStop(landingWatch, landingNotch);
+    landingWatch = noted.watch;
     const detent = detentForStop({
       pullSpin,
       alternate: options.alternatePullStops(),
       elapsedMs: performance.now() - pullStarted,
-      landing,
+      landing: landingNotch,
       alternated,
     });
     alternated = detent.alternated;
-    if (landing) {
+    if (landingNotch) {
       setAudioSpin(false);
       pullSpin = false;
+      committed = index;
+      options.onIndex(index);
+      if (noted.playLanding) playSettledLanding();
+      return;
     }
     committed = index;
     options.onIndex(index);
-    if (detent.haptic) hapticClick(landing);
-    if (detent.sound) playReelClick(audioSpin && !landing, false, landing, landing);
+    if (detent.haptic) hapticClick(false);
+    if (detent.sound) playReelClick(audioSpin, false, false, false);
+  }
+
+  function settleLanding() {
+    const noted = settleReelLanding(landingWatch);
+    landingWatch = noted.watch;
+    if (!noted.playLanding) return;
+    setAudioSpin(false);
+    pullSpin = false;
+    playSettledLanding();
   }
 
   function stop() {
@@ -318,6 +344,7 @@ function createEngine(options: {
     options.setKinetics(position, 0);
     setAudioSpin(false);
     setPhase("idle");
+    settleLanding();
   }
 
   function animateTo(target: number, duration: number) {
@@ -331,6 +358,7 @@ function createEngine(options: {
         setPos(notch);
       }
       setPhase("idle");
+      settleLanding();
       return;
     }
     animFrom = position;
@@ -349,6 +377,7 @@ function createEngine(options: {
       setPos(notch);
       camNotch = null;
       setPhase("idle");
+      settleLanding();
       return;
     }
     camNotch = notch;
@@ -591,6 +620,7 @@ function createEngine(options: {
   return {
     pointerDown(y, time, localY = 0, height = 0) {
       pullSpin = false;
+      landingWatch = clearLandingWatch();
       stop();
       clearHold();
       velocity = 0;
@@ -651,15 +681,19 @@ function createEngine(options: {
       drag = null;
       hapticClick();
       const speed = options.isReduced() ? 0 : velocityFrom(samples);
-      if (options.isReduced() || Math.abs(speed) < 0.4) {
-        const count = options.getCount();
+      const count = options.getCount();
+      if (options.isReduced() || Math.abs(speed) < FLICK_COAST_SPEED) {
         const notch =
           Math.abs(speed) > 0 && !enabledIndex(Math.round(position))
             ? glideSettleNotch(position, speed, count, options.isEnabled)
             : nearestEnabledSlot(position);
+        if (flickOwesLanding({ speed, position, notch, committed, count })) {
+          landingWatch = armLandingWatch();
+        }
         camToNotch(notch, 180);
         return;
       }
+      landingWatch = armLandingWatch();
       velocity = speed;
       setAudioSpin(true);
       setPhase("coast");
@@ -667,6 +701,7 @@ function createEngine(options: {
     },
     step(direction) {
       pullSpin = false;
+      landingWatch = clearLandingWatch();
       hapticClick();
       if (guest) {
         const target = direction > 0 ? Math.ceil(guest.slot) : Math.floor(guest.slot);
@@ -685,6 +720,7 @@ function createEngine(options: {
     },
     jump(index) {
       pullSpin = false;
+      landingWatch = clearLandingWatch();
       guest = null;
       options.onGuest(null);
       hapticClick();
@@ -701,6 +737,7 @@ function createEngine(options: {
       guest = null;
       options.onGuest(null);
       hapticClick();
+      landingWatch = armLandingWatch();
       pullSpin = true;
       pullStarted = performance.now();
       alternated = 0;
@@ -719,6 +756,7 @@ function createEngine(options: {
     },
     destroy() {
       pullSpin = false;
+      landingWatch = clearLandingWatch();
       setAudioSpin(false);
       clearHold();
       stop();
