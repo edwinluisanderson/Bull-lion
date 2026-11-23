@@ -11,8 +11,10 @@ test("both dividers rest just under the old lit brightness", () => {
   assert.equal(still.left, DIVIDER_DIM);
   assert.equal(still.right, DIVIDER_DIM);
   assert.ok(DIVIDER_DIM < DIVIDER_BRIGHT);
-  assert.ok(DIVIDER_BRIGHT - DIVIDER_DIM <= 0.1);
-  assert.equal(DIVIDER_BRIGHT, 0.35);
+  assert.ok(DIVIDER_BRIGHT - DIVIDER_DIM <= 0.25);
+  assert.ok(DIVIDER_DIM >= 0.7);
+  assert.equal(DIVIDER_BRIGHT, 1);
+  assert.equal(DIVIDER_DIM, 0.8);
 });
 
 test("a moving reel lights only the dividers beside it", () => {
@@ -28,7 +30,8 @@ test("a moving reel lights only the dividers beside it", () => {
   assert.match(seam, /top:\s*var\(--reel-name\)/);
   assert.match(seam, /height:\s*var\(--reel-window\)/);
   assert.match(seam, /width:\s*1px/);
-  assert.match(seam, /background:\s*#c6a15a/);
+  assert.match(seam, /background:\s*#f0d78c/);
+  assert.equal(/\.reel-viewport:focus-visible\s*\{[^}]*#f0d78c/.test(css), false);
   assert.equal(seam.includes("clip-path"), false);
   assert.equal(seam.includes("linear-gradient"), false);
 });

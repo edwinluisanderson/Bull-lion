@@ -1,10 +1,10 @@
 /**
- * The two brass lines between the reels.
- * Bright is the seam as it renders while a reel is moving: #c6a15a at 0.35.
- * Rest sits just under that, still clearly on.
+ * The two brass lines between the reels. The bright gold is #f0d78c,
+ * the same color as the old focus ring. Rest is that gold, slightly softer.
  */
-export const DIVIDER_BRIGHT = 0.35;
-export const DIVIDER_DIM = 0.32;
+export const DIVIDER_COLOR = "#f0d78c";
+export const DIVIDER_BRIGHT = 1;
+export const DIVIDER_DIM = 0.8;
 
 export type DividerLevels = { left: number; right: number };
 

@@ -918,6 +918,7 @@ export function Reel({
             window.removeEventListener("pointerup", onUp);
             window.removeEventListener("pointercancel", onUp);
             engineRef.current?.pointerUp();
+            viewport.blur();
           };
           window.addEventListener("pointermove", onMove);
           window.addEventListener("pointerup", onUp);

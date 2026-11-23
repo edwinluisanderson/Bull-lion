@@ -399,14 +399,14 @@ button,
   width: 1px;
   height: var(--reel-window);
   pointer-events: none;
-  background: #c6a15a;
-  opacity: 0.32;
+  background: #f0d78c;
+  opacity: 0.8;
   transition: opacity 280ms ease;
 }
 
 .reel-grid[data-divider-left="bright"] .reel-column:nth-child(2)::after,
 .reel-grid[data-divider-right="bright"] .reel-column:nth-child(3)::after {
-  opacity: 0.35;
+  opacity: 1;
 }
 
 .reel-name {
@@ -456,9 +456,9 @@ button,
   cursor: grabbing;
 }
 
+.reel-viewport:focus,
 .reel-viewport:focus-visible {
-  outline: 2px solid #f0d78c;
-  outline-offset: -2px;
+  outline: none;
 }
 
 .reel-cylinder {
