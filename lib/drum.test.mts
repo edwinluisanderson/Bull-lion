@@ -4,10 +4,20 @@ import { test } from "node:test";
 import {
   basinIndex,
   camPastNotch,
+  BRAKE_PRESETS,
   coastAdvance,
   commitIndex,
   cylinderPose,
+  flingVelocity,
+  flywheelAdvance,
+  getBrakePreset,
   glideSettleNotch,
+  paylineSpacing,
+  REEL_CAP_FRACTION,
+  REEL_CHECK_HZ,
+  REEL_SPEED_CAP,
+  reelAliasSpeed,
+  stopsCrossed,
   modStop,
   nearestEnabledNotch,
   pointerPullCommits,
@@ -78,49 +88,104 @@ test("a count flick keeps spinning across gray stops and only a new guard token 
   assert.equal(shouldApplyGuard(0, 0), false);
 });
 
-test("velocity is not reduced while crossing gray stops", () => {
+test("gray stops take the same brake as lit stops", () => {
   const count = 8;
   const grayBefore = (index: number) => modStop(index, count) >= 6;
-  const ice = coastAdvance(1.1, 7, 0.08, grayBefore, count);
-  assert.equal(ice.velocity, 7);
-  assert.ok(ice.position > 1.6);
-  assert.ok(basinIndex(ice.position) < 6);
-  const friction = coastAdvance(1.1, 7, 0.08, () => true, count);
-  assert.ok(friction.velocity < 7);
-  assert.ok(ice.velocity > friction.velocity);
-
-  const decay = 2.7;
+  const decel = BRAKE_PRESETS.medium;
+  const acrossGray = coastAdvance(1.1, 7, 0.08, grayBefore, count, decel);
+  const acrossLit = coastAdvance(1.1, 7, 0.08, () => true, count, decel);
+  assert.equal(acrossGray.velocity, acrossLit.velocity);
+  assert.ok(acrossGray.velocity < 7);
+  assert.ok(Math.abs(acrossGray.position - acrossLit.position) < 1e-9);
   const dt = 0.016;
-  const retained = Math.exp(-decay * dt);
-  const expectedVelocity = 9 * retained;
-  const matched = coastAdvance(3, 9, dt, () => true, count, decay);
-  assert.ok(Math.abs(matched.velocity - expectedVelocity) < 1e-9);
-  assert.ok(Math.abs(matched.position - (3 + (9 - expectedVelocity) / decay)) < 1e-9);
+  const speed = 9;
+  const matched = coastAdvance(3, speed, dt, () => true, count, decel);
+  const next = speed - decel * dt;
+  const distance = speed * dt - 0.5 * decel * dt * dt;
+  assert.ok(Math.abs(matched.velocity - next) < 1e-9);
+  assert.ok(Math.abs(matched.position - (3 + distance)) < 1e-9);
+  const stopped = coastAdvance(3, 1, 1, () => true, count, decel);
+  assert.equal(stopped.velocity, 0);
+  assert.ok(stopped.position > 3);
 });
 
-test("a flick never settles on a gray stop and lands on the next valid one", () => {
+test("a flick settles forward onto the next lit stop and never on gray", () => {
   const count = 8;
   const enabled = (index: number) => modStop(index, count) >= 6;
-  assert.equal(enabled(modStop(glideSettleNotch(2.2, 0.2, count, enabled), count)), true);
   assert.equal(modStop(glideSettleNotch(2.2, 0.2, count, enabled), count), 6);
   assert.equal(modStop(glideSettleNotch(2.2, -0.2, count, enabled), count), 7);
-  assert.equal(glideSettleNotch(6.2, 0.1, count, enabled), 6);
-  assert.notEqual(modStop(glideSettleNotch(2.2, 4, count, enabled), count), 2);
+  assert.equal(glideSettleNotch(6.2, 0.1, count, enabled), 7);
+  assert.equal(glideSettleNotch(6, 0.1, count, enabled), 6);
+  assert.ok(glideSettleNotch(6.2, 0.1, count, enabled) > 6.2);
 
   let position = 4.2;
   let velocity = 5;
-  for (let frame = 0; frame < 240 && Math.abs(velocity) >= 0.5; frame += 1) {
-    const before = velocity;
+  for (let frame = 0; frame < 400 && Math.abs(velocity) >= 0.5; frame += 1) {
     const step = coastAdvance(position, velocity, 1 / 60, enabled, count);
-    if (basinIndex(position) < 6 && basinIndex(step.position) < 6) {
-      assert.equal(step.velocity, before);
-    }
     position = step.position;
-    velocity = step.velocity;
+    velocity = step.velocity === 0 ? velocity : step.velocity;
+    if (step.velocity === 0) break;
   }
   const land = glideSettleNotch(position, velocity, count, enabled);
   assert.equal(enabled(modStop(land, count)), true);
-  assert.ok(land > 4);
+  assert.ok(land >= position);
+});
+
+test("a fling averages the last pointer samples", () => {
+  const slow = [
+    { t: 0, y: 0 },
+    { t: 30, y: 2 },
+    { t: 60, y: 4 },
+  ];
+  const fast = [
+    { t: 0, y: 0 },
+    { t: 30, y: 2 },
+    { t: 50, y: 20 },
+  ];
+  assert.equal(flingVelocity(slow, 86, 28), flingVelocity(slow, 86, 28));
+  assert.ok(Math.abs(flingVelocity(fast, 86, 28)) > Math.abs(flingVelocity(slow, 86, 28)));
+  assert.deepEqual(stopsCrossed(1.2, 2.4), [2]);
+  assert.deepEqual(stopsCrossed(2.2, 1.4), [2]);
+  assert.deepEqual(stopsCrossed(1.2, 3.1), [2, 3]);
+});
+
+test("the speed cap stays under the wagon-wheel limit at 60, 90, and 120Hz", () => {
+  const spacing = paylineSpacing();
+  assert.ok(spacing > 1 && spacing < 1.04);
+  for (const hz of REEL_CHECK_HZ) {
+    const alias = reelAliasSpeed(1, hz);
+    assert.equal(alias, 0.5 * hz);
+    assert.ok(REEL_SPEED_CAP < alias);
+    assert.ok(REEL_SPEED_CAP / hz < 0.5);
+  }
+  assert.equal(REEL_SPEED_CAP, REEL_CAP_FRACTION * 60);
+  assert.ok(REEL_SPEED_CAP / 60 <= REEL_CAP_FRACTION + 1e-9);
+  const flung = [
+    { t: 0, y: 0 },
+    { t: 16, y: 80 },
+    { t: 32, y: 160 },
+  ];
+  assert.equal(Math.abs(flingVelocity(flung, 86)), REEL_SPEED_CAP);
+});
+
+test("a launch leaves at its speed and the brake slows it", () => {
+  const first = flywheelAdvance(0, -REEL_SPEED_CAP, 1 / 60, BRAKE_PRESETS.light);
+  assert.ok(first.velocity < 0);
+  assert.ok(Math.abs(first.velocity) < REEL_SPEED_CAP);
+  assert.ok(Math.abs(first.velocity) > REEL_SPEED_CAP - 1);
+  assert.ok(first.position < 0);
+  const over = flywheelAdvance(0, -REEL_SPEED_CAP - 8, 1 / 60, BRAKE_PRESETS.light);
+  assert.ok(Math.abs(over.velocity) <= REEL_SPEED_CAP);
+});
+
+test("a late frame cannot jump half a stop", () => {
+  const step = flywheelAdvance(0, -REEL_SPEED_CAP, 0.05, BRAKE_PRESETS.light);
+  assert.ok(Math.abs(step.position) <= REEL_CAP_FRACTION + 1e-9);
+  assert.ok(Math.abs(step.position) > 0);
+});
+
+test("the light brake is the one the reels start on", () => {
+  assert.equal(getBrakePreset(), "light");
 });
 
 test("cylinder faces shrink and crowd toward the edges", () => {

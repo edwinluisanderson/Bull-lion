@@ -75,9 +75,94 @@ export function modStop(value: number, count: number): number {
   return ((value % count) + count) % count;
 }
 
-/** Same decay the reel coast has always used on a real stop. */
-export const COAST_DECAY = 2.7;
+/**
+ * One stop is the cell the eye tracks. At the payline the cylinder moves
+ * `paylineSpacing()` symbol heights per stop, which is just over 1
+ * (d(sin θ)/d(stop) at the facing angle, θ = 18°). Measured on the glass,
+ * at both 320px and 412px, that pitch is 86px on the facing face, 83.6px
+ * to the face above it, and 88.4px to the face below it. All three reels
+ * share that pitch. The viewport is 258px tall.
+ *
+ * A frame that travels a whole stop looks frozen. Half a stop is where the
+ * direction flips. For a 1-stop cell that is 30 stops/s at 60Hz, 45 at 90Hz,
+ * and 60 at 120Hz. The cap is a third of a stop per 60Hz frame (20 stops/s):
+ * 0.222 stops/frame at 90Hz and 0.167 at 120Hz.
+ *
+ * The metal reel is the one that looked like it ran backward. Its strip is
+ * only five faces (Au, Ag, Pt, Pd, Cu), and Ag, Pt, and Pd are all pale, so
+ * a half-cell jump is easy to read as the wrong direction. The tick used to
+ * catch up as much as 50ms after the pull's price update and clicks. At the
+ * left reel's old cruise of about 12 stops/s that one paint moved ~0.59
+ * stops, just past the half-stop flip. The faster reels jumped closer to a
+ * whole cell, so the backward read was weaker. A frame is now capped at
+ * 1/60s, which keeps every reel under a third of a stop even at its cap.
+ */
+export const REEL_ALIAS_FRACTION = 0.5;
+export const REEL_CAP_FRACTION = 1 / 3;
+export const REEL_REFERENCE_HZ = 60;
+export const REEL_CHECK_HZ = [60, 90, 120] as const;
+export const REEL_MAX_FRAME_DT = 1 / REEL_REFERENCE_HZ;
+export const REEL_SPEED_CAP = REEL_CAP_FRACTION * REEL_REFERENCE_HZ;
+/** Facing-face height. The payline pitch measured above is this, in CSS pixels. */
+export const PAYLINE_STOP_PX = 86;
+
+export type ReelProfile = {
+  order: number;
+  name: "metal" | "weight" | "count";
+  stops: number;
+  /** Stops between repeats of the pattern that aliases first. The cell is 1. */
+  patternStops: number;
+  itemHeightPx: number;
+};
+
+export const REEL_PROFILES: readonly ReelProfile[] = [
+  { order: 0, name: "metal", stops: 5, patternStops: 1, itemHeightPx: PAYLINE_STOP_PX },
+  { order: 1, name: "weight", stops: 16, patternStops: 1, itemHeightPx: PAYLINE_STOP_PX },
+  { order: 2, name: "count", stops: 8, patternStops: 1, itemHeightPx: PAYLINE_STOP_PX },
+];
+
+/** Stops per second where one frame covers half of this reel's pattern. */
+export function reelAliasSpeed(patternStops: number, hz: number): number {
+  return REEL_ALIAS_FRACTION * patternStops * hz;
+}
+
+/** One third of this reel's pattern per 60Hz frame. */
+export function reelSpeedCap(patternStops: number): number {
+  return REEL_CAP_FRACTION * patternStops * REEL_REFERENCE_HZ;
+}
+
+export const REEL_SPEED_CAPS = REEL_PROFILES.map((profile) => reelSpeedCap(profile.patternStops));
+
+/** Symbol heights the payline travels per stop, measured on the facing face. */
+export function paylineSpacing(): number {
+  const radians = (STOP_DEGREES * Math.PI) / 180;
+  return radians / Math.sin(radians);
+}
+
+/** Stops per second at which one frame covers `fraction` of a stop. */
+export function stopsPerSecond(fraction: number, hz: number): number {
+  return fraction * hz;
+}
+
+/** Constant deceleration, stops per second squared. Same brake on every reel and every stop. */
+export const BRAKE_PRESETS = { light: 8, medium: 16, heavy: 32 } as const;
+export type BrakePreset = keyof typeof BRAKE_PRESETS;
 export const COAST_SETTLE_SPEED = 0.5;
+
+let brakePreset: BrakePreset = "light";
+
+export function brakeDecel(preset: BrakePreset = brakePreset): number {
+  return BRAKE_PRESETS[preset];
+}
+
+export function getBrakePreset(): BrakePreset {
+  return brakePreset;
+}
+
+export function setBrakePreset(next: BrakePreset): void {
+  if (next !== "light" && next !== "medium" && next !== "heavy") return;
+  brakePreset = next;
+}
 
 /** The integer stop whose half-stop basin contains `position`. */
 export function basinIndex(position: number): number {
@@ -85,50 +170,50 @@ export function basinIndex(position: number): number {
 }
 
 /**
- * Advance a coast by `dt` seconds.
- * Friction applies only inside an enabled stop's basin.
- * A gray basin is ice: speed stays constant while the wheel crosses it.
+ * Advance a coast by `dt` seconds under constant deceleration.
+ * Gray stops have the same friction as lit ones. Speed never reverses.
+ * `isEnabled` is unused; it stays so callers can pass the stop mask.
  */
 export function coastAdvance(
   position: number,
   velocity: number,
   dt: number,
-  isEnabled: (index: number) => boolean,
+  _isEnabled: (index: number) => boolean,
   count: number,
-  decay = COAST_DECAY,
+  decel = brakeDecel(),
 ): { position: number; velocity: number } {
-  if (count <= 0 || dt <= 0 || velocity === 0) return { position, velocity };
-  let pos = position;
-  let vel = velocity;
-  let left = dt;
-  for (let hop = 0; hop < 12 && left > 1e-8 && Math.abs(vel) > 1e-8; hop += 1) {
-    const basin = basinIndex(pos);
-    const ice = !isEnabled(modStop(basin, count));
-    const boundary = vel > 0 ? basin + 0.5 : basin - 0.5;
-    const gap = vel > 0 ? boundary - pos : pos - boundary;
-    if (gap <= 1e-9) {
-      pos += Math.sign(vel) * 1e-8;
-      continue;
-    }
-    const timeToEdge = gap / Math.abs(vel);
-    const slice = Math.min(left, timeToEdge);
-    if (ice || decay <= 0) {
-      pos += vel * slice;
-    } else {
-      const retained = Math.exp(-decay * slice);
-      const next = vel * retained;
-      pos += (vel - next) / decay;
-      vel = next;
-    }
-    left -= slice;
-    if (timeToEdge <= slice + 1e-12) pos += Math.sign(vel) * 1e-8;
+  if (count <= 0 || dt <= 0 || velocity === 0 || decel <= 0) return { position, velocity };
+  const sign = Math.sign(velocity);
+  const speed = Math.abs(velocity);
+  const drop = decel * dt;
+  if (drop >= speed) {
+    return { position: position + sign * ((0.5 * speed * speed) / decel), velocity: 0 };
   }
-  return { position: pos, velocity: vel };
+  const distance = speed * dt - 0.5 * decel * dt * dt;
+  return { position: position + sign * distance, velocity: sign * (speed - drop) };
 }
 
 /**
- * Where a dying flick should land.
- * A gray basin does not catch it: keep going in the direction of travel.
+ * Brake from the speed the reel already has. A flick and a pull both start
+ * at that speed. One step never covers more than a 60Hz frame.
+ */
+export function flywheelAdvance(
+  position: number,
+  velocity: number,
+  dt: number,
+  decel = brakeDecel(),
+  cap = REEL_SPEED_CAP,
+): { position: number; velocity: number } {
+  if (dt <= 0 || velocity === 0) return { position, velocity };
+  const stepDt = Math.min(dt, REEL_MAX_FRAME_DT);
+  const limited = Math.min(cap, Math.abs(velocity));
+  const signed = Math.sign(velocity) * limited;
+  return coastAdvance(position, signed, stepDt, () => true, 1, decel);
+}
+
+/**
+ * The next lit stop in the direction of travel.
+ * Never rounds backward, never stops on a gray face, never stops halfway.
  */
 export function glideSettleNotch(
   position: number,
@@ -137,14 +222,53 @@ export function glideSettleNotch(
   isEnabled: (index: number) => boolean,
 ): number {
   if (count <= 0) return 0;
-  const rounded = Math.round(position);
-  if (isEnabled(modStop(rounded, count))) return rounded;
   const direction = velocity < 0 ? -1 : 1;
-  for (let step = 1; step <= count; step += 1) {
-    const candidate = rounded + direction * step;
+  const epsilon = 1e-6;
+  const nearest = Math.round(position);
+  if (Math.abs(position - nearest) <= epsilon && isEnabled(modStop(nearest, count))) return nearest;
+  let cursor = direction > 0 ? Math.ceil(position - epsilon) : Math.floor(position + epsilon);
+  if (Math.abs(cursor - position) <= epsilon) cursor += direction;
+  for (let step = 0; step <= count; step += 1) {
+    const candidate = cursor + direction * step;
     if (isEnabled(modStop(candidate, count))) return candidate;
   }
-  return rounded;
+  return cursor;
+}
+
+/** Integer stops the wheel moved onto between two positions. */
+export function stopsCrossed(previous: number, next: number): number[] {
+  if (next === previous) return [];
+  const direction = next > previous ? 1 : -1;
+  const stops: number[] = [];
+  let cursor = direction > 0 ? Math.floor(previous) + 1 : Math.ceil(previous) - 1;
+  const last = direction > 0 ? Math.floor(next) : Math.ceil(next);
+  while ((direction > 0 ? cursor <= last : cursor >= last) && stops.length < 12) {
+    stops.push(cursor);
+    cursor += direction;
+  }
+  return stops;
+}
+
+/** Time-weighted average of the last few pointer segments. Endpoints alone twitch. */
+export function flingVelocity(
+  samples: { t: number; y: number }[],
+  itemHeight: number,
+  max = REEL_SPEED_CAP,
+): number {
+  if (samples.length < 2 || itemHeight <= 0) return 0;
+  const recent = samples.slice(-5);
+  let weighted = 0;
+  let time = 0;
+  for (let i = 1; i < recent.length; i += 1) {
+    const dt = recent[i].t - recent[i - 1].t;
+    if (dt < 4 || dt > 80) continue;
+    const slots = -((recent[i].y - recent[i - 1].y) / dt) * (1000 / itemHeight);
+    weighted += slots * dt;
+    time += dt;
+  }
+  if (time < 12) return 0;
+  const speed = weighted / time;
+  return Math.min(max, Math.max(-max, speed));
 }
 
 /** Nearest enabled integer stop. Ties keep the stop closer to `position`. */

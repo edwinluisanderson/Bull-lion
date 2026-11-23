@@ -1,91 +1,66 @@
+import {
+  BRAKE_PRESETS,
+  REEL_SPEED_CAP,
+  REEL_SPEED_CAPS,
+  type BrakePreset,
+  getBrakePreset,
+} from "@/lib/drum";
+
+/** Time between reel stops, left to right, on the light brake. */
+export const PULL_STAGGER_S = 0.4;
 /**
- * A handle pull is 3 s of steady free spin, then the old brake.
- * Free-spin speed is about 40 stops/s. The old ease opened near 80, 250,
- * and 130 stops/s, and holding the weight wheel's opening speed for 3 s
- * would skip several faces every frame. Forty stops/s still streams, at
- * about two-thirds of a face per frame. Loop counts are what make that
- * speed land on the chosen stop: the brake's opening slope is 4 times
- * its distance over its duration, so the distance left at 3 s is
- * speed * brake / 4.
+ * How long each reel takes to brake from the cap on the light preset.
+ * Deceleration is the cap divided by these times: 10, 8.33, and 7.14 stops/s².
  */
-export const PULL_ICE_MS = 3000;
-export const PULL_ICE_S = PULL_ICE_MS / 1000;
-export const PULL_BRAKE_MS = [880, 1140, 1400] as const;
-export const PULL_LOOPS = [25, 8, 16] as const;
-export const PULL_SETTLE_MS = 160;
-export const PULL_OVERSHOOT = 0.07;
+export const PULL_LIGHT_STOP_S = [2, 2.4, 2.8] as const;
 
-export type PullPlan = {
-  reduced: boolean;
-  notch: number;
-  past: number;
-  iceMs: number;
-  brakeMs: number;
-  /** Positive stops per second, toward decreasing position. */
-  speed: number;
-  start: number;
-  handoff: number;
-  /** Negative stops per second. */
-  velocity: number;
-};
-
-function mod(value: number, count: number): number {
-  return ((value % count) + count) % count;
-}
-
-/** Where a handle pull goes, and how fast the free spin has to be to arrive there. */
-export function pullPlan(input: {
-  order: number;
-  count: number;
-  position: number;
-  landIndex: number;
-  reduced: boolean;
-}): PullPlan {
-  const start = input.position;
-  const count = input.count;
-  const order = Math.min(2, Math.max(0, input.order));
-  let down = (mod(Math.round(start), count) - input.landIndex + count) % count;
-  if (down === 0) down = count;
-  const loops = input.reduced ? 0 : PULL_LOOPS[order];
-  const notch = Math.round(start) - loops * count - down;
-  if (input.reduced) {
-    return {
-      reduced: true,
-      notch,
-      past: notch,
-      iceMs: 0,
-      brakeMs: 0,
-      speed: 0,
-      start,
-      handoff: notch,
-      velocity: 0,
-    };
+/**
+ * Keep a set of launch speeds under their caps without clipping one reel flat.
+ * Equal caps: subtract the fastest reel's overshoot from all three.
+ * Different caps: divide by the largest speed/cap ratio.
+ */
+export function fitLaunchSpeeds(speeds: readonly number[], caps: readonly number[]): number[] {
+  const values = speeds.map((speed) => Math.abs(speed));
+  const limits = caps.map((cap) => Math.abs(cap));
+  const equal = limits.every((cap) => Math.abs(cap - limits[0]) < 1e-9);
+  if (equal) {
+    let fastest = 0;
+    for (let index = 1; index < values.length; index += 1) {
+      if (values[index] > values[fastest]) fastest = index;
+    }
+    const overshoot = values[fastest] - limits[fastest];
+    if (overshoot <= 0) return values;
+    const shifted = values.map((speed) => speed - overshoot);
+    if (shifted.every((speed, index) => speed > 0 && speed <= limits[index] + 1e-9)) return shifted;
   }
-  const past = notch - PULL_OVERSHOOT;
-  const travel = start - past;
-  const brakeS = PULL_BRAKE_MS[order] / 1000;
-  const speed = travel / (PULL_ICE_S + brakeS / 4);
-  const handoff = start - speed * PULL_ICE_S;
-  return {
-    reduced: false,
-    notch,
-    past,
-    iceMs: PULL_ICE_MS,
-    brakeMs: PULL_BRAKE_MS[order],
-    speed,
-    start,
-    handoff,
-    velocity: -speed,
-  };
+  const ratio = Math.max(1, ...values.map((speed, index) => speed / limits[index]));
+  return values.map((speed) => speed / ratio);
 }
 
-/** Opening slope of the quartic brake, in stops per second. */
-export function brakeVelocityAt(plan: PullPlan, progress: number): number {
-  const durationS = plan.brakeMs / 1000;
-  return ((plan.past - plan.handoff) * 4 * (1 - progress) ** 3) / durationS;
+/** Every reel leaves a pull at the cap. The stagger is in the brakes, not here. */
+export function pullLaunchSpeeds(caps: readonly number[] = REEL_SPEED_CAPS): number[] {
+  return fitLaunchSpeeds([REEL_SPEED_CAP, REEL_SPEED_CAP, REEL_SPEED_CAP], caps);
 }
 
-export function stillAtMs(order: number): number {
-  const index = Math.min(2, Math.max(0, order));
-  return PULL_ICE_MS + PULL_BRAKE_MS[index] + PULL_SETTLE_MS;
+/** Negative, so the wheel spins toward decreasing position. The same for every reel. */
+export function pullLaunchVelocity(input?: { order?: number; caps?: readonly number[] }): number {
+  const order = Math.min(2, Math.max(0, Math.floor(input?.order ?? 0)));
+  const speeds = pullLaunchSpeeds(input?.caps ?? REEL_SPEED_CAPS);
+  return -speeds[order];
+}
+
+/** Light-brake stop time scaled by the preset. Heavier brakes divide every time by the same factor. */
+export function pullStopSeconds(order: number, preset: BrakePreset = "light"): number {
+  const index = Math.min(2, Math.max(0, Math.floor(order)));
+  return PULL_LIGHT_STOP_S[index] * (BRAKE_PRESETS.light / BRAKE_PRESETS[preset]);
+}
+
+/** This reel's pull brake. The left reel is the strongest so it stops first. */
+export function pullDecel(order: number, preset: BrakePreset = getBrakePreset()): number {
+  return REEL_SPEED_CAP / pullStopSeconds(order, preset);
+}
+
+/** Nominal stop time for a reel on the light brake, unless a preset is named. */
+export function stillAtMs(order: number, preset: BrakePreset = "light"): number {
+  return Math.round(pullStopSeconds(order, preset) * 1000);
 }

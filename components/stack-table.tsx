@@ -34,6 +34,9 @@ import {
   grandTotal,
   insertCascade,
   readStack,
+  CLEAR_STACK_EVENT,
+  TEMP_CLEAR_ALL,
+  clearAllLines,
   removeLine,
   renameLine,
   rowMelt,
@@ -140,6 +143,27 @@ export function StackTable({
     if (!ready) return;
     writeStack(window.localStorage, lines);
   }, [lines, ready]);
+
+  useEffect(() => {
+    if (!TEMP_CLEAR_ALL) return;
+    const onClear = () => {
+      if (linesRef.current.length === 0) return;
+      window.cancelAnimationFrame(queueFrame.current);
+      queuedDelete.current = null;
+      finalRef.current = null;
+      playSwipeTone("clunk");
+      phaseRef.current = { ...emptyPullAdd(), lines: clearAllLines() };
+      setOpenId(null);
+      setEditing(null);
+      setCover(null);
+      setCoverLive(false);
+      setShift(null);
+      setShiftStep(0);
+      setLines(clearAllLines());
+    };
+    window.addEventListener(CLEAR_STACK_EVENT, onClear);
+    return () => window.removeEventListener(CLEAR_STACK_EVENT, onClear);
+  }, []);
 
   useLayoutEffect(() => {
     if (!cover || cover.tail) return;

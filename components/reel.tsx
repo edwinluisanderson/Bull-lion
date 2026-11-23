@@ -4,9 +4,13 @@ import { useEffect, useRef, useState } from "react";
 
 import {
   camPastNotch,
-  coastAdvance,
-  COAST_DECAY,
+  brakeDecel,
   COAST_SETTLE_SPEED,
+  flingVelocity,
+  flywheelAdvance,
+  REEL_MAX_FRAME_DT,
+  REEL_SPEED_CAPS,
+  stopsCrossed,
   commitIndex,
   cylinderPose,
   glideSettleNotch,
@@ -17,10 +21,12 @@ import {
 import { hapticClick } from "@/lib/haptics";
 import { noteReelSpinning, playReelClick, reelSnap, unlockReelClick } from "@/lib/reel-click";
 import { detentForStop } from "@/lib/spin-gate";
-import { pullPlan } from "@/lib/pull-spin";
+import { pullDecel, pullLaunchVelocity } from "@/lib/pull-spin";
+import { createReelMotion } from "@/lib/reel-motion";
 import { setWheelLampSpeed } from "@/lib/wheel-lamp";
 import { playStretchPop, unlockStretchPops } from "@/lib/stretch-pop";
 import { stretchPopCount } from "@/lib/stretch-pops";
+import { DRUM_WINDOW, REST_DRUM } from "@/lib/drum-housing";
 import { REEL_ITEM_HEIGHT } from "@/lib/metals";
 import {
   STRETCH_HOLD_MS,
@@ -80,7 +86,6 @@ function countFace(value: number): StretchFace {
   return { mark: `×${value}`, detail: value === 1 ? "piece" : "pieces" };
 }
 
-const MAX_VELOCITY = 28;
 const WINDOW = [-2, -1, 0, 1, 2, 3];
 
 function guestSymbol(
@@ -139,6 +144,7 @@ function createEngine(options: {
   onStretchFrame: (frame: StretchFrame | null) => void;
   onGuest: (guest: GuestCount | null) => void;
   alternatePullStops: () => boolean;
+  speedCap: number;
 }): Engine {
   let position = options.initialIndex;
   let phase: Phase = "idle";
@@ -168,6 +174,7 @@ function createEngine(options: {
   let popsPlayed = 0;
   let audioSpin = false;
   let pullSpin = false;
+  let pullOrder = 0;
   let pullStarted = 0;
   let alternated = 0;
   let iceFrom = 0;
@@ -196,16 +203,16 @@ function createEngine(options: {
     }
   }
 
+  const motion = createReelMotion((moving) => options.onMotion(moving));
+
   function setPhase(next: Phase) {
-    if (phase === next) return;
-    const wasMoving = phase !== "idle";
+    const changed = motion.set(phase, next);
+    if (!changed) return;
     phase = next;
     if (next === "idle") {
       setAudioSpin(false);
       pullSpin = false;
     }
-    const moving = next !== "idle";
-    if (wasMoving !== moving) options.onMotion(moving);
   }
 
   function enabledIndex(index: number): boolean {
@@ -217,6 +224,7 @@ function createEngine(options: {
   }
 
   function setPos(next: number) {
+    const previous = position;
     position = next;
     options.setKinetics(next, velocity);
     const stops = options.getStretch()?.stops;
@@ -260,6 +268,9 @@ function createEngine(options: {
         }
       }
     }
+    for (const stop of stopsCrossed(previous, next)) {
+      if (!enabledIndex(stop)) playReelClick(audioSpin, true);
+    }
     const index = commitIndex(next, options.getCount(), options.isEnabled);
     if (index === null || index === committed) return;
     const count = options.getCount();
@@ -281,8 +292,8 @@ function createEngine(options: {
     }
     committed = index;
     options.onIndex(index);
-    if (detent.haptic) hapticClick();
-    if (detent.sound) playReelClick(audioSpin && !landing);
+    if (detent.haptic) hapticClick(landing);
+    if (detent.sound) playReelClick(audioSpin && !landing, false, landing);
   }
 
   function stop() {
@@ -347,7 +358,7 @@ function createEngine(options: {
   function tick(now: number) {
     raf = 0;
     if (phase === "idle" || phase === "drag") return;
-    const dt = Math.min(0.05, (now - last) / 1000);
+    const dt = Math.min(REEL_MAX_FRAME_DT, Math.max(0, (now - last) / 1000));
     last = now;
 
     if (phase === "ice") {
@@ -366,11 +377,14 @@ function createEngine(options: {
 
     if (phase === "coast") {
       const count = options.getCount();
-      const step = coastAdvance(position, velocity, dt, options.isEnabled, count, COAST_DECAY);
+      const incoming = velocity;
+      const decel = pullSpin ? pullDecel(pullOrder) : brakeDecel();
+      const step = flywheelAdvance(position, velocity, dt, decel, options.speedCap);
       velocity = step.velocity;
       setPos(step.position);
       if (Math.abs(velocity) < COAST_SETTLE_SPEED) {
-        camToNotch(glideSettleNotch(position, velocity, count, options.isEnabled), 180);
+        const direction = velocity !== 0 ? velocity : incoming;
+        camToNotch(glideSettleNotch(position, direction, count, options.isEnabled), 180);
         return;
       }
     }
@@ -394,14 +408,7 @@ function createEngine(options: {
   }
 
   function velocityFrom(samples: { t: number; y: number }[]) {
-    if (samples.length < 2) return 0;
-    const first = samples[0];
-    const lastSample = samples[samples.length - 1];
-    const elapsed = lastSample.t - first.t;
-    if (elapsed < 12) return 0;
-    const slotsPerSecond =
-      -((lastSample.y - first.y) / elapsed) * (1000 / REEL_ITEM_HEIGHT);
-    return Math.min(MAX_VELOCITY, Math.max(-MAX_VELOCITY, slotsPerSecond));
+    return flingVelocity(samples, REEL_ITEM_HEIGHT, options.speedCap);
   }
 
   function clearHold() {
@@ -699,33 +706,15 @@ function createEngine(options: {
       alternated = 0;
       setAudioSpin(true);
       const count = options.getCount();
-      const enabled: number[] = [];
-      for (let index = 0; index < count; index += 1) {
-        if (enabledIndex(index)) enabled.push(index);
-      }
-      const pool = enabled.length > 0 ? enabled : Array.from({ length: count }, (_, index) => index);
-      const landIndex = pool[Math.floor(Math.random() * pool.length)] ?? 0;
-      const plan = pullPlan({
-        order,
-        count,
-        position,
-        landIndex,
-        reduced: options.isReduced(),
-      });
-      if (plan.reduced) {
-        camToNotch(plan.notch, 0);
+      if (options.isReduced()) {
+        const direction = -1;
+        camToNotch(glideSettleNotch(position, direction, count, options.isEnabled), 0);
         return;
       }
       stop();
-      iceFrom = plan.start;
-      iceVelocity = plan.velocity;
-      iceHandoff = plan.handoff;
-      iceSeconds = plan.iceMs / 1000;
-      brakeNotch = plan.notch;
-      brakeMs = plan.brakeMs;
-      velocity = plan.velocity;
-      animStart = performance.now();
-      setPhase("ice");
+      pullOrder = order;
+      velocity = pullLaunchVelocity({ order });
+      setPhase("coast");
       schedule();
     },
     destroy() {
@@ -734,7 +723,7 @@ function createEngine(options: {
       clearHold();
       stop();
       drag = null;
-      phase = "idle";
+      setPhase("idle");
     },
   };
 }
@@ -831,6 +820,7 @@ export function Reel({
       onStretchFrame: (frame) => listenerRef.current.onStretchFrame?.(frame),
       onGuest: (next) => listenerRef.current.onGuest?.(next),
       alternatePullStops: () => alternateRef.current,
+      speedCap: REEL_SPEED_CAPS[spinOrder] ?? REEL_SPEED_CAPS[0],
     });
     engineRef.current = engine;
     return () => {
@@ -929,6 +919,7 @@ export function Reel({
             window.removeEventListener("pointerup", onUp);
             window.removeEventListener("pointercancel", onUp);
             engineRef.current?.pointerUp();
+            viewport.blur();
           };
           window.addEventListener("pointermove", onMove);
           window.addEventListener("pointerup", onUp);
@@ -958,7 +949,9 @@ export function Reel({
           }
         }}
       >
-        <div className="reel-cylinder">
+        <div className="reel-drum" style={{ top: REST_DRUM.top, height: REST_DRUM.height }} />
+        <div className="reel-drum-band" style={{ top: REST_DRUM.top, height: REST_DRUM.height }}>
+        <div className="reel-cylinder" style={{ top: -REST_DRUM.top, height: DRUM_WINDOW, bottom: "auto" }}>
         {stretchFrame
           ? stretchFrame.rows.map((row) => {
               const clip = stretchRowClip(row.screenTop, REEL_ITEM_HEIGHT, stretchFrame.direction, row.role);
@@ -1059,6 +1052,8 @@ export function Reel({
           );
         })}
         </div>
+        </div>
+        <div className="reel-drum-shade" style={{ top: REST_DRUM.top, height: REST_DRUM.height }} />
       </div>
       <div className="reel-nudge">
         <button

@@ -72,8 +72,7 @@ test("the guard applies once after all three wheels land", () => {
   assert.equal(again.released, false);
 });
 
-test("count lands last, so the guard waits until 4.56 s", () => {
-  assert.deepEqual([stillAtMs(0), stillAtMs(1), stillAtMs(2)], [4040, 4300, 4560]);
+test("count lands last, so the guard waits for the right reel", () => {
   assert.ok(stillAtMs(2) > stillAtMs(1) && stillAtMs(1) > stillAtMs(0));
 
   const lands = [
@@ -90,7 +89,7 @@ test("count lands last, so the guard waits until 4.56 s", () => {
     hold = step.hold;
     if (step.released) releasedAt = land.at;
   }
-  assert.equal(releasedAt, 4560);
+  assert.equal(releasedAt, stillAtMs(2));
   assert.equal(adjust(true, 0).guard, false);
   assert.equal(adjust(false, 0).guard, true);
 });
