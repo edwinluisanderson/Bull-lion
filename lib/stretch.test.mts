@@ -12,6 +12,8 @@ import {
   handoffShift,
   nextGestureMode,
   originFor,
+  originFromWindow,
+  visibleStretchFaces,
   pressHitsCenter,
   projectGuest,
   sequenceFrom,
@@ -396,6 +398,7 @@ test("releasing a stretch from 20 keeps 18 centered and 19 beside it", () => {
     direction: "down",
     origin,
     sequence,
+    stops: COUNTS,
     travel,
     itemHeight: HEIGHT,
     centered: layout.centered,
@@ -424,6 +427,7 @@ test("a stretch face that has left the window is not kept on release", () => {
     direction: "down",
     origin,
     sequence,
+    stops: COUNTS,
     travel,
     itemHeight: HEIGHT,
     centered: layout.centered,
@@ -451,6 +455,7 @@ test("releasing an upward stretch keeps the in-between that is still beside cent
     direction: "up",
     origin,
     sequence,
+    stops: COUNTS,
     travel,
     itemHeight: HEIGHT,
     centered: layout.centered,
@@ -484,6 +489,7 @@ test("a release snap eases past center and settles on it", () => {
     direction: "down",
     origin,
     sequence,
+    stops: COUNTS,
     travel,
     itemHeight: HEIGHT,
     centered: layout.centered,
@@ -521,6 +527,7 @@ test("twenty stretch releases each knock once and finish centered", () => {
       direction: "down",
       origin,
       sequence,
+      stops: COUNTS,
       travel,
       itemHeight: HEIGHT,
       centered: layout.centered,
@@ -538,6 +545,85 @@ test("twenty stretch releases each knock once and finish centered", () => {
     );
   }
   assert.equal(knocks, 20);
+});
+
+test("a re-press keeps the released neighbor, and three cycles do not restore the main stop", () => {
+  const first = originFor(COUNTS, 20);
+  const sequence = sequenceFrom(first, "down");
+  const opened = stretchLayout({
+    direction: "down",
+    anchor: 20,
+    pin: first.lower,
+    pushed: first.upper,
+    sequence,
+    travel: 2 * HEIGHT,
+    itemHeight: HEIGHT,
+  });
+  const released = releasePlacement({
+    direction: "down",
+    origin: first,
+    sequence,
+    stops: COUNTS,
+    travel: 2 * HEIGHT,
+    itemHeight: HEIGHT,
+    centered: opened.centered,
+  });
+  assert.ok(released);
+  let faces = guestWindow(COUNTS, released.center, released.guest);
+  assert.deepEqual(faces, [10, 18, 19]);
+
+  for (let cycle = 0; cycle < 3; cycle += 1) {
+    const origin = originFromWindow({
+      above: faces[0],
+      center: faces[1],
+      below: faces[2],
+      insertAfter: released.guest.insertAfter ?? 0,
+      upperIndex: (released.guest.insertAfter ?? 0) + 1,
+    });
+    const held = visibleStretchFaces({
+      direction: "down",
+      origin,
+      sequence: sequenceFrom(origin, "down"),
+      travel: 0,
+      itemHeight: HEIGHT,
+    });
+    assert.deepEqual(held.slice(0, 3), faces);
+    const again = releasePlacement({
+      direction: "down",
+      origin,
+      sequence: sequenceFrom(origin, "down"),
+      stops: COUNTS,
+      travel: 0,
+      itemHeight: HEIGHT,
+      centered: faces[1],
+    });
+    assert.ok(again);
+    assert.deepEqual(guestWindow(COUNTS, again.center, again.guest), faces);
+    const stepped = stretchLayout({
+      direction: "down",
+      anchor: origin.anchor,
+      pin: origin.lower,
+      pushed: origin.upper,
+      sequence: sequenceFrom(origin, "down"),
+      travel: HEIGHT,
+      itemHeight: HEIGHT,
+    });
+    const moved = releasePlacement({
+      direction: "down",
+      origin,
+      sequence: sequenceFrom(origin, "down"),
+      stops: COUNTS,
+      travel: HEIGHT,
+      itemHeight: HEIGHT,
+      centered: stepped.centered,
+    });
+    assert.ok(moved);
+    const next = guestWindow(COUNTS, moved.center, moved.guest);
+    assert.equal(next[1], stepped.centered);
+    assert.ok(next.includes(faces[1]) || next[2] !== faces[2] || faces[2] === next[2]);
+    faces = next;
+  }
+  assert.notDeepEqual(faces, [10, 18, 20]);
 });
 
 test("the ends of the count list have no invented numbers", () => {

@@ -263,6 +263,64 @@ export function betweenFaceVisible(
   return clip.clipTop < itemHeight && clip.clipBottom < itemHeight;
 }
 
+function rowOnScreen(screenTop: number, itemHeight: number): boolean {
+  return screenTop < itemHeight * 3 && screenTop + itemHeight > 0;
+}
+
+/**
+ * Faces the stretch is painting, top to bottom.
+ * A neighbor that has left the window is absent.
+ */
+export function visibleStretchFaces(input: {
+  direction: StretchDirection;
+  origin: StretchOrigin;
+  sequence: readonly number[];
+  travel: number;
+  itemHeight: number;
+}): number[] {
+  const { direction, origin, sequence, travel, itemHeight } = input;
+  if (!(itemHeight > 0)) return [];
+  const sign = direction === "down" ? 1 : -1;
+  const anchorTop = itemHeight + sign * travel;
+  const pushedTop = direction === "down" ? itemHeight * 2 + travel : -travel;
+  const pushed = direction === "down" ? origin.upper : origin.lower;
+  const painted: { value: number; top: number }[] = [];
+  const pinTop = direction === "down" ? 0 : itemHeight * 2;
+  if (rowOnScreen(pinTop, itemHeight)) painted.push({ value: direction === "down" ? origin.lower : origin.upper, top: pinTop });
+  sequence.forEach((value, index) => {
+    if (travel <= index * itemHeight) return;
+    const top = emergedScreenTop(direction, index, travel, itemHeight);
+    if (!betweenFaceVisible(top, itemHeight, direction)) return;
+    painted.push({ value, top });
+  });
+  if (rowOnScreen(anchorTop, itemHeight)) painted.push({ value: origin.anchor, top: anchorTop });
+  if (pushed !== origin.anchor && rowOnScreen(pushedTop, itemHeight)) painted.push({ value: pushed, top: pushedTop });
+  painted.sort((a, b) => a.top - b.top || a.value - b.value);
+  return painted.map((row) => row.value);
+}
+
+/**
+ * Resting stretch whose pin, center, and pushed face are the ones already on screen.
+ * Further travel still reveals the integers hidden behind the pin.
+ */
+export function originFromWindow(input: {
+  above: number;
+  center: number;
+  below: number;
+  insertAfter: number;
+  upperIndex: number;
+}): StretchOrigin {
+  return {
+    anchor: input.center,
+    anchorIndex: null,
+    lower: input.above,
+    upper: input.below,
+    lowerIndex: input.insertAfter,
+    upperIndex: input.upperIndex,
+    slot: null,
+  };
+}
+
 /**
  * Keep the in-between faces that are on screen when the finger lets go.
  * The run is pin-side first, and `position` leaves the centered value centered.
@@ -272,26 +330,33 @@ export function releasePlacement(input: {
   direction: StretchDirection;
   origin: StretchOrigin;
   sequence: readonly number[];
+  stops: readonly number[];
   travel: number;
   itemHeight: number;
   centered: number;
 }): { position: number; center: number; guest: GuestCount } | null {
-  const { direction, origin, sequence, travel, itemHeight, centered } = input;
-  if (!(itemHeight > 0) || sequence.length === 0) return null;
-  const visible: number[] = [];
-  let centeredTop = 0;
-  sequence.forEach((value, index) => {
-    if (travel <= index * itemHeight) return;
-    const screenTop = emergedScreenTop(direction, index, travel, itemHeight);
-    if (!betweenFaceVisible(screenTop, itemHeight, direction)) return;
-    if (value === centered) centeredTop = screenTop;
-    visible.push(value);
-  });
-  if (!visible.includes(centered)) return null;
-  const insertAfter = direction === "down" ? origin.lowerIndex : (origin.anchorIndex ?? origin.lowerIndex);
-  const run = direction === "down" ? [...visible].reverse() : [...visible];
+  const { direction, origin, sequence, stops, travel, itemHeight, centered } = input;
+  if (!(itemHeight > 0)) return null;
+  const sign = direction === "down" ? 1 : -1;
+  const anchorTop = itemHeight + sign * travel;
+  const painted = visibleStretchFaces({ direction, origin, sequence, travel, itemHeight });
+  const permanent = (value: number) => stops.includes(value);
+  const run = painted.filter((value) => !permanent(value));
   const at = run.indexOf(centered);
-  if (at < 0 || insertAfter == null) return null;
+  if (at < 0 || run.length === 0) return null;
+  const insertAfter = direction === "down" ? origin.lowerIndex : (origin.anchorIndex ?? origin.lowerIndex);
+  if (insertAfter == null) return null;
+  const pushedValue = direction === "down" ? origin.upper : origin.lower;
+  const pushedTop = direction === "down" ? itemHeight * 2 + travel : -travel;
+  const sequenceIndex = sequence.indexOf(centered);
+  const centeredTop =
+    centered === origin.anchor
+      ? anchorTop
+      : centered === pushedValue
+        ? pushedTop
+        : sequenceIndex >= 0
+          ? emergedScreenTop(direction, sequenceIndex, travel, itemHeight)
+          : anchorTop;
   const payline = itemHeight * 1.5;
   const delta = (centeredTop + itemHeight / 2 - payline) / itemHeight;
   const center = insertAfter + 1 + at;

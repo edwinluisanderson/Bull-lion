@@ -48,6 +48,8 @@ import {
   originFor,
   pressHitsCenter,
   projectGuest,
+  guestWindow,
+  originFromWindow,
   releasePlacement,
   sequenceFrom,
   STRETCH_SNAP_MS,
@@ -535,6 +537,20 @@ function createEngine(options: {
       anchorIndex = mod(Math.round(position), stops.length);
       stretchOrigin = originNow(stops, stops[anchorIndex] ?? anchorIndex);
       setPos(anchorIndex);
+    } else if (guest) {
+      const [above, center, below] = guestWindow(stops, position, guest);
+      const insertAfter = guest.insertAfter ?? Math.floor(guest.slot);
+      stretchOrigin =
+        center === centeredGuest
+          ? originFromWindow({
+              above,
+              center,
+              below,
+              insertAfter,
+              upperIndex: insertAfter + 1,
+            })
+          : originNow(stops, centeredGuest);
+      anchorIndex = stretchOrigin.lowerIndex;
     } else {
       stretchOrigin = originNow(stops, centeredGuest);
       anchorIndex = stretchOrigin.lowerIndex;
@@ -627,8 +643,19 @@ function createEngine(options: {
       return;
     }
     const sequence = origin ? sequenceNow(origin, direction) : [];
-    const between = sequence.includes(centered);
-    if (!between) {
+    const placed =
+      origin && layout
+        ? releasePlacement({
+            direction,
+            origin,
+            sequence,
+            stops,
+            travel: stretchTravel,
+            itemHeight: REEL_ITEM_HEIGHT,
+            centered,
+          })
+        : null;
+    if (!placed && !sequence.includes(centered)) {
       publishStretch(null);
       stretchOrigin = null;
       velocity = 0;
@@ -640,17 +667,6 @@ function createEngine(options: {
       setPhase("idle");
       return;
     }
-    const placed =
-      origin && layout
-        ? releasePlacement({
-            direction,
-            origin,
-            sequence,
-            travel: stretchTravel,
-            itemHeight: REEL_ITEM_HEIGHT,
-            centered,
-          })
-        : null;
     if (placed) {
       guest = placed.guest;
       position = placed.position;
