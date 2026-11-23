@@ -124,15 +124,9 @@ test("the centered nixie fits the largest melt value", () => {
   assert.equal(nixieCentered(label).length, label.length);
 });
 
-test("the melt-plate nixie follows the same melt state as the rolling scrap plate", () => {
-  assert.match(
-    machine,
-    /<RollingPrice value=\{metal \? formatWholeDollars\(meltValue\(metal\.usdPerTroyOz, weight\.grams, pieces\)\) : "—"\} \/>/,
-  );
+test("the melt-plate nixie follows the same melt state as the main plate", () => {
+  assert.equal(machine.includes("RollingPrice"), false);
   assert.equal(machine.includes("NixieReadout"), false);
-  assert.match(css, /\.scrap-readout \{[^}]*bottom:\s*22px/);
-  assert.match(css, /\.scrap-readout \.readout \{[^}]*width:\s*calc\(100% - 3rem\)/);
-  assert.match(css, /\.scrap-readout \.readout \{[^}]*height:\s*4\.8rem/);
   assert.match(css, /\.gear-panel \{[^}]*min-height:\s*360px/);
   assert.match(css, /\.gear-panel-nixie-live \{[^}]*--nixie-glass-overlap:\s*16px/);
   assert.match(css, /\.gear-panel-nixie-live \{[^}]*width:\s*100%/);
@@ -142,7 +136,7 @@ test("the melt-plate nixie follows the same melt state as the rolling scrap plat
   assert.match(nixie, /className="nixie-glass"/);
   assert.match(nixie, /nixieSlots\(shownValue, NIXIE_SLOT_COUNT\)/);
   assert.match(css, /\.gear-panel-nixie \{[^}]*width:\s*100%/);
-  assert.match(css, /\.scrap-readout \{[^}]*bottom:\s*22px/);
+  assert.equal(css.includes(".scrap-readout"), false);
   assert.equal(css.includes(".melt-digits .nixie-bezel"), false);
   assert.match(css, /\.nixie-tubes\.is-centered \.nixie-tube \{[^}]*flex:\s*1 1 0/);
   assert.equal(NIXIE_HEIGHT_OVER_FONT, 2.497);
@@ -176,9 +170,7 @@ test("the melt-plate nixie follows the same melt state as the rolling scrap plat
   assert.equal(css.includes(".nixie-window"), false);
   assert.match(css, /\.nixie-glass \{[^}]*inset:\s*0/);
   assert.match(css, /\.nixie-glass > \.rivet\[data-corner="tl"\] \{[^}]*top:\s*2px/);
-  assert.match(css, /\.readout \{[^}]*border-radius:\s*14px/);
-  assert.match(css, /\.readout \{[^}]*padding:\s*0\.7rem 0\.9rem/);
-  assert.match(css, /\.readout \{[^}]*inset 0 0 0 7px #3a2a14/);
+  assert.equal(css.includes(".readout {"), false);
   assert.equal(css.includes("min-width: 900px"), false);
   assert.equal(css.includes("3.62"), false);
   assert.equal(nixieTubeHeight(1440), nixieTubeHeight(390));

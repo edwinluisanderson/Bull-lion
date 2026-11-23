@@ -1031,18 +1031,6 @@ html[data-ball="cobalt"] .pull-ball {
   text-transform: uppercase;
 }
 
-.readout {
-  margin: 0;
-  padding: 0.7rem 0.9rem;
-  border-radius: 14px;
-  background: linear-gradient(180deg, #1a120c, #0c0907);
-  box-shadow:
-    inset 0 0 0 2px #6e5318,
-    inset 0 0 0 4px #e6cb82,
-    inset 0 0 0 7px #3a2a14;
-  text-align: center;
-}
-
 .readout-kicker,
 .readout-stack,
 .readout-formula,
@@ -1243,99 +1231,10 @@ html[data-ball="cobalt"] .pull-ball {
   margin-left: 0;
 }
 
-.gear-panel-lights {
-  position: absolute;
-  z-index: 2;
-  top: 14px;
-  right: 12%;
-  left: 12%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  pointer-events: none;
-}
-
 .steampunk-light {
   display: block;
   flex: none;
   overflow: visible;
-}
-
-/* Same cage as the three lamps under the wheels. */
-.gear-panel .steampunk-light {
-  width: 36px;
-  height: 36px;
-}
-
-.gear-panel-lighthouse {
-  position: absolute;
-  z-index: 2;
-  bottom: 14px;
-  left: 50%;
-  width: 36px;
-  height: 36px;
-  transform: translateX(-50%);
-  pointer-events: none;
-}
-
-.lighthouse-beam {
-  position: absolute;
-  z-index: 0;
-  top: 50%;
-  left: 50%;
-  width: 880px;
-  height: 880px;
-  margin-top: -440px;
-  margin-left: -440px;
-  background: conic-gradient(
-    from -16deg,
-    transparent 0deg 318deg,
-    rgba(255, 196, 96, 0) 326deg,
-    rgba(255, 210, 120, 0.55) 344deg,
-    rgba(255, 236, 190, 0.18) 356deg,
-    transparent 360deg
-  );
-  mask-image: radial-gradient(circle, transparent 0 2.3%, #000 3.8%, rgba(0, 0, 0, 0.72) 34%, transparent 68%);
-  transform-origin: center;
-  animation: lighthouse-sweep 5s linear infinite;
-  pointer-events: none;
-}
-
-.lighthouse-lamp {
-  position: relative;
-  z-index: 1;
-}
-
-.gear-panel-cast {
-  position: absolute;
-  z-index: 2;
-  bottom: 20px;
-  left: 22%;
-  width: 36px;
-  height: 36px;
-  pointer-events: none;
-}
-
-.cast-pool {
-  position: absolute;
-  z-index: 0;
-  top: 50%;
-  left: 50%;
-  width: 130px;
-  height: 130px;
-  margin-top: -65px;
-  margin-left: -65px;
-  pointer-events: none;
-}
-
-.cast-lamp {
-  position: relative;
-  z-index: 1;
-}
-
-.gear-panel-stage {
-  position: relative;
-  min-height: 250px;
 }
 
 .gear-panel-nixie {
@@ -1359,10 +1258,6 @@ html[data-ball="cobalt"] .pull-ball {
   border: 0;
   box-shadow: none;
   overflow: visible;
-}
-
-.scrap-readout-gap {
-  height: calc(22px + 4.8rem + 8px);
 }
 
 .split-stack {
@@ -2020,25 +1915,13 @@ html[data-ball="cobalt"] .pull-ball {
   }
 }
 
-.scrap-readout {
-  position: absolute;
-  z-index: 3;
-  right: 0;
-  bottom: 22px;
-  left: 0;
-  display: flex;
-  height: 4.8rem;
-  align-items: stretch;
-  justify-content: center;
-  pointer-events: none;
-}
-
 /* TEMP_CLEAR_ALL: small brass control on the scrap plate. */
 .scrap-clear {
   position: absolute;
-  z-index: 4;
-  top: 6px;
-  right: 8px;
+  z-index: 10;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   margin: 0;
   padding: 3px 7px;
   border: 0;
@@ -2053,16 +1936,6 @@ html[data-ball="cobalt"] .pull-ball {
   text-transform: uppercase;
   pointer-events: auto;
   cursor: pointer;
-}
-
-.scrap-readout .readout {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  width: calc(100% - 3rem);
-  height: 4.8rem;
-  margin: 0;
 }
 
 .gear-panel-nixie-live {
@@ -2261,12 +2134,6 @@ html[data-ball="cobalt"] .pull-ball {
   to { transform: rotate(360deg); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .lighthouse-beam {
-    animation: none;
-  }
-}
-
 .lamp-compare {
   position: fixed;
   z-index: 30;
@@ -2304,31 +2171,6 @@ html[data-ball="cobalt"] .pull-ball {
 .nameplate > .rivet[data-corner="bl"] { bottom: 6px; left: 6px; }
 .nameplate > .rivet[data-corner="br"] { bottom: 6px; right: 6px; }
 
-.gear-panel-bg {
-  opacity: 0.22;
-}
-
-.gear-panel-bg-left {
-  top: 8px;
-  left: -36px;
-}
-
-.gear-panel-bg-right {
-  top: auto;
-  right: -42px;
-  bottom: -8px;
-}
-
-.gear-panel-row {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 132px;
-  padding: 1.4rem 18%;
-}
-
 .melt-heading {
   display: flex;
   flex-direction: column;
@@ -2361,10 +2203,6 @@ html[data-ball="cobalt"] .pull-ball {
   min-height: 3.6rem;
   margin: 0;
   padding-bottom: 0.4rem;
-}
-
-.melt-digits .rolling-price {
-  margin: 0;
 }
 
 .nameplate {
@@ -2415,72 +2253,6 @@ html[data-ball="cobalt"] .pull-ball {
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: center;
-}
-
-.rolling-price {
-  display: flex;
-  justify-content: center;
-  margin: 0.15rem 0 0.1rem;
-  color: #ffd27a;
-  font-family: var(--font-readout), ui-monospace, monospace;
-  font-size: 1.8rem;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.03em;
-  line-height: 1;
-  text-shadow: 0 0 14px rgba(255, 180, 60, 0.35);
-}
-
-.rolling-price-wheels {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.price-mark {
-  height: 1em;
-  line-height: 1;
-}
-
-.digit-reel {
-  position: relative;
-  display: block;
-  width: 1ch;
-  height: 1.72em;
-  overflow: hidden;
-}
-
-.digit-reel::before,
-.digit-reel::after {
-  content: "";
-  position: absolute;
-  z-index: 1;
-  right: 0;
-  left: 0;
-  height: 0.46em;
-  pointer-events: none;
-}
-
-.digit-reel::before {
-  top: 0;
-  background: linear-gradient(to bottom, #120e0b 0%, rgba(18, 14, 11, 0.55) 55%, transparent 100%);
-}
-
-.digit-reel::after {
-  bottom: 0;
-  background: linear-gradient(to top, #120e0b 0%, rgba(18, 14, 11, 0.55) 55%, transparent 100%);
-}
-
-.digit-reel-strip {
-  display: block;
-  transition: transform 0.62s cubic-bezier(0.16, 0.84, 0.24, 1);
-  will-change: transform;
-}
-
-.digit-reel-strip > span {
-  display: block;
-  height: 1em;
-  line-height: 1;
 }
 
 .readout-stack {
@@ -2634,46 +2406,6 @@ html[data-ball="cobalt"] .pull-ball {
   padding: 1.5rem 1.2rem;
 }
 
-.gear {
-  flex: none;
-  color: #e6cb82;
-  transform-origin: 50% 50%;
-  animation: turn 36s linear infinite;
-}
-
-.marquee-gear {
-  width: 36px;
-  height: 36px;
-  animation-duration: 22s;
-  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.35));
-}
-
-.gear-reverse {
-  animation-direction: reverse;
-}
-
-.bg-gear {
-  position: absolute;
-  z-index: 0;
-  width: min(187.2px, 48vw);
-  height: auto;
-  opacity: 0.14;
-  animation-duration: 56s;
-  pointer-events: none;
-}
-
-.bg-gear-left { top: -30px; left: -70px; }
-.bg-gear-right {
-  right: -80px;
-  bottom: 20px;
-  animation-direction: reverse;
-  animation-duration: 72s;
-}
-
-@keyframes turn {
-  to { transform: rotate(360deg); }
-}
-
 @keyframes axial-play {
   from { transform: translate3d(-0.5px, 0, 0); }
   to { transform: translate3d(0.5px, 0, 0); }
@@ -2741,13 +2473,11 @@ html[data-ball="cobalt"] .pull-ball {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .gear,
   .bulbs span.on,
   .lever-arm.yank,
   .pull-ball,
   .pull-ball.is-rest,
   .reel-viewport.is-rolling .reel-cylinder,
-  .digit-reel-strip,
   .melt-glyph,
   .melt-cyl,
   .melt-spec,
