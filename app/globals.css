@@ -2037,8 +2037,10 @@ html[data-ball="cobalt"] .pull-ball {
 .scrap-clear {
   position: absolute;
   z-index: 4;
-  top: 6px;
-  right: 8px;
+  top: auto;
+  right: auto;
+  bottom: -18px;
+  left: 36px;
   margin: 0;
   padding: 3px 7px;
   border: 0;
