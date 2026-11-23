@@ -61,12 +61,11 @@ function glide(
   root: Element,
   velocity: number,
   target: number,
-  skipped: number | null,
   origin: number,
   maxScroll: number,
   onDone: (at: number) => void,
 ) {
-  let state = startOwnedGlide(origin, velocity, target, skipped, maxScroll);
+  let state = startOwnedGlide(origin, velocity, target, maxScroll);
   let frame = 0;
   let last = performance.now();
   let stopped = false;
@@ -83,7 +82,6 @@ function glide(
     const next = advanceOwnedGlide(state, dt, state.y);
     state = next.state;
     root.scrollTop = state.y;
-    if (next.pass) passCue();
     if (state.done) {
       root.scrollTop = state.y;
       if (next.landed) landCue();
@@ -284,7 +282,7 @@ export function PageSnap() {
       const speed = aimedSpeed(velocity, origin, plan.target);
       gliding = true;
       cancelGlide();
-      cancelGlide = glide(root, speed, plan.target, plan.skipped, origin, measured.maxScroll, () => {
+      cancelGlide = glide(root, speed, plan.target, origin, measured.maxScroll, () => {
         gliding = false;
         cancelGlide = () => {};
       });

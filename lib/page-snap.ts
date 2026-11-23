@@ -6,11 +6,6 @@ export const SNAP_MIN_GAP_PX = 200;
 
 /** A lift slower than this is not a fling. The page stays where the finger left it. */
 export const FLING_MIN_PX_PER_SEC = 280;
-/**
- * At this speed and above, the fling skips exactly one stop.
- * A deliberate flick on a phone lands around 1600–2000 px/s.
- */
-export const HARD_FLING_PX_PER_SEC = 1600;
 
 /** Distance before the target where the cushion takes over from the fling. */
 export const CUSHION_ZONE_PX = 60;
@@ -178,9 +173,6 @@ export function pageGestureVelocity(gesture: PageGesture): number {
 export type FlingPlan = {
   /** Null when the page should stay exactly where the finger lifted. */
   target: number | null;
-  /** The one stop a hard fling passes. Never more than one. */
-  skipped: number | null;
-  hard: boolean;
 };
 
 export type StopCluster = { from: number; to: number };
@@ -212,9 +204,9 @@ export function clusterTarget(cluster: StopCluster, y: number, dir: 1 | -1): num
 
 /**
  * Where a release is going.
- * No fling stays put. A normal fling takes the next stop in its direction.
- * A hard fling skips that one stop. Skipping melt upward lands on the natural
- * top. Skipping the last stop downward lands on the bottom edge.
+ * No fling stays put. Every fling, however hard, takes the next stop in its
+ * direction. Nothing is skipped. With no stop ahead, the page goes to the
+ * edge it is already heading toward.
  * The choice is made once, from the release velocity, and is not revised.
  * Reduced motion never starts a glide.
  */
@@ -225,7 +217,7 @@ export function planFling(input: {
   points: readonly SnapMark[];
   reduced: boolean;
 }): FlingPlan {
-  const stay = { target: null, skipped: null, hard: false };
+  const stay = { target: null };
   if (input.reduced || Math.abs(input.velocity) < FLING_MIN_PX_PER_SEC) return stay;
   const limit = Math.max(0, input.maxScroll);
   const y = clampScroll(input.scrollTop, limit);
@@ -234,17 +226,10 @@ export function planFling(input: {
     .map((cluster) => clusterTarget(cluster, y, dir))
     .filter((at): at is number => at != null)
     .sort((a, b) => dir * (a - b));
+  if (ahead.length > 0) return { target: ahead[0] };
   const edge = dir > 0 ? limit : 0;
-  if (ahead.length === 0) {
-    if (Math.abs(y - edge) <= 0.5) return stay;
-    return { target: edge, skipped: null, hard: false };
-  }
-  const hard = Math.abs(input.velocity) >= HARD_FLING_PX_PER_SEC;
-  if (!hard || (ahead.length < 2 && Math.abs(ahead[0] - edge) <= 0.5)) {
-    return { target: ahead[0], skipped: null, hard: false };
-  }
-  if (ahead.length >= 2) return { target: ahead[1], skipped: ahead[0], hard: true };
-  return { target: edge, skipped: ahead[0], hard: true };
+  if (Math.abs(y - edge) <= 0.5) return stay;
+  return { target: edge };
 }
 
 /**
@@ -378,8 +363,6 @@ export type OwnedGlide = {
   /** Chosen once at release. A later sample must not replace it. */
   target: number;
   catchFrom: number;
-  skipped: number | null;
-  passed: boolean;
   done: boolean;
   /** Commanded speed of the latest slice, for the catch continuity check. */
   pace: number;
@@ -395,7 +378,6 @@ export function startOwnedGlide(
   y: number,
   velocity: number,
   target: number,
-  skipped: number | null,
   maxScroll = Number.POSITIVE_INFINITY,
 ): OwnedGlide {
   const aimed = aimedSpeed(velocity, y, target);
@@ -409,8 +391,6 @@ export function startOwnedGlide(
     dir: target >= y ? 1 : -1,
     target,
     catchFrom: inside ? remaining : CUSHION_ZONE_PX,
-    skipped,
-    passed: false,
     done: false,
     pace: speed,
     settleFrom: null,
@@ -448,49 +428,45 @@ export function advanceOwnedGlide(
   state: OwnedGlide,
   dt: number,
   observed: number,
-): { state: OwnedGlide; pass: boolean; landed: boolean } {
+): { state: OwnedGlide; landed: boolean } {
   void observed;
-  if (state.done) return { state, pass: false, landed: false };
+  if (state.done) return { state, landed: false };
   const stepDt = Math.min(GLIDE_MAX_FRAME_SEC, Math.max(0, dt));
   if (Math.abs(state.target - state.y) <= LAND_EPS_PX) {
-    return { state: { ...state, y: state.target, done: true, pace: 0 }, pass: false, landed: true };
+    return { state: { ...state, y: state.target, done: true, pace: 0 }, landed: true };
   }
   let y = state.y;
   let entrySpeed = state.entrySpeed;
   let catchFrom = state.catchFrom;
-  let passed = state.passed;
-  let pass = false;
   let pace = state.pace;
   let settleFrom = state.settleFrom;
   let settleTotal = state.settleTotal;
   let settleElapsed = state.settleElapsed;
   let left = stepDt;
   const slice = 0.004;
-  const finishAt = (at: number, didPass: boolean, landed: boolean) => ({
+  const finishAt = (at: number, landed: boolean) => ({
     state: {
       ...state,
       y: at,
       entrySpeed,
       catchFrom,
-      passed,
       done: true,
       pace: 0,
       settleFrom,
       settleTotal,
       settleElapsed: settleTotal,
     },
-    pass: didPass,
     landed,
   });
-  const finish = (didPass: boolean) => finishAt(state.target, didPass, landsOnStop(state.target, state.target));
-  const holdEdge = (from: number, to: number, didPass: boolean) => {
+  const finish = () => finishAt(state.target, landsOnStop(state.target, state.target));
+  const holdEdge = (from: number, to: number) => {
     const edge = edgeHit(from, to, state.maxScroll);
     if (edge == null) return null;
-    return finishAt(edge, didPass, landsOnStop(edge, state.target));
+    return finishAt(edge, landsOnStop(edge, state.target));
   };
   while (left > 1e-6) {
     const remaining = Math.abs(state.target - y);
-    if (remaining <= LAND_EPS_PX) return finish(pass);
+    if (remaining <= LAND_EPS_PX) return finish();
     if (settleFrom != null || remaining <= SETTLE_PX) {
       if (settleFrom == null) {
         settleFrom = y;
@@ -501,12 +477,8 @@ export function advanceOwnedGlide(
       settleElapsed += step;
       const u = settleTotal > 0 ? Math.min(1, settleElapsed / settleTotal) : 1;
       const next = settleFrom + (state.target - settleFrom) * settleEase(u);
-      if (!passed && state.skipped != null && stopsPassed(y, next, [state.skipped]).length > 0) {
-        passed = true;
-        pass = true;
-      }
-      if (u >= 1 || Math.abs(state.target - next) <= LAND_EPS_PX) return finish(pass);
-      const held = holdEdge(y, next, pass);
+      if (u >= 1 || Math.abs(state.target - next) <= LAND_EPS_PX) return finish();
+      const held = holdEdge(y, next);
       if (held) return held;
       const previous = y;
       y = next;
@@ -521,7 +493,7 @@ export function advanceOwnedGlide(
     if (outside && remaining - dist <= CUSHION_ZONE_PX) {
       const toZone = remaining - CUSHION_ZONE_PX;
       const boundary = y + state.dir * toZone;
-      const held = holdEdge(y, boundary, pass);
+      const held = holdEdge(y, boundary);
       if (held) return held;
       y = boundary;
       left -= state.speed > 0 ? toZone / state.speed : step;
@@ -531,30 +503,25 @@ export function advanceOwnedGlide(
       continue;
     }
     const next = y + state.dir * Math.min(dist, remaining);
-    if (!passed && state.skipped != null && stopsPassed(y, next, [state.skipped]).length > 0) {
-      passed = true;
-      pass = true;
-    }
     const crossed = (state.target - y) * (state.target - next) <= 0;
-    if (crossed || Math.abs(state.target - next) <= LAND_EPS_PX) return finish(pass);
-    const held = holdEdge(y, next, pass);
+    if (crossed || Math.abs(state.target - next) <= LAND_EPS_PX) return finish();
+    const held = holdEdge(y, next);
     if (held) return held;
     y = next;
     pace = speed;
     left -= step;
   }
   return {
-    state: { ...state, y, entrySpeed, catchFrom, passed, pace, settleFrom, settleTotal, settleElapsed },
-    pass,
+    state: { ...state, y, entrySpeed, catchFrom, pace, settleFrom, settleTotal, settleElapsed },
     landed: false,
   };
 }
 
 export type PageCue = "pass" | "land";
 
-/** Hard fling: one pass tick for the skipped stop, then one landing. A normal fling only lands. */
-export function flingCues(hard: boolean): PageCue[] {
-  return hard ? ["pass", "land"] : ["land"];
+/** A fling only lands. Dragging past a stop is the pass tick; nothing is skipped. */
+export function flingCues(): PageCue[] {
+  return ["land"];
 }
 
 /** One pass cue for each stop a finger drags across. A drag does not land. */

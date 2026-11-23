@@ -9,7 +9,6 @@ import {
   FLING_SPEED_CAP,
   GLIDE_PX,
   GLIDE_SPEED,
-  HARD_FLING_PX_PER_SEC,
   LAND_EPS_PX,
   RELEASE_SAMPLE_MS,
   SETTLE_PX,
@@ -98,7 +97,7 @@ test("only the melt plate and whichever of My Stack or the bottom comes first", 
   assert.equal(shared.length, 2);
 });
 
-test("a lift with no fling stays, a normal fling takes the next stop, a hard fling skips exactly one", () => {
+test("a lift with no fling stays and every fling takes the next stop", () => {
   const input = { maxScroll: 1500, points: page, reduced: false };
   const stay = planFling({ ...input, scrollTop: 210, velocity: 40 });
   assert.equal(stay.target, null);
@@ -107,26 +106,18 @@ test("a lift with no fling stays, a normal fling takes the next stop, a hard fli
 
   const normal = planFling({ ...input, scrollTop: 210, velocity: 700 });
   assert.equal(normal.target, 946);
-  assert.equal(normal.skipped, null);
-  assert.equal(normal.hard, false);
 
-  const hard = planFling({ ...input, scrollTop: 100, velocity: HARD_FLING_PX_PER_SEC });
-  assert.equal(hard.skipped, 190);
-  assert.equal(hard.target, 946);
-  assert.equal(hard.hard, true);
-  const pastStack = planFling({ ...input, scrollTop: 400, velocity: 1800 });
-  assert.equal(pastStack.skipped, 946);
-  assert.equal(pastStack.target, 1500);
+  const fromTop = planFling({ ...input, scrollTop: 0, velocity: 2400 });
+  assert.equal(fromTop.target, 190);
+  const betweenDown = planFling({ ...input, scrollTop: 400, velocity: 2400 });
+  assert.equal(betweenDown.target, 946);
+  const betweenUp = planFling({ ...input, scrollTop: 700, velocity: -2400 });
+  assert.equal(betweenUp.target, 190);
+  const belowDown = planFling({ ...input, scrollTop: 1100, velocity: 2400 });
+  assert.equal(belowDown.target, 1500);
+  const belowUp = planFling({ ...input, scrollTop: 1200, velocity: -2400 });
+  assert.equal(belowUp.target, 946);
 
-  const upward = planFling({ ...input, scrollTop: 700, velocity: -700 });
-  assert.equal(upward.target, 190);
-  const hardUp = planFling({ ...input, scrollTop: 700, velocity: -HARD_FLING_PX_PER_SEC });
-  assert.equal(hardUp.skipped, 190);
-  assert.equal(hardUp.target, 0);
-
-  const onlyOne = planFling({ ...input, scrollTop: 1400, velocity: HARD_FLING_PX_PER_SEC });
-  assert.equal(onlyOne.target, 1500);
-  assert.equal(onlyOne.skipped, null);
   assert.equal(planFling({ ...input, scrollTop: 400, velocity: 900, reduced: true }).target, null);
 
   assert.equal(FLING_SPEED_CAP, 1500);
@@ -150,7 +141,6 @@ test("a pointercancel in the middle of a pan still flings from the later samples
   gesture = notePageScroll(gesture, 130, 190);
   const velocity = pageGestureVelocity(gesture);
   assert.ok(velocity > FLING_MIN_PX_PER_SEC);
-  assert.ok(velocity < HARD_FLING_PX_PER_SEC);
   const plan = planFling({
     scrollTop: 190,
     velocity,
@@ -159,7 +149,6 @@ test("a pointercancel in the middle of a pan still flings from the later samples
     reduced: false,
   });
   assert.equal(plan.target, 946);
-  assert.equal(plan.skipped, null);
 });
 
 test("touch samples over the last 90ms are the release velocity", () => {
@@ -180,7 +169,7 @@ test("touch samples over the last 90ms are the release velocity", () => {
 });
 
 test("an owned glide keeps going when the scroller drifts and holds 56 in the cushion", () => {
-  let state = startOwnedGlide(0, 900, 400, null);
+  let state = startOwnedGlide(0, 900, 400);
   let sawGlide = false;
   for (let frame = 0; frame < 500 && !state.done; frame += 1) {
     const before = state.y;
@@ -203,7 +192,7 @@ test("an owned glide keeps going when the scroller drifts and holds 56 in the cu
 test("the land cue fires once when scrollTop rounds off a fractional stop", () => {
   assert.equal(LAND_EPS_PX, 1);
   const target = 189.97;
-  let state = startOwnedGlide(80, 700, target, null);
+  let state = startOwnedGlide(80, 700, target);
   let cues = 0;
   for (let frame = 0; frame < 800 && !state.done; frame += 1) {
     const scrollTop = Math.round(state.y);
@@ -222,79 +211,69 @@ test("the land cue fires once when scrollTop rounds off a fractional stop", () =
     { at: 844, always: true, name: "bottom" },
   ];
   const plan = planFling({ scrollTop: 600, velocity: 900, maxScroll: 844, points: packed, reduced: false });
-  assert.equal(plan.skipped, null);
   assert.equal(plan.target, 844);
-  let cluster = startOwnedGlide(600, 900, plan.target ?? 838, plan.skipped);
+  let cluster = startOwnedGlide(600, 900, plan.target ?? 838);
   let clusterLands = 0;
-  let clusterPasses = 0;
   for (let frame = 0; frame < 800 && !cluster.done; frame += 1) {
     const next = advanceOwnedGlide(cluster, 0.016, Math.round(cluster.y));
     if (next.landed) clusterLands += 1;
-    if (next.pass) clusterPasses += 1;
     cluster = next.state;
   }
   assert.equal(clusterLands, 1);
-  assert.equal(clusterPasses, 0);
   assert.equal(cluster.y, 844);
 });
 
-test("a planned skip keeps its target through to the end", () => {
-  const points = [
-    { at: 0, always: true, name: "top" },
-    { at: 190, always: true, name: "melt" },
-    { at: 500, always: true, name: "wheels" },
-    { at: 900, always: true, name: "bottom" },
+test("a hard fling lands on the next stop from the top, between stops, and below My Stack", () => {
+  const input = { maxScroll: 1500, points: page, reduced: false };
+  const cases = [
+    { scrollTop: 0, velocity: 2400, target: 190 },
+    { scrollTop: 400, velocity: 2400, target: 946 },
+    { scrollTop: 700, velocity: -2400, target: 190 },
+    { scrollTop: 1100, velocity: 2400, target: 1500 },
+    { scrollTop: 1200, velocity: -2400, target: 946 },
   ];
-  const plan = planFling({
-    scrollTop: 420,
-    velocity: -1618,
-    maxScroll: 900,
-    points,
-    reduced: false,
-  });
-  assert.equal(plan.hard, true);
-  assert.equal(plan.skipped, 190);
-  assert.equal(plan.target, 0);
-  let state = startOwnedGlide(420, -1618, plan.target ?? 420, plan.skipped);
-  let lands = 0;
-  let passes = 0;
-  const dts = [0.016, 0.008, 0.04, 0.02];
-  for (let frame = 0; frame < 800 && !state.done; frame += 1) {
-    const next = advanceOwnedGlide(state, dts[frame % dts.length], Math.round(state.y));
-    if (next.landed) lands += 1;
-    if (next.pass) passes += 1;
-    state = next.state;
-    assert.notEqual(state.target, 190);
+  for (const item of cases) {
+    const plan = planFling({ ...input, scrollTop: item.scrollTop, velocity: item.velocity });
+    assert.equal(plan.target, item.target, `${item.scrollTop} at ${item.velocity}`);
+    const speed = aimedSpeed(item.velocity, item.scrollTop, item.target);
+    let state = startOwnedGlide(item.scrollTop, speed, item.target, input.maxScroll);
+    let lands = 0;
+    for (let frame = 0; frame < 800 && !state.done; frame += 1) {
+      const next = advanceOwnedGlide(state, 0.016, state.y);
+      if (next.landed) lands += 1;
+      state = next.state;
+      if (item.velocity > 0) assert.ok(state.y <= item.target + 0.01);
+      else assert.ok(state.y >= item.target - 0.01);
+    }
+    assert.equal(lands, 1, `${item.scrollTop} lands`);
+    assert.ok(Math.abs(state.y - item.target) <= LAND_EPS_PX);
+    assert.equal(state.target, item.target);
   }
-  assert.equal(lands, 0);
-  assert.equal(passes, 1);
-  assert.equal(state.y, 0);
-  assert.equal(state.target, 0);
 });
 
 test("the first owned frame uses the capped speed and does not reverse or overshoot", () => {
   const dt = 0.016;
-  const opened = startOwnedGlide(100, 2600, 900, null, 1500);
+  const opened = startOwnedGlide(100, 2600, 900, 1500);
   assert.ok(opened.speed <= FLING_SPEED_CAP);
   const first = advanceOwnedGlide(opened, dt, opened.y);
   const moved = first.state.y - 100;
   assert.ok(moved > 0, "a downward fling must not reverse");
   assert.ok(Math.abs(moved - FLING_SPEED_CAP * dt) < 0.6, `first step ${moved}`);
 
-  const near = startOwnedGlide(165, 1200, 190, null, 700);
+  const near = startOwnedGlide(165, 1200, 190, 700);
   assert.ok(near.speed <= zoneEntryCap(25) + 1);
   const nearStep = advanceOwnedGlide(near, dt, near.y);
   assert.ok(nearStep.state.y <= 190);
   assert.ok(nearStep.state.y >= 165);
 
-  const close = startOwnedGlide(185, 1000, 190, null, 700);
+  const close = startOwnedGlide(185, 1000, 190, 700);
   assert.ok(close.speed <= GLIDE_SPEED + 1);
   const closeStep = advanceOwnedGlide(close, dt, close.y);
   assert.ok(closeStep.state.y <= 190);
   assert.ok(closeStep.state.y >= 185);
   assert.equal(closeStep.landed, false);
 
-  let onto = startOwnedGlide(100, 700, 190, null, 700);
+  let onto = startOwnedGlide(100, 700, 190, 700);
   let cues = 0;
   for (let frame = 0; frame < 400 && !onto.done; frame += 1) {
     const next = advanceOwnedGlide(onto, 0.016, onto.y);
@@ -310,7 +289,7 @@ test("the first owned frame uses the capped speed and does not reverse or oversh
 });
 
 test("catch speed stays continuous when frame times are uneven", () => {
-  let state = startOwnedGlide(0, 1000, 500, null);
+  let state = startOwnedGlide(0, 1000, 500);
   let prev = state.speed;
   let entered = false;
   const dts = [0.016, 0.005, 0.04, 0.008, 0.028, 0.016];
@@ -372,7 +351,7 @@ test("the sliding cap is about 600 at 30px and the glide speed in the last 10", 
 });
 
 test("touching the page edge cancels the soft close and holds", () => {
-  let state = startOwnedGlide(200, 900, 800, null, 360);
+  let state = startOwnedGlide(200, 900, 800, 360);
   let lands = 0;
   for (let frame = 0; frame < 200 && !state.done; frame += 1) {
     const next = advanceOwnedGlide(state, 0.016, state.y);
@@ -386,8 +365,7 @@ test("touching the page edge cancels the soft close and holds", () => {
 });
 
 test("pass and landing cues fire once for the stops they belong to", () => {
-  assert.deepEqual(flingCues(false), ["land"]);
-  assert.deepEqual(flingCues(true), ["pass", "land"]);
+  assert.deepEqual(flingCues(), ["land"]);
   assert.deepEqual(dragCues(0), []);
   assert.deepEqual(dragCues(2), ["pass", "pass"]);
   assert.deepEqual(stopsPassed(200, 600, [0, 190, 538, 946, 1500]), [538]);
@@ -487,7 +465,7 @@ test("the page owns a vertical drag and leaves pull-to-refresh, sideways, and co
 
 test("owned frames do not reverse and obey both speed caps", () => {
   const dt = 0.016;
-  let state = startOwnedGlide(100, 540, 900, null, 2000);
+  let state = startOwnedGlide(100, 540, 900, 2000);
   let previous = 100;
   for (const frame of [0.012, 0.015, 0.017]) {
     const next = advanceOwnedGlide(state, frame, state.y);
@@ -498,7 +476,7 @@ test("owned frames do not reverse and obey both speed caps", () => {
     state = next.state;
   }
 
-  const capped = startOwnedGlide(100, 2700, 900, null, 2000);
+  const capped = startOwnedGlide(100, 2700, 900, 2000);
   assert.ok(capped.speed <= FLING_SPEED_CAP);
   const first = advanceOwnedGlide(capped, dt, capped.y);
   assert.ok((first.state.y - 100) / dt <= FLING_SPEED_CAP + 1);
@@ -508,7 +486,7 @@ test("owned frames do not reverse and obey both speed caps", () => {
     [15, zoneEntryCap(15)],
     [5, zoneEntryCap(5)],
   ] as const) {
-    const near = startOwnedGlide(190 - distance, 2000, 190, null, 800);
+    const near = startOwnedGlide(190 - distance, 2000, 190, 800);
     assert.ok(near.speed <= limit + 1, `${distance}px started at ${near.speed} over ${limit}`);
     const step = advanceOwnedGlide(near, dt, near.y);
     assert.ok(step.state.y <= 190);
@@ -525,8 +503,7 @@ test("a normal upward fling from mid page lands on melt once", () => {
     reduced: false,
   });
   assert.equal(plan.target, 190);
-  assert.equal(plan.skipped, null);
-  let state = startOwnedGlide(400, aimedSpeed(-700, 400, 190), plan.target ?? 190, plan.skipped, 1500);
+  let state = startOwnedGlide(400, aimedSpeed(-700, 400, 190), plan.target ?? 190, 1500);
   let cues = 0;
   for (let frame = 0; frame < 500 && !state.done; frame += 1) {
     const next = advanceOwnedGlide(state, 0.016, state.y);
