@@ -54,28 +54,29 @@ test("outer lights match the inner seams and follow only the adjacent reel", () 
   assert.deepEqual(outerDividerLevels([false, false, true]), { left: DIVIDER_DIM, right: DIVIDER_BRIGHT });
   assert.deepEqual(outerDividerLevels([true, true, true]), { left: DIVIDER_BRIGHT, right: DIVIDER_BRIGHT });
 
-  const outer = css.match(/\.reel-grid::before,\s*\.reel-grid::after\s*\{([^}]*)\}/)?.[1] ?? "";
+  const outer = css.match(/\.reel-outer-light\s*\{([^}]*)\}/)?.[1] ?? "";
   const seam = css.match(/\.reel-column \+ \.reel-column::after\s*\{([^}]*)\}/)?.[1] ?? "";
-  assert.match(outer, /top:\s*calc\(var\(--reel-name\) \+ 15px\)/);
+  assert.match(outer, /top:\s*calc\(var\(--plate-pad-top\) \+ var\(--reel-name\) \+ 15px\)/);
   assert.match(outer, /height:\s*calc\(var\(--reel-window\) - 30px\)/);
   assert.match(outer, /width:\s*1px/);
   assert.match(outer, /background:\s*#f0d78c/);
   assert.match(outer, /opacity:\s*0\.6;/);
   assert.match(outer, /transition:\s*opacity var\(--divider-fade-out\) ease-out/);
   assert.match(outer, /position:\s*absolute/);
+  assert.match(outer, /z-index:\s*2/);
   assert.equal(outer.match(/mask-image:\s*([^;]+);/)?.[1], seam.match(/mask-image:\s*([^;]+);/)?.[1]);
-  assert.match(css, /\.reel-grid::before\s*\{[^}]*left:\s*0/);
-  assert.match(css, /\.reel-grid::after\s*\{[^}]*right:\s*0/);
-  assert.match(css, /\.reel-grid\[data-outer-left="bright"\]::before\s*\{[^}]*opacity:\s*1/);
-  assert.match(css, /\.reel-grid\[data-outer-right="bright"\]::after\s*\{[^}]*opacity:\s*1/);
-  assert.equal(
-    /\.reel-grid\[data-outer-left="bright"\]::before\s*,/.test(css),
-    false,
-  );
+  assert.match(css, /\.reel-outer-light\[data-edge="left"\]\s*\{[^}]*left:\s*calc\(var\(--plate-pad-x\) - 1px\)/);
+  assert.match(css, /\.reel-outer-light\[data-edge="right"\]\s*\{[^}]*right:\s*calc\(var\(--plate-pad-x\) - 1px\)/);
+  const payline = css.match(/\.payline\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.match(payline, /z-index:\s*3/);
+  assert.match(css, /\.payline::before,\s*\.payline::after\s*\{[^}]*border:\s*10px solid transparent/);
+  assert.match(css, /\.payline::before\s*\{[^}]*left:\s*0/);
+  assert.match(css, /\.payline::after\s*\{[^}]*right:\s*0/);
   const machine = readFileSync(new URL("../components/slot-machine.tsx", import.meta.url), "utf8");
   assert.match(machine, /outerDividerLevels\(handled\)/);
-  assert.match(machine, /data-outer-left=\{outers\.left === DIVIDER_BRIGHT \? "bright" : "dim"\}/);
-  assert.match(machine, /data-outer-right=\{outers\.right === DIVIDER_BRIGHT \? "bright" : "dim"\}/);
+  assert.match(machine, /className="reel-outer-light"/);
+  assert.match(machine, /data-edge="left"/);
+  assert.match(machine, /data-edge="right"/);
 });
 
 test("all four divider lights rise softly and ease out longer", () => {
@@ -83,14 +84,14 @@ test("all four divider lights rise softly and ease out longer", () => {
   assert.equal(DIVIDER_FADE_OUT_MS, 600);
   assert.match(css, new RegExp(`--divider-fade-in:\\s*${DIVIDER_FADE_IN_MS}ms`));
   assert.match(css, new RegExp(`--divider-fade-out:\\s*${DIVIDER_FADE_OUT_MS}ms`));
-  const outer = css.match(/\.reel-grid::before,\s*\.reel-grid::after\s*\{([^}]*)\}/)?.[1] ?? "";
+  const outer = css.match(/\.reel-outer-light\s*\{([^}]*)\}/)?.[1] ?? "";
   const seam = css.match(/\.reel-column \+ \.reel-column::after\s*\{([^}]*)\}/)?.[1] ?? "";
   const fadeOut = /transition:\s*opacity var\(--divider-fade-out\) ease-out/;
   const fadeIn = /transition:\s*opacity var\(--divider-fade-in\) cubic-bezier\(0\.33, 0, 0\.2, 1\)/;
   assert.match(outer, fadeOut);
   assert.match(seam, fadeOut);
-  assert.match(css, /\.reel-grid\[data-outer-left="bright"\]::before\s*\{[^}]*opacity:\s*1;\s*transition:\s*opacity var\(--divider-fade-in\)/);
-  assert.match(css, /\.reel-grid\[data-outer-right="bright"\]::after\s*\{[^}]*opacity:\s*1;\s*transition:\s*opacity var\(--divider-fade-in\)/);
+  const outerBright = css.match(/\.reel-outer-light\[data-lit="bright"\]\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.match(outerBright, fadeIn);
   const innerBright = css.match(/\.reel-grid\[data-divider-left="bright"\][\s\S]*?\{([^}]*)\}/)?.[1] ?? "";
   assert.match(innerBright, fadeIn);
   assert.equal(css.includes("transition: opacity 280ms ease"), false);

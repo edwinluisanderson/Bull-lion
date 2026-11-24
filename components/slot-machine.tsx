@@ -330,8 +330,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   className="reel-grid"
                   data-divider-left={dividers.left === DIVIDER_BRIGHT ? "bright" : "dim"}
                   data-divider-right={dividers.right === DIVIDER_BRIGHT ? "bright" : "dim"}
-                  data-outer-left={outers.left === DIVIDER_BRIGHT ? "bright" : "dim"}
-                  data-outer-right={outers.right === DIVIDER_BRIGHT ? "bright" : "dim"}
                 >
                 <Reel
                   lampIndex={0}
@@ -422,9 +420,21 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   onGestureMotion={onCountHandled}
                 />
                 </div>
-                <div className="payline" aria-hidden="true" />
-                <div className="glass" aria-hidden="true" />
               </div>
+              <span
+                className="reel-outer-light"
+                data-edge="left"
+                data-lit={outers.left === DIVIDER_BRIGHT ? "bright" : "dim"}
+                aria-hidden="true"
+              />
+              <span
+                className="reel-outer-light"
+                data-edge="right"
+                data-lit={outers.right === DIVIDER_BRIGHT ? "bright" : "dim"}
+                aria-hidden="true"
+              />
+              <div className="payline" aria-hidden="true" />
+              <div className="glass" aria-hidden="true" />
             </div>
             <PullBall onCommit={pull} onBend={setBendDegrees} />
           </div>

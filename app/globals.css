@@ -354,6 +354,10 @@ button,
 .window-frame {
   position: relative;
   padding: 14px;
+  --plate-pad-top: 14px;
+  --plate-pad-x: 14px;
+  --divider-fade-in: 250ms;
+  --divider-fade-out: 600ms;
   border-radius: 18px;
   background: var(--brass-plate);
   box-shadow:
@@ -397,17 +401,13 @@ button,
   position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  --divider-fade-in: 250ms;
-  --divider-fade-out: 600ms;
 }
 
-/* Outside edges of the first and last drums. Same line as the inner seams. */
-.reel-grid::before,
-.reel-grid::after {
-  content: "";
+/* In the brass gap, flush with the outer drum and under the payline triangles. */
+.reel-outer-light {
   position: absolute;
-  z-index: 5;
-  top: calc(var(--reel-name) + 15px);
+  z-index: 2;
+  top: calc(var(--plate-pad-top) + var(--reel-name) + 15px);
   width: 1px;
   height: calc(var(--reel-window) - 30px);
   pointer-events: none;
@@ -418,20 +418,15 @@ button,
   transition: opacity var(--divider-fade-out) ease-out;
 }
 
-.reel-grid::before {
-  left: 0;
+.reel-outer-light[data-edge="left"] {
+  left: calc(var(--plate-pad-x) - 1px);
 }
 
-.reel-grid::after {
-  right: 0;
+.reel-outer-light[data-edge="right"] {
+  right: calc(var(--plate-pad-x) - 1px);
 }
 
-.reel-grid[data-outer-left="bright"]::before {
-  opacity: 1;
-  transition: opacity var(--divider-fade-in) cubic-bezier(0.33, 0, 0.2, 1);
-}
-
-.reel-grid[data-outer-right="bright"]::after {
+.reel-outer-light[data-lit="bright"] {
   opacity: 1;
   transition: opacity var(--divider-fade-in) cubic-bezier(0.33, 0, 0.2, 1);
 }
@@ -2627,6 +2622,7 @@ html[data-compact="3"][data-plate] .playfield { margin-top: -13px; }
 html[data-compact="3"][data-plate] .window-frame {
   margin-top: 8px;
   padding-top: 6px;
+  --plate-pad-top: 6px;
 }
 
 /* Rolling digit wheels inside the melt-plate bezel. Right-locked drum, curve 3, blank faces, front-digit nixie. */
