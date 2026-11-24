@@ -51,7 +51,7 @@ function landCue(): void {
   pageLandClick();
 }
 
-const HANDLED_DRAG = ".reel-viewport, .pull-ball, .stack-swipe, .stack-swipe-face";
+const HANDLED_DRAG = ".reel-column, .reel-viewport, .pull-ball, .stack-swipe, .stack-swipe-face";
 
 /**
  * Owned fling. The finger already moved the page, so native momentum never

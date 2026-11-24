@@ -32,7 +32,8 @@ import {
   type LandingWatch,
 } from "@/lib/reel-landing";
 import { detentForStop } from "@/lib/spin-gate";
-import { pullDecel, pullLaunchVelocity } from "@/lib/pull-spin";
+import { pullFrame, pullJitteredSpeed, pullStopSeconds } from "@/lib/pull-spin";
+import { beginReelPointer } from "@/lib/reel-pointer";
 import { createReelMotion } from "@/lib/reel-motion";
 import { setWheelLampSpeed } from "@/lib/wheel-lamp";
 import { playStretchPop, unlockStretchPops } from "@/lib/stretch-pop";
@@ -141,7 +142,11 @@ type Engine = {
   pointerUp: () => void;
   step: (direction: number) => void;
   jump: (index: number) => void;
+  /** Put the reel on `index` with no animation and no velocity. A pull already at rest stays still. */
+  settleGuard: (index: number) => void;
   lever: (order: number) => void;
+  /** Pull ownership, for the ?debug=1 readout. */
+  debugState: () => { pullClock: boolean; pullSettled: boolean; owner: "pull" | "finger" | "idle" };
   destroy: () => void;
 };
 
@@ -168,6 +173,8 @@ export function createReelEngine(options: {
   onGuest: (guest: GuestCount | null) => void;
   alternatePullStops: () => boolean;
   speedCap: number;
+  /** 0 keeps the cap. 1 applies the full launch jitter. Defaults to Math.random. */
+  pullRandom?: () => number;
 }): Engine {
   let position = options.initialIndex;
   let phase: Phase = "idle";
@@ -200,7 +207,26 @@ export function createReelEngine(options: {
   let audioSpin = false;
   let pullSpin = false;
   let pullOrder = 0;
+  let pullOrigin = 0;
+  /** Timestamp of the first paint that moves the reel. That paint is elapsed 0. */
   let pullStarted = 0;
+  let pullClock = false;
+  let pullSettled = false;
+  let pullRestNotified = false;
+  let pullFace = 0;
+  let pullEcho = 0;
+  let pullSpeed = options.speedCap;
+  const publishKinetics = options.setKinetics;
+  options.setKinetics = (next, speed) => {
+    if (pullSettled) {
+      const exact = Math.abs(next - Math.round(next)) < 1e-6 ? Math.round(next) : pullFace;
+      pullFace = exact;
+      position = exact;
+      publishKinetics(exact, 0);
+      return;
+    }
+    publishKinetics(next, speed);
+  };
   let alternated = 0;
   let landingWatch: LandingWatch = clearLandingWatch();
   let glideTarget: number | null = null;
@@ -358,7 +384,7 @@ export function createReelEngine(options: {
       alternated,
     });
     alternated = detent.alternated;
-    if (landingNotch) {
+    if (landingNotch && !(pullClock && !pullSettled)) {
       setAudioSpin(false);
       pullSpin = false;
       committed = index;
@@ -480,8 +506,80 @@ export function createReelEngine(options: {
     schedule();
   }
 
+  /**
+   * The landed pull may force the face and speed 0 only until the confirmation
+   * frames finish, or until a finger, step, or new pull takes the reel.
+   */
+  function releasePullLatch() {
+    pullSettled = false;
+    pullEcho = 0;
+  }
+
+  /** True only while a pull is still running and has not reached its stop. */
+  function pullBlocksFinger(now: number): boolean {
+    if (!pullClock || pullSettled) return false;
+    if (raf === 0) return false;
+    if (pullStarted > 0 && now >= pullStarted + pullStopSeconds(pullOrder) * 1000) return false;
+    return true;
+  }
+
+  /** The pull has reached its scheduled stop. Velocity is 0 and the landing fires once. */
+  function finishPull(notch: number, _now = 0) {
+    const face = Math.round(notch);
+    pullFace = face;
+    pullSettled = true;
+    pullSpin = false;
+    stop();
+    velocity = 0;
+    position = face;
+    glideTarget = null;
+    camNotch = face;
+    setPos(face);
+    camNotch = null;
+    velocity = 0;
+    position = face;
+    options.setKinetics(face, 0);
+    setAudioSpin(false);
+    pullClock = false;
+    setPhase("idle");
+    if (!pullRestNotified) {
+      pullRestNotified = true;
+      settleLanding();
+    }
+    // The latch must be gone before the next frame. A long paint must not
+    // leave the reel owned by the pull until those frames arrive.
+    releasePullLatch();
+    pullEcho = 3;
+    raf = requestAnimationFrame(tick);
+  }
+
   function tick(now: number) {
     raf = 0;
+    try {
+    if (pullSettled) releasePullLatch();
+    if (!pullClock && pullEcho > 0 && phase === "idle") {
+      if (position === pullFace) {
+        velocity = 0;
+        options.setKinetics(pullFace, 0);
+      }
+      pullEcho -= 1;
+      if (pullEcho > 0 && position === pullFace) raf = requestAnimationFrame(tick);
+      return;
+    }
+    if (pullClock && !pullSettled && pullStarted > 0 && now >= pullStarted + pullStopSeconds(pullOrder) * 1000) {
+        const frame = pullFrame({
+          origin: pullOrigin,
+          order: pullOrder,
+          elapsedS: (now - pullStarted) / 1000,
+          count: reelCount(),
+          isEnabled: enabledExpanded,
+          locked: glideTarget,
+          launchSpeed: pullSpeed,
+        });
+      finishPull(frame.position, now);
+      return;
+    }
+    if (pullClock && !pullSettled && phase !== "coast") phase = "coast";
     if (phase === "idle" || phase === "drag") return;
     const dt = Math.min(REEL_MAX_FRAME_DT, Math.max(0, (now - last) / 1000));
     last = now;
@@ -502,22 +600,44 @@ export function createReelEngine(options: {
 
     if (phase === "coast") {
       const count = reelCount();
-      const decel = pullSpin ? pullDecel(pullOrder) : brakeDecel();
-      const glide = grayGlidePlan({
-        position,
-        velocity,
-        decel,
-        count,
-        isEnabled: enabledExpanded,
-        locked: glideTarget,
-      });
-      glideTarget = glide.fallback ? null : glide.target;
-      const step = flywheelAdvance(position, velocity, dt, glide.fallback ? decel : glide.decel, options.speedCap);
-      velocity = step.velocity;
-      setPos(step.position);
-      if (Math.abs(velocity) < COAST_SETTLE_SPEED) {
-        camToNotch(nearestEnabledSlot(position), 180);
-        return;
+      if (pullClock && !pullSettled) {
+        if (pullStarted === 0) pullStarted = now;
+        const elapsed = Math.max(0, (now - pullStarted) / 1000);
+        const frame = pullFrame({
+          origin: pullOrigin,
+          order: pullOrder,
+          elapsedS: elapsed,
+          count,
+          isEnabled: enabledExpanded,
+          locked: glideTarget,
+          launchSpeed: pullSpeed,
+        });
+        glideTarget = frame.locked;
+        if (frame.resting) {
+          finishPull(frame.position, now);
+          return;
+        }
+        velocity = frame.velocity;
+        pullSpin = true;
+        setPos(frame.position);
+      } else {
+        const decel = brakeDecel();
+        const glide = grayGlidePlan({
+          position,
+          velocity,
+          decel,
+          count,
+          isEnabled: enabledExpanded,
+          locked: glideTarget,
+        });
+        glideTarget = glide.fallback ? null : glide.target;
+        const step = flywheelAdvance(position, velocity, dt, glide.fallback ? decel : glide.decel, options.speedCap);
+        velocity = step.velocity;
+        setPos(step.position);
+        if (Math.abs(velocity) < COAST_SETTLE_SPEED) {
+          camToNotch(nearestEnabledSlot(position), 180);
+          return;
+        }
       }
     }
 
@@ -530,7 +650,10 @@ export function createReelEngine(options: {
           : phase === "snap"
             ? stretchSnap(animFrom, animTo, progress)
             : animFrom + (animTo - animFrom) * (1 - (1 - progress) ** power);
-      velocity = (next - position) / Math.max(dt, 0.001);
+      const frameDt = dt > 0 ? dt : REEL_MAX_FRAME_DT;
+      const stepSpeed = (next - position) / frameDt;
+      const cap = options.speedCap;
+      velocity = Math.max(-cap, Math.min(cap, stepSpeed));
       setPos(next);
       if (progress >= 1) {
         finishScript();
@@ -540,6 +663,9 @@ export function createReelEngine(options: {
 
     if (phase === "coast" || phase === "snap" || phase === "script") {
       raf = requestAnimationFrame(tick);
+    }
+    } finally {
+      if (pullClock && !pullSettled && raf === 0) raf = requestAnimationFrame(tick);
     }
   }
 
@@ -798,6 +924,9 @@ export function createReelEngine(options: {
 
   return {
     pointerDown(y, time, localY = 0, height = 0) {
+      if (pullBlocksFinger(time)) return;
+      releasePullLatch();
+      pullClock = false;
       pullSpin = false;
       landingWatch = clearLandingWatch();
       camNotch = null;
@@ -889,6 +1018,7 @@ export function createReelEngine(options: {
       schedule();
     },
     step(direction) {
+      releasePullLatch();
       pullSpin = false;
       landingWatch = clearLandingWatch();
       hapticClick();
@@ -902,7 +1032,28 @@ export function createReelEngine(options: {
         }
       }
     },
+    settleGuard(index) {
+      if (pullSpin) return;
+      releasePullLatch();
+      const count = options.getCount();
+      if (!(count > 0)) return;
+      const picked = enabledIndex(index) ? index : nearestEnabledSlot(index);
+      const target = mod(picked, count);
+      stop();
+      velocity = 0;
+      position = target;
+      committed = target;
+      camNotch = null;
+      glideTarget = null;
+      pullSpin = false;
+      pullClock = false;
+      options.setKinetics(target, 0);
+      if (options.onIndex) options.onIndex(target);
+      setPhase("idle");
+    },
     jump(index) {
+      if (pullSpin) return;
+      releasePullLatch();
       jumping = true;
       pullSpin = false;
       landingWatch = clearLandingWatch();
@@ -925,7 +1076,12 @@ export function createReelEngine(options: {
       landingWatch = armLandingWatch();
       glideTarget = null;
       pullSpin = true;
-      pullStarted = performance.now();
+      pullClock = true;
+      pullSettled = false;
+      pullRestNotified = false;
+      pullEcho = 0;
+      pullStarted = 0;
+      pullSpeed = pullJitteredSpeed(options.pullRandom ? options.pullRandom() : Math.random(), options.speedCap);
       alternated = 0;
       setAudioSpin(true);
       const count = options.getCount();
@@ -936,9 +1092,14 @@ export function createReelEngine(options: {
       }
       stop();
       pullOrder = order;
-      velocity = pullLaunchVelocity({ order });
+      pullOrigin = position;
+      velocity = -pullSpeed;
       setPhase("coast");
       schedule();
+    },
+    debugState() {
+      const owner = pullClock && !pullSettled ? "pull" : phase === "idle" ? "idle" : "finger";
+      return { pullClock, pullSettled, owner };
     },
     destroy() {
       pullSpin = false;
@@ -969,6 +1130,7 @@ export function Reel({
   centerPieces = null,
   alternatePullStops = false,
   lampIndex,
+  debug = false,
 }: {
   label: string;
   items: ReelSymbol[];
@@ -988,11 +1150,21 @@ export function Reel({
   alternatePullStops?: boolean;
   /** Which wheel lamp follows this reel's speed. */
   lampIndex?: number;
+  /** ?debug=1 readout. Hidden otherwise. */
+  debug?: boolean;
 }) {
   const [kinetics, setKinetics] = useState({ position: initialIndex, velocity: 0 });
   const position = kinetics.position;
   const velocity = kinetics.velocity;
   const engineRef = useRef<Engine | null>(null);
+  const debugRef = useRef(debug);
+  debugRef.current = debug;
+  const [pointerType, setPointerType] = useState("none");
+  const [pullState, setPullState] = useState<{
+    pullClock: boolean;
+    pullSettled: boolean;
+    owner: "pull" | "finger" | "idle";
+  }>({ pullClock: false, pullSettled: false, owner: "idle" });
   const appliedGuard = useRef(0);
   const countRef = useRef(items.length);
   const itemsRef = useRef(items);
@@ -1061,6 +1233,26 @@ export function Reel({
   }, [initialIndex]);
 
   useEffect(() => {
+    if (!debug) return;
+    let frame = 0;
+    const tick = () => {
+      const next = engineRef.current?.debugState();
+      if (next) {
+        setPullState((current) =>
+          current.pullClock === next.pullClock &&
+          current.pullSettled === next.pullSettled &&
+          current.owner === next.owner
+            ? current
+            : next,
+        );
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [debug]);
+
+  useEffect(() => {
     if (spinToken === 0) return;
     engineRef.current?.lever(spinOrder);
   }, [spinToken, spinOrder]);
@@ -1068,7 +1260,7 @@ export function Reel({
   useEffect(() => {
     if (!shouldApplyGuard(guardToken, appliedGuard.current)) return;
     appliedGuard.current = guardToken;
-    engineRef.current?.jump(guardIndex);
+    engineRef.current?.settleGuard(guardIndex);
   }, [guardToken, guardIndex]);
 
   const drawingGuest = Boolean(guestDraw) && !stretchFrame && stretch;
@@ -1109,6 +1301,11 @@ export function Reel({
   return (
     <div className="reel-column" data-testid={`reel-${label.toLowerCase()}`}>
       <div className="reel-name">{label}</div>
+      {debug ? (
+        <p className="reel-debug">
+          {`clock ${pullState.pullClock ? "1" : "0"} settled ${pullState.pullSettled ? "1" : "0"} owner ${pullState.owner} ptr ${pointerType}`}
+        </p>
+      ) : null}
       <div
         role="slider"
         tabIndex={0}
@@ -1129,56 +1326,18 @@ export function Reel({
         }
         style={{ height: REEL_ITEM_HEIGHT * 3, touchAction: "none" }}
         onPointerDown={(event) => {
-          if (event.button !== 0) return;
-          if (event.cancelable) event.preventDefault();
           unlockReelClick();
           unlockStretchPops();
-          const viewport = event.currentTarget;
-          viewport.focus({ preventScroll: true });
-          const bounds = viewport.getBoundingClientRect();
-          const pointerId = event.pointerId;
-          let closed = false;
-          const endGesture = () => {
-            if (closed) return;
-            closed = true;
-            window.removeEventListener("pointermove", onMove);
-            window.removeEventListener("pointerup", onUp);
-            window.removeEventListener("pointercancel", onUp);
-            window.removeEventListener("lostpointercapture", onUp);
-            if (viewport.hasPointerCapture?.(pointerId)) {
-              try {
-                viewport.releasePointerCapture(pointerId);
-              } catch {
-                /* The pointer is already gone. */
-              }
-            }
-            engineRef.current?.pointerUp();
-            viewport.blur();
-          };
-          const onMove = (moveEvent: PointerEvent) => {
-            if (moveEvent.pointerId !== pointerId) return;
-            if (moveEvent.cancelable) moveEvent.preventDefault();
-            engineRef.current?.pointerMove(moveEvent.clientY, moveEvent.timeStamp);
-          };
-          const onUp = (upEvent: PointerEvent) => {
-            if (upEvent.pointerId !== pointerId) return;
-            endGesture();
-          };
-          window.addEventListener("pointermove", onMove);
-          window.addEventListener("pointerup", onUp);
-          window.addEventListener("pointercancel", onUp);
-          window.addEventListener("lostpointercapture", onUp);
-          try {
-            viewport.setPointerCapture(pointerId);
-          } catch {
-            /* Capture is optional. The window listeners still follow the finger. */
-          }
-          engineRef.current?.pointerDown(
-            event.clientY,
-            event.timeStamp,
-            event.clientY - bounds.top,
-            bounds.height,
-          );
+          beginReelPointer({
+            event,
+            host: event.currentTarget,
+            engine: engineRef.current,
+            add: (type, listener) => window.addEventListener(type, listener as unknown as EventListener),
+            remove: (type, listener) => window.removeEventListener(type, listener as unknown as EventListener),
+            onType: (type) => {
+              if (debugRef.current) setPointerType(type);
+            },
+          });
         }}
         onKeyDown={(event) => {
           unlockReelClick();
