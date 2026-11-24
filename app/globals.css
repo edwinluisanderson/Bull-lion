@@ -434,6 +434,19 @@ button,
 .reel-column {
   min-width: 0;
   background: transparent;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+.pull-debug,
+.reel-debug {
+  margin: 0;
+  color: #f0d78c;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .reel-column + .reel-column {

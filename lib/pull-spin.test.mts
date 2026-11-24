@@ -13,11 +13,14 @@ import {
 } from "@/lib/drum";
 import {
   PULL_FREE_SPIN_S,
+  PULL_LAUNCH_JITTER,
   PULL_LIGHT_STOP_S,
   PULL_STAGGER_S,
   fitLaunchSpeeds,
   pullBrakeSeconds,
   pullDecel,
+  pullDecelForSpeed,
+  pullJitteredSpeed,
   pullFrame,
   pullFreeSpinning,
   pullLaunchSpeeds,
@@ -47,6 +50,35 @@ test("the light brakes stop the reels left to right about 0.4s apart", () => {
   assert.ok(decels[0] > decels[1] && decels[1] > decels[2]);
   assert.equal(stillAtMs(1) - stillAtMs(0), Math.round(PULL_STAGGER_S * 1000));
   assert.equal(stillAtMs(2) - stillAtMs(1), Math.round(PULL_STAGGER_S * 1000));
+});
+
+test("launch jitter scales down from the cap and still stops on time", () => {
+  assert.equal(PULL_LAUNCH_JITTER, 0.04);
+  assert.equal(pullJitteredSpeed(0), REEL_SPEED_CAP);
+  assert.equal(pullJitteredSpeed(1), REEL_SPEED_CAP * (1 - PULL_LAUNCH_JITTER));
+  assert.ok(pullJitteredSpeed(0.5) < pullJitteredSpeed(0));
+  assert.ok(pullJitteredSpeed(1.4) <= REEL_SPEED_CAP);
+  for (const order of [0, 1, 2] as const) {
+    const speed = pullJitteredSpeed(order / 2);
+    const decel = pullDecelForSpeed(speed, order);
+    assert.ok(Math.abs(decel - speed / (PULL_LIGHT_STOP_S[order] - PULL_FREE_SPIN_S)) < 1e-9);
+    const moving = pullPose(0, order, PULL_FREE_SPIN_S - 0.01, speed);
+    assert.equal(moving.velocity, -speed);
+    const rest = pullPose(0, order, PULL_LIGHT_STOP_S[order], speed);
+    assert.equal(rest.velocity, 0);
+    const frame = pullFrame({
+      origin: 0,
+      order,
+      elapsedS: PULL_LIGHT_STOP_S[order],
+      count: 8,
+      isEnabled: () => true,
+      locked: null,
+      launchSpeed: speed,
+    });
+    assert.equal(frame.resting, true);
+    assert.equal(frame.velocity, 0);
+    assert.equal(frame.position, Math.round(pullPose(0, order, PULL_LIGHT_STOP_S[order], speed).position));
+  }
 });
 
 test("pulls and flicks stay on the light brake", () => {

@@ -11,6 +11,11 @@ export const PULL_FREE_SPIN_S = 1.5;
  * The brake is whatever is left after {@link PULL_FREE_SPIN_S}: 1.0, 1.4, and 1.8s.
  */
 export const PULL_LIGHT_STOP_S = [2.5, 2.9, 3.3] as const;
+/**
+ * Each lever pull slows every reel by a different fraction of this amount.
+ * The launch speed scales down from the cap and never goes above it.
+ */
+export const PULL_LAUNCH_JITTER = 0.04;
 
 /**
  * Keep a set of launch speeds under their caps without clipping one reel flat.
@@ -38,6 +43,24 @@ export function fitLaunchSpeeds(speeds: readonly number[], caps: readonly number
 /** Every reel leaves a pull at the cap. The stagger is in the brakes, not here. */
 export function pullLaunchSpeeds(caps: readonly number[] = REEL_SPEED_CAPS): number[] {
   return fitLaunchSpeeds([REEL_SPEED_CAP, REEL_SPEED_CAP, REEL_SPEED_CAP], caps);
+}
+
+/** A launch speed in `[cap * (1 - jitter), cap]`. `unit` 0 is the cap; 1 is the full reduction. */
+export function pullJitteredSpeed(unit: number, cap = REEL_SPEED_CAP): number {
+  const span = Math.min(1, Math.max(0, unit));
+  const limit = Math.abs(cap);
+  return limit * (1 - PULL_LAUNCH_JITTER * span);
+}
+
+/**
+ * Brake for this reel's own launch speed, so a slower start still stops on time.
+ * Nominal cap uses {@link pullDecel}.
+ */
+export function pullDecelForSpeed(speed: number, order: number): number {
+  const brake = pullBrakeSeconds(order);
+  const launch = Math.min(Math.abs(speed), REEL_SPEED_CAP);
+  if (!(brake > 0)) return launch || REEL_SPEED_CAP;
+  return launch / brake;
 }
 
 /** Negative, so the wheel spins toward decreasing position. The same for every reel. */
@@ -79,12 +102,17 @@ export type PullSample = { position: number; velocity: number };
  * Where a pull is after `elapsedS` seconds of wall-clock time.
  * Free spin at the cap, then the constant brake. Frame spacing does not change it.
  */
-export function pullPose(origin: number, order: number, elapsedS: number): PullSample {
-  const speed = Math.abs(pullLaunchVelocity({ order }));
+export function pullPose(
+  origin: number,
+  order: number,
+  elapsedS: number,
+  launchSpeed = REEL_SPEED_CAP,
+): PullSample {
+  const speed = Math.min(REEL_SPEED_CAP, Math.abs(launchSpeed) || REEL_SPEED_CAP);
   const direction = -1;
   const elapsed = Math.max(0, elapsedS);
   const free = PULL_FREE_SPIN_S;
-  const decel = pullDecel(order);
+  const decel = pullDecelForSpeed(speed, order);
   const coasted = speed * Math.min(elapsed, free);
   if (elapsed <= free || !(decel > 0)) {
     return { position: origin + direction * coasted, velocity: direction * speed };
@@ -96,7 +124,7 @@ export function pullPose(origin: number, order: number, elapsedS: number): PullS
   const remaining = done ? 0 : speed - decel * brakeT;
   return {
     position: origin + direction * (coasted + traveled),
-    velocity: direction * remaining,
+    velocity: remaining === 0 ? 0 : direction * remaining,
   };
 }
 
@@ -142,14 +170,17 @@ export function pullFrame(input: {
   count: number;
   isEnabled: (index: number) => boolean;
   locked: number | null;
+  /** This pull's launch speed. Defaults to the cap. */
+  launchSpeed?: number;
 }): PullFrame {
   const { origin, order, elapsedS, count, isEnabled } = input;
+  const speed = Math.min(REEL_SPEED_CAP, Math.abs(input.launchSpeed ?? REEL_SPEED_CAP) || REEL_SPEED_CAP);
   const stop = pullStopSeconds(order);
   if (pullFreeSpinning(elapsedS)) {
-    return { ...pullPose(origin, order, elapsedS), locked: null, resting: false };
+    return { ...pullPose(origin, order, elapsedS, speed), locked: null, resting: false };
   }
-  const handoff = pullPose(origin, order, PULL_FREE_SPIN_S);
-  const decel = pullDecel(order);
+  const handoff = pullPose(origin, order, PULL_FREE_SPIN_S, speed);
+  const decel = pullDecelForSpeed(speed, order);
   const glide = grayGlidePlan({
     position: handoff.position,
     velocity: handoff.velocity,
@@ -159,7 +190,7 @@ export function pullFrame(input: {
     locked: input.locked,
   });
   const locked = glide.fallback ? null : glide.target;
-  const natural = pullPose(origin, order, stop);
+  const natural = pullPose(origin, order, stop, speed);
   const notch = locked ?? Math.round(natural.position);
   if (elapsedS >= stop) return { position: notch, velocity: 0, locked, resting: true };
   if (locked === null) return { ...pullPose(origin, order, elapsedS), locked: null, resting: false };
