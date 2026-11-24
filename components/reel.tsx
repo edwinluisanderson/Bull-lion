@@ -32,7 +32,7 @@ import {
   type LandingWatch,
 } from "@/lib/reel-landing";
 import { detentForStop } from "@/lib/spin-gate";
-import { pullDecel, pullLaunchVelocity } from "@/lib/pull-spin";
+import { pullDecel, pullFreeSpinning, pullLaunchVelocity } from "@/lib/pull-spin";
 import { createReelMotion } from "@/lib/reel-motion";
 import { setWheelLampSpeed } from "@/lib/wheel-lamp";
 import { playStretchPop, unlockStretchPops } from "@/lib/stretch-pop";
@@ -502,7 +502,8 @@ export function createReelEngine(options: {
 
     if (phase === "coast") {
       const count = reelCount();
-      const decel = pullSpin ? pullDecel(pullOrder) : brakeDecel();
+      const freeSpin = pullSpin && pullFreeSpinning((now - pullStarted) / 1000);
+      const decel = freeSpin ? 0 : pullSpin ? pullDecel(pullOrder) : brakeDecel();
       const glide = grayGlidePlan({
         position,
         velocity,

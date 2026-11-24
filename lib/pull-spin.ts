@@ -3,8 +3,12 @@ import { REEL_SPEED_CAP, REEL_SPEED_CAPS } from "@/lib/drum";
 /** Time between reel stops, left to right, on the light brake. */
 export const PULL_STAGGER_S = 0.4;
 /**
- * How long each reel takes to brake from the cap on the light preset.
- * Deceleration is the cap divided by these times: 10, 8.33, and 7.14 stops/s².
+ * Full-speed coast after a lever pull, before the brake. The same on every reel.
+ */
+export const PULL_FREE_SPIN_S = 1.2;
+/**
+ * Total time from launch to stop, left to right.
+ * The brake is whatever is left after {@link PULL_FREE_SPIN_S}: 0.8, 1.2, and 1.6s.
  */
 export const PULL_LIGHT_STOP_S = [2, 2.4, 2.8] as const;
 
@@ -49,9 +53,24 @@ export function pullStopSeconds(order: number): number {
   return PULL_LIGHT_STOP_S[index];
 }
 
-/** This reel's pull brake. The left reel is the strongest so it stops first. */
+/** Seconds of braking after the free spin. Derived so the total stop time is unchanged. */
+export function pullBrakeSeconds(order: number): number {
+  return Math.max(0, pullStopSeconds(order) - PULL_FREE_SPIN_S);
+}
+
+/**
+ * Pull brake, stops per second squared.
+ * Cap divided by the brake time: 25, 16.67, and 12.5 on the light schedule.
+ */
 export function pullDecel(order: number): number {
-  return REEL_SPEED_CAP / pullStopSeconds(order);
+  const brake = pullBrakeSeconds(order);
+  if (!(brake > 0)) return REEL_SPEED_CAP;
+  return REEL_SPEED_CAP / brake;
+}
+
+/** True while a pull is still in its free spin. Decel is zero until this ends. */
+export function pullFreeSpinning(elapsedS: number): boolean {
+  return elapsedS < PULL_FREE_SPIN_S;
 }
 
 /** Nominal stop time for a reel on the light brake. */

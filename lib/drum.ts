@@ -170,7 +170,8 @@ export function coastAdvance(
   count: number,
   decel = brakeDecel(),
 ): { position: number; velocity: number } {
-  if (count <= 0 || dt <= 0 || velocity === 0 || decel <= 0) return { position, velocity };
+  if (count <= 0 || dt <= 0 || velocity === 0) return { position, velocity };
+  if (!(decel > 0)) return { position: position + velocity * dt, velocity };
   const sign = Math.sign(velocity);
   const speed = Math.abs(velocity);
   const drop = decel * dt;
