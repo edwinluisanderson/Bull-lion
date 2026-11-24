@@ -1939,6 +1939,10 @@ html[data-ball="cobalt"] .pull-ball {
   min-width: 0;
 }
 
+.split-flap.is-instant .flap-leaf {
+  animation: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .flap-leaf {
     animation: none;

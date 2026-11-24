@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { SplitFlap } from "@/components/split-flap";
 import { DELETE_SHOOT_MS } from "@/lib/delete-alarm";
@@ -14,7 +14,7 @@ import {
   queuedCoverId,
   type DeleteCover,
 } from "@/lib/delete-cover";
-import { playSwipeTone, unlockFlapSamples, watchFlapBoard } from "@/lib/flap-sound";
+import { playSwipeTone, unlockFlapSamples } from "@/lib/flap-sound";
 import { emptyPullAdd, finishPullCascade, notePullAdd, type PullAddResult } from "@/lib/pull-stack";
 import { SwipeCard } from "@/components/swipe-card";
 import { unlockReelClick } from "@/lib/reel-click";
@@ -45,6 +45,18 @@ import {
   type StackFace,
   type StackLine,
 } from "@/lib/stack-board";
+import {
+  TOTAL_BOARD_ID,
+  priceCascade,
+  rectIntersectsViewport,
+  seedCascade,
+  settleCascade,
+  startCascade,
+  syncCascadeLines,
+  type CascadeBoard,
+  type CascadeEffect,
+  type CascadeSlot,
+} from "@/lib/stack-cascade";
 import { stackCsvFilename, stackToCsv } from "@/lib/stack-csv";
 
 export type StackSelection = {
@@ -113,6 +125,14 @@ export function StackTable({
   const selectionRef = useRef(selection);
   const quotesRef = useRef(quotes);
   const boardRef = useRef<HTMLElement>(null);
+  const cardNodes = useRef(new Map<string, HTMLElement>());
+  const totalNode = useRef<HTMLDivElement>(null);
+  const slotsRef = useRef<CascadeSlot[] | null>(null);
+  const cascadeTimers = useRef(new Map<string, number>());
+  const quoteSeen = useRef<string | null>(null);
+  const linesSeen = useRef<string | null>(null);
+  const beginRef = useRef<(id: string) => void>(() => {});
+  const [cascadeSlots, setCascadeSlots] = useState<CascadeSlot[] | null>(null);
   const slackMark = useRef<string | null>(null);
   const queuedDelete = useRef<string | null>(null);
   const queueFrame = useRef(0);
@@ -123,14 +143,125 @@ export function StackTable({
   shiftRef.current = shift;
   selectionRef.current = selection;
   quotesRef.current = quotes;
+  const quoteKey = quotes.map((quote) => `${quote.symbol}:${quote.usdPerTroyOz}`).join("|");
+  const lineKey = lines.map((line) => `${line.id}:${line.symbol}:${line.grams}:${line.qty}`).join("|");
+
+  const elementVisible = useCallback((node: Element | null): boolean => {
+    if (!node) return false;
+    const view = node.ownerDocument?.defaultView;
+    if (!view) return false;
+    return rectIntersectsViewport(node.getBoundingClientRect(), { width: view.innerWidth, height: view.innerHeight });
+  }, []);
+
+  const measureVisible = useCallback(
+    (id: string): boolean => {
+      if (id === TOTAL_BOARD_ID) return elementVisible(totalNode.current);
+      return elementVisible(cardNodes.current.get(id) ?? null);
+    },
+    [elementVisible],
+  );
+
+  const buildBoards = useCallback((): CascadeBoard[] => {
+    const rows = linesRef.current;
+    const priced = quotesRef.current;
+    const next: CascadeBoard[] = rows.map((line) => ({
+      id: line.id,
+      live: flapMoney(rowMelt(priceFor(priced, line.symbol), line.grams, line.qty)),
+      visible: measureVisible(line.id),
+    }));
+    if (rows.length === 0) return next;
+    const sum = grandTotal(rows.map((line) => rowMelt(priceFor(priced, line.symbol), line.grams, line.qty)));
+    next.push({
+      id: TOTAL_BOARD_ID,
+      live: fitFlapMoney(flapMoney(sum), FLAP_TOTAL_COLUMNS),
+      visible: measureVisible(TOTAL_BOARD_ID),
+    });
+    return next;
+  }, [measureVisible]);
+
+  const armEffects = useCallback((effects: readonly CascadeEffect[], now: number) => {
+    for (const effect of effects) {
+      if (effect.type === "cancel") {
+        const timer = cascadeTimers.current.get(effect.id);
+        if (timer !== undefined) window.clearTimeout(timer);
+        cascadeTimers.current.delete(effect.id);
+      } else if (effect.type === "schedule") {
+        const existing = cascadeTimers.current.get(effect.id);
+        if (existing !== undefined) window.clearTimeout(existing);
+        const delay = Math.max(0, effect.at - now);
+        const id = effect.id;
+        const timer = window.setTimeout(() => {
+          cascadeTimers.current.delete(id);
+          beginRef.current(id);
+        }, delay);
+        cascadeTimers.current.set(id, timer);
+      }
+    }
+  }, []);
+
+  const adoptCascade = useCallback(
+    (slots: CascadeSlot[], effects: readonly CascadeEffect[], now: number) => {
+      slotsRef.current = slots;
+      setCascadeSlots(slots);
+      armEffects(effects, now);
+    },
+    [armEffects],
+  );
+
+  beginRef.current = (id: string) => {
+    const slots = slotsRef.current;
+    if (!slots) return;
+    const now = performance.now();
+    const step = startCascade(slots, id, now, measureVisible(id), motionReduced());
+    adoptCascade(step.slots, step.effects, now);
+  };
+
+  function settleBoard(id: string) {
+    const slots = slotsRef.current;
+    if (!slots?.some((slot) => slot.id === id && slot.status === "flipping")) return;
+    const now = performance.now();
+    const step = settleCascade(slots, id, now, motionReduced(), buildBoards());
+    adoptCascade(step.slots, step.effects, now);
+  }
+
+  function faceFor(id: string, live: string): { text: string; instant: boolean } {
+    const slot = cascadeSlots?.find((entry) => entry.id === id);
+    if (!slot) return { text: live, instant: false };
+    return { text: slot.committed, instant: !slot.animate };
+  }
 
   useEffect(() => () => window.cancelAnimationFrame(queueFrame.current), []);
 
-  useLayoutEffect(() => {
-    const board = boardRef.current;
-    if (!board) return;
-    return watchFlapBoard(board);
+  useEffect(() => {
+    const timers = cascadeTimers.current;
+    return () => {
+      for (const timer of timers.values()) window.clearTimeout(timer);
+      timers.clear();
+    };
   }, []);
+
+  useLayoutEffect(() => {
+    if (!ready) return;
+    const boards = buildBoards();
+    const now = performance.now();
+    if (quoteSeen.current === null) {
+      quoteSeen.current = quoteKey;
+      linesSeen.current = lineKey;
+      const seeded = seedCascade(boards).map((slot) => ({ ...slot, animate: slot.visible }));
+      slotsRef.current = seeded;
+      setCascadeSlots(seeded);
+      return;
+    }
+    const quoteChanged = quoteSeen.current !== quoteKey;
+    const linesChanged = linesSeen.current !== lineKey;
+    quoteSeen.current = quoteKey;
+    linesSeen.current = lineKey;
+    if (!quoteChanged && !linesChanged) return;
+    const step = quoteChanged
+      ? priceCascade(slotsRef.current ?? [], boards, now, motionReduced())
+      : syncCascadeLines(slotsRef.current ?? [], boards);
+    adoptCascade(step.slots, step.effects, now);
+  }, [ready, quoteKey, lineKey, buildBoards, adoptCascade]);
 
   useEffect(() => {
     const stored = readStack(window.localStorage);
@@ -415,11 +546,13 @@ export function StackTable({
           const weightLabel = blank ? "" : line.weightLabel;
           const qtyLabel = blank ? "" : String(line.qty);
           const descriptionText = blank ? "" : line.description;
+          const meltFace = blank || !line ? null : faceFor(line.id, flapMoney(melt));
+          const boardInstant = meltFace?.instant ?? false;
           const weightStart = FLAP_METAL + 1;
           const qtyStart = weightStart + FLAP_WEIGHT;
           const meltStart = qtyStart + FLAP_QTY;
           const description = blank || shift ? (
-            <SplitFlap text={descriptionText} width={FLAP_DESCRIPTION} />
+            <SplitFlap text={descriptionText} width={FLAP_DESCRIPTION} instant={boardInstant} />
           ) : editing === line.id ? (
             <input
               className="stack-name"
@@ -444,7 +577,7 @@ export function StackTable({
               aria-label={`Edit description, ${line.description}`}
               onClick={() => setEditing(line.id)}
             >
-              <SplitFlap text={line.description} width={FLAP_DESCRIPTION} />
+              <SplitFlap text={line.description} width={FLAP_DESCRIPTION} instant={boardInstant} />
             </button>
           );
           const sliding = cover != null && line != null && line.id === cover.id && cover.phase === "slide" && !cover.tail;
@@ -496,7 +629,16 @@ export function StackTable({
                 if (line) requestDelete(line.id);
               }}
             >
-            <div className="stack-card" data-rows={2} style={{ ["--flap-cols" as string]: FLAP_BOARD_COLUMNS }}>
+            <div
+              className="stack-card"
+              data-rows={2}
+              ref={(node) => {
+                if (!line) return;
+                if (node) cardNodes.current.set(line.id, node);
+                else cardNodes.current.delete(line.id);
+              }}
+              style={{ ["--flap-cols" as string]: FLAP_BOARD_COLUMNS }}
+            >
               {blank ? null : (
                 <span className="sr-only">
                   {line.mark}, {line.weightLabel}, quantity {line.qty}, {line.description}, melt {flapMoney(melt)}
@@ -521,16 +663,21 @@ export function StackTable({
                 Melt
               </span>
               <span className="stack-span" style={{ gridColumn: `1 / span ${FLAP_METAL}`, gridRow: 4 }}>
-                <SplitFlap text={mark} width={FLAP_METAL} />
+                <SplitFlap text={mark} width={FLAP_METAL} instant={boardInstant} />
               </span>
               <span className="stack-span" style={{ gridColumn: `${weightStart} / span ${FLAP_WEIGHT}`, gridRow: 4 }}>
-                <SplitFlap text={weightLabel} width={FLAP_WEIGHT} />
+                <SplitFlap text={weightLabel} width={FLAP_WEIGHT} instant={boardInstant} />
               </span>
               <span className="stack-span" style={{ gridColumn: `${qtyStart} / span ${FLAP_QTY}`, gridRow: 4 }}>
-                <SplitFlap text={qtyLabel} width={FLAP_QTY} />
+                <SplitFlap text={qtyLabel} width={FLAP_QTY} instant={boardInstant} />
               </span>
               <span className="stack-span" style={{ gridColumn: `${meltStart} / span ${FLAP_MELT}`, gridRow: 4 }}>
-                <SplitFlap text={blank ? "" : flapMoney(melt)} width={FLAP_MELT} />
+                <SplitFlap
+                  text={meltFace ? meltFace.text : ""}
+                  width={FLAP_MELT}
+                  instant={boardInstant}
+                  onSettled={line ? () => settleBoard(line.id) : undefined}
+                />
               </span>
               {remove}
             </div>
@@ -540,6 +687,7 @@ export function StackTable({
       </ul>
       {lines.length > 0 ? (
         <div
+          ref={totalNode}
           className={`split-total${cover?.phase === "slide" && !cover.tail ? " is-cover-front" : ""}${cover?.phase === "slide" && cover.tail ? " is-rise" : ""}${cover?.phase === "slide" && cover.solo ? " is-collapsing" : ""}`}
           style={
             cover?.phase === "slide" && cover.solo
@@ -549,7 +697,12 @@ export function StackTable({
         >
           <span className="split-total-label">Total</span>
           <span className="split-total-flaps" style={{ ["--total-flaps" as string]: FLAP_TOTAL_COLUMNS }}>
-            <SplitFlap text={fitFlapMoney(flapMoney(total), FLAP_TOTAL_COLUMNS)} width={FLAP_TOTAL_COLUMNS} />
+            <SplitFlap
+              text={faceFor(TOTAL_BOARD_ID, fitFlapMoney(flapMoney(total), FLAP_TOTAL_COLUMNS)).text}
+              width={FLAP_TOTAL_COLUMNS}
+              instant={faceFor(TOTAL_BOARD_ID, fitFlapMoney(flapMoney(total), FLAP_TOTAL_COLUMNS)).instant}
+              onSettled={() => settleBoard(TOTAL_BOARD_ID)}
+            />
           </span>
         </div>
       ) : null}

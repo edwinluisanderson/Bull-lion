@@ -86,8 +86,12 @@ export function nextFlapSound(gate: FlapSoundGate, now: number): { play: boolean
 }
 
 let gate: FlapSoundGate = { stamp: 0, count: 0 };
-/** True only after the My Stack board reports that some of it intersects the viewport. */
-let boardInView = false;
+
+type FlapWatch = { intersecting: boolean; watches: number };
+/** Flap tiles that are mid-turn. The title, the card edge, and settled tiles are not in here. */
+const watches = new Map<Element, FlapWatch>();
+let flapObserver: IntersectionObserver | null = null;
+const liveSources = new Set<AudioBufferSourceNode>();
 let noise: AudioBuffer | null = null;
 let noiseContext: AudioContext | null = null;
 let sumBus: WaveShaperNode | null = null;
@@ -173,15 +177,16 @@ function clickBuffer(ctx: AudioContext): AudioBuffer | null {
   }
 }
 
-/** Any painted part of the board counts as on screen. */
-export const FLAP_BOARD_THRESHOLD = 0;
+/** A flipping tile counts as soon as any of it meets the viewport. */
+export const FLAP_VIEW_THRESHOLD = 0;
 
 /**
  * Flap ticks are the only sounds tied to the board.
  * Wheel clicks, coins, and the swipe detent stay independent of this.
+ * `flippingInView` is true only when a tile that is actually turning meets the viewport.
  */
-export function flapSoundAllowed(boardInView: boolean, visibilityState: string): boolean {
-  return boardInView && visibilityState === "visible";
+export function flapSoundAllowed(flippingInView: boolean, visibilityState: string): boolean {
+  return flippingInView && visibilityState === "visible";
 }
 
 /**
@@ -199,35 +204,81 @@ export function shouldPlayFlapTick(
   return nextFlapSound(current, now);
 }
 
-export function setFlapBoardInView(inView: boolean): void {
-  boardInView = inView;
-}
-
-function intersectsViewport(board: Element): boolean {
-  const view = board.ownerDocument?.defaultView;
+function elementInViewport(element: Element): boolean {
+  const view = element.ownerDocument?.defaultView;
   if (!view) return false;
-  const rect = board.getBoundingClientRect();
+  const rect = element.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return false;
   return rect.bottom > 0 && rect.right > 0 && rect.top < view.innerHeight && rect.left < view.innerWidth;
 }
 
-/** Follow the board. The first sample is synchronous so the opening tick is not a race. */
-export function watchFlapBoard(board: Element): () => void {
-  setFlapBoardInView(intersectsViewport(board));
-  let observer: IntersectionObserver | null = null;
-  if (typeof IntersectionObserver !== "undefined") {
-    observer = new IntersectionObserver(
-      (entries) => {
-        const latest = entries[entries.length - 1];
-        setFlapBoardInView(Boolean(latest?.isIntersecting));
-      },
-      { threshold: FLAP_BOARD_THRESHOLD },
-    );
-    observer.observe(board);
+/** True while at least one tracked flipping tile meets the viewport. */
+export function flippingFlapsAudible(): boolean {
+  for (const record of watches.values()) {
+    if (record.intersecting) return true;
   }
+  return false;
+}
+
+function ensureFlapObserver(): void {
+  if (flapObserver || typeof IntersectionObserver === "undefined") return;
+  flapObserver = new IntersectionObserver(
+    (entries) => {
+      let changed = false;
+      for (const entry of entries) {
+        const record = watches.get(entry.target);
+        if (!record || record.intersecting === entry.isIntersecting) continue;
+        record.intersecting = entry.isIntersecting;
+        changed = true;
+      }
+      if (changed && !flippingFlapsAudible()) stopActiveFlapSources();
+    },
+    { threshold: FLAP_VIEW_THRESHOLD },
+  );
+}
+
+function stopActiveFlapSources(): void {
+  for (const source of liveSources) {
+    try {
+      source.stop();
+    } catch {
+      /* already stopped */
+    }
+  }
+  liveSources.clear();
+}
+
+function armFlapSource(source: AudioBufferSourceNode): void {
+  liveSources.add(source);
+  source.onended = () => {
+    liveSources.delete(source);
+  };
+}
+
+/**
+ * Follow one tile that is turning right now.
+ * The first sample is synchronous, so the tick that starts the turn is not a race.
+ * Drop the watch when the turn ends. A still tile must not be passed in.
+ */
+export function trackFlippingFlap(element: Element): () => void {
+  let record = watches.get(element);
+  if (!record) {
+    record = { intersecting: elementInViewport(element), watches: 0 };
+    watches.set(element, record);
+    ensureFlapObserver();
+    flapObserver?.observe(element);
+  }
+  record.watches += 1;
+  let released = false;
   return () => {
-    observer?.disconnect();
-    setFlapBoardInView(false);
+    if (released) return;
+    released = true;
+    const current = watches.get(element);
+    if (!current) return;
+    current.watches -= 1;
+    if (current.watches > 0) return;
+    watches.delete(element);
+    flapObserver?.unobserve(element);
   };
 }
 
@@ -349,11 +400,16 @@ export function playSwipeTone(kind: "detent" | "clunk"): void {
   }
 }
 
-/** One mechanical tick on the shared reel context. Silent offscreen, in a hidden tab, when sound is off, and when throttled. */
+/** One mechanical tick on the shared reel context. Silent when no flipping tile is on screen, in a hidden tab, when sound is off, and when throttled. */
 export function playFlapSound(now = typeof performance !== "undefined" ? performance.now() : Date.now()): boolean {
-  const decision = shouldPlayFlapTick(boardInView, pageVisibility(), gate, now, spinSoundEnabled());
+  const audible = flippingFlapsAudible();
+  const visibility = pageVisibility();
+  const decision = shouldPlayFlapTick(audible, visibility, gate, now, spinSoundEnabled());
   gate = decision.gate;
-  if (!decision.play) return false;
+  if (!decision.play) {
+    if (!flapSoundAllowed(audible, visibility)) stopActiveFlapSources();
+    return false;
+  }
   try {
     const ctx = reelAudioContext();
     if (!ctx) return false;
@@ -372,6 +428,7 @@ export function playFlapSound(now = typeof performance !== "undefined" ? perform
       gain.gain.value = FLAP_SAMPLE_GAIN;
       source.connect(gain);
       gain.connect(flapSum(ctx));
+      armFlapSource(source);
       source.start();
       return true;
     }
@@ -388,6 +445,7 @@ export function playFlapSound(now = typeof performance !== "undefined" ? perform
     source.connect(filter);
     filter.connect(gain);
     gain.connect(flapSum(ctx));
+    armFlapSource(source);
     source.start();
     return true;
   } catch {
@@ -397,7 +455,11 @@ export function playFlapSound(now = typeof performance !== "undefined" ? perform
 
 export function resetFlapSoundForTests(): void {
   gate = { stamp: 0, count: 0 };
-  boardInView = false;
+  for (const element of watches.keys()) flapObserver?.unobserve(element);
+  watches.clear();
+  flapObserver?.disconnect();
+  flapObserver = null;
+  stopActiveFlapSources();
   noise = null;
   noiseContext = null;
   sumBus = null;
