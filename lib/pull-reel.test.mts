@@ -5,6 +5,7 @@ import { createReelEngine } from "@/components/reel";
 import { holdAfterMotion, holdForPull, IDLE_COUNT_GUARD, type CountGuardHold } from "@/lib/count-guard";
 import { REEL_SPEED_CAP } from "@/lib/drum";
 import { settleReels } from "@/lib/haptics";
+import { REEL_ITEM_HEIGHT } from "@/lib/metals";
 import { PULL_LIGHT_STOP_S, pullPose } from "@/lib/pull-spin";
 
 const FACES = [5, 16, 8];
@@ -216,6 +217,138 @@ test("throttled frames land within one frame of the first moving paint", () => {
       assert.equal(sample.position[order], face);
       assert.equal(sample.velocity[order], 0);
     }
+  }
+});
+
+function withReel(order: number, run: (reel: {
+  engine: ReturnType<typeof createReelEngine>;
+  read: () => { position: number; velocity: number };
+  pump: (ms: number) => void;
+  queued: { length: number };
+}) => void) {
+  const queued: { callback: FrameRequestCallback; id: number }[] = [];
+  let nextId = 1;
+  const realFrame = globalThis.requestAnimationFrame;
+  const realCancel = globalThis.cancelAnimationFrame;
+  const realNow = performance.now.bind(performance);
+  let now = 8_000;
+  Object.defineProperty(performance, "now", { configurable: true, value: () => now });
+  globalThis.requestAnimationFrame = (callback: FrameRequestCallback) => {
+    const id = nextId;
+    nextId += 1;
+    queued.push({ callback, id });
+    return id;
+  };
+  globalThis.cancelAnimationFrame = (id: number) => {
+    const index = queued.findIndex((entry) => entry.id === id);
+    if (index >= 0) queued.splice(index, 1);
+  };
+  let position = 0;
+  let velocity = 0;
+  const engine = createReelEngine({
+    initialIndex: 0,
+    setKinetics(next, speed) {
+      position = next;
+      velocity = speed;
+    },
+    getCount: () => FACES[order],
+    onIndex() {},
+    onMotion() {},
+    isReduced: () => false,
+    isEnabled: () => true,
+    getStretch: () => null,
+    onPieces() {},
+    onStretchFrame() {},
+    onGuest() {},
+    alternatePullStops: () => order === 1,
+    speedCap: REEL_SPEED_CAP,
+  });
+  const pump = (ms: number) => {
+    const batch = queued.splice(0, queued.length);
+    now += ms;
+    for (const entry of batch) entry.callback(now);
+  };
+  const read = () => ({ position, velocity });
+  try {
+    run({ engine, read, pump, queued });
+  } finally {
+    globalThis.requestAnimationFrame = realFrame;
+    globalThis.cancelAnimationFrame = realCancel;
+    Object.defineProperty(performance, "now", { configurable: true, value: realNow });
+  }
+}
+
+function landPull(order: number, reel: {
+  engine: ReturnType<typeof createReelEngine>;
+  read: () => { position: number; velocity: number };
+  pump: (ms: number) => void;
+  queued: { length: number };
+}) {
+  reel.engine.lever(order);
+  for (let step = 0; step < 800 && reel.queued.length > 0; step += 1) {
+    reel.pump(16);
+    if (reel.read().velocity === 0 && step > 10) break;
+  }
+  assert.equal(reel.read().velocity, 0, `reel ${order} did not land`);
+}
+
+test("after a pull lands, a drag and a flick move every reel", () => {
+  for (const order of [0, 1, 2] as const) {
+    withReel(order, (reel) => {
+      landPull(order, reel);
+      const face = reel.read().position;
+      assert.equal(face, Math.round(face));
+      const y = 400;
+      const time = 20_000;
+      reel.engine.pointerDown(y, time, 40, 200);
+      reel.engine.pointerMove(y + REEL_ITEM_HEIGHT * 2, time + 40);
+      const dragged = reel.read().position;
+      assert.ok(Math.abs(dragged - face) > 0.5, `drag did not move reel ${order}`);
+      reel.engine.pointerMove(y + REEL_ITEM_HEIGHT * 2, time + 80);
+      reel.engine.pointerMove(y + REEL_ITEM_HEIGHT * 5, time + 100);
+      reel.engine.pointerMove(y + REEL_ITEM_HEIGHT * 9, time + 120);
+      const atRelease = reel.read().position;
+      reel.engine.pointerUp();
+      let spun = false;
+      for (let frame = 0; frame < 8 && reel.queued.length > 0; frame += 1) {
+        reel.pump(16);
+        if (Math.abs(reel.read().position - atRelease) > 0.5 || Math.abs(reel.read().velocity) > 1) spun = true;
+      }
+      assert.equal(spun, true, `flick did not spin reel ${order}`);
+    });
+  }
+});
+
+test("a re-pull and a second pull both take the reel", () => {
+  for (const order of [0, 1, 2] as const) {
+    withReel(order, (reel) => {
+      reel.engine.lever(order);
+      reel.pump(16);
+      assert.equal(reel.read().velocity, -REEL_SPEED_CAP);
+      for (let step = 0; step < 12; step += 1) reel.pump(16);
+      const mid = reel.read().position;
+      assert.ok(mid < -1, `reel ${order} had not moved before the re-pull`);
+      reel.engine.lever(order);
+      reel.pump(16);
+      assert.equal(reel.read().velocity, -REEL_SPEED_CAP);
+      assert.ok(Math.abs(reel.read().position - mid) < 1e-6, `re-pull jumped reel ${order}`);
+      reel.pump(16);
+      assert.ok(reel.read().position < mid - 0.1, `re-pull did not spin reel ${order}`);
+      landPull(order, reel);
+      const face = reel.read().position;
+      reel.engine.lever(order);
+      reel.pump(16);
+      assert.equal(reel.read().velocity, -REEL_SPEED_CAP);
+      assert.ok(Math.abs(reel.read().position - face) < 1e-6, `second pull jumped reel ${order}`);
+      reel.pump(16);
+      assert.ok(reel.read().position < face - 0.1);
+      landPull(order, reel);
+      const again = reel.read().position;
+      const y = 400;
+      reel.engine.pointerDown(y, 40_000, 40, 200);
+      reel.engine.pointerMove(y + REEL_ITEM_HEIGHT * 2, 40_040);
+      assert.ok(Math.abs(reel.read().position - again) > 0.5, `drag after the second pull did not move reel ${order}`);
+    });
   }
 });
 

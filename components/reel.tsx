@@ -500,6 +500,15 @@ export function createReelEngine(options: {
     schedule();
   }
 
+  /**
+   * The landed pull may force the face and speed 0 only until the confirmation
+   * frames finish, or until a finger, step, or new pull takes the reel.
+   */
+  function releasePullLatch() {
+    pullSettled = false;
+    pullEcho = 0;
+  }
+
   /** The pull has reached its scheduled stop. Velocity is 0 and the landing fires once. */
   function finishPull(notch: number, _now = 0) {
     const face = Math.round(notch);
@@ -531,11 +540,11 @@ export function createReelEngine(options: {
     raf = 0;
     try {
     if (pullSettled) {
-      options.setKinetics(position, 0);
+      options.setKinetics(pullFace, 0);
       if (pullEcho < 3) {
         pullEcho += 1;
         raf = requestAnimationFrame(tick);
-      }
+      } else releasePullLatch();
       return;
     }
     if (pullClock && !pullSettled && pullStarted > 0 && now >= pullStarted + pullStopSeconds(pullOrder) * 1000) {
@@ -895,6 +904,7 @@ export function createReelEngine(options: {
   return {
     pointerDown(y, time, localY = 0, height = 0) {
       if (pullClock && !pullSettled) return;
+      releasePullLatch();
       pullSpin = false;
       landingWatch = clearLandingWatch();
       camNotch = null;
@@ -986,6 +996,7 @@ export function createReelEngine(options: {
       schedule();
     },
     step(direction) {
+      releasePullLatch();
       pullSpin = false;
       landingWatch = clearLandingWatch();
       hapticClick();
@@ -1001,6 +1012,7 @@ export function createReelEngine(options: {
     },
     settleGuard(index) {
       if (pullSpin) return;
+      releasePullLatch();
       const count = options.getCount();
       if (!(count > 0)) return;
       const picked = enabledIndex(index) ? index : nearestEnabledSlot(index);
@@ -1019,6 +1031,7 @@ export function createReelEngine(options: {
     },
     jump(index) {
       if (pullSpin) return;
+      releasePullLatch();
       jumping = true;
       pullSpin = false;
       landingWatch = clearLandingWatch();

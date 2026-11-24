@@ -5,12 +5,12 @@ export const PULL_STAGGER_S = 0.4;
 /**
  * Full-speed coast after a lever pull, before the brake. The same on every reel.
  */
-export const PULL_FREE_SPIN_S = 1.2;
+export const PULL_FREE_SPIN_S = 1.5;
 /**
  * Total time from launch to stop, left to right.
- * The brake is whatever is left after {@link PULL_FREE_SPIN_S}: 0.8, 1.2, and 1.6s.
+ * The brake is whatever is left after {@link PULL_FREE_SPIN_S}: 1.0, 1.4, and 1.8s.
  */
-export const PULL_LIGHT_STOP_S = [2, 2.4, 2.8] as const;
+export const PULL_LIGHT_STOP_S = [2.5, 2.9, 3.3] as const;
 
 /**
  * Keep a set of launch speeds under their caps without clipping one reel flat.
@@ -60,7 +60,7 @@ export function pullBrakeSeconds(order: number): number {
 
 /**
  * Pull brake, stops per second squared.
- * Cap divided by the brake time: 25, 16.67, and 12.5 on the light schedule.
+ * Cap divided by the brake time: 20, 20/1.4, and 20/1.8 on the light schedule.
  */
 export function pullDecel(order: number): number {
   const brake = pullBrakeSeconds(order);
