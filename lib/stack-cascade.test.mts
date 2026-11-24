@@ -43,10 +43,10 @@ const stack = () =>
     [TOTAL_BOARD_ID]: "$3",
   });
 
-test("visible boards stagger from the top and the total starts last", () => {
+test("visible boards run one at a time and the total waits for the last landing", () => {
   assert.equal(CASCADE_STAGGER_MS, 150);
   const seeded = seedCascade(stack());
-  const step = priceCascade(
+  let step = priceCascade(
     seeded,
     boards({ a: "$2", b: "$4", c: "$6", [TOTAL_BOARD_ID]: "$12" }),
     1_000,
@@ -55,22 +55,31 @@ test("visible boards stagger from the top and the total starts last", () => {
 
   assert.equal(slot(step.slots, "a").status, "flipping");
   assert.equal(slot(step.slots, "a").committed, "$2");
-  assert.equal(slot(step.slots, "a").animate, true);
   assert.equal(slot(step.slots, "b").status, "pending");
-  assert.equal(slot(step.slots, "b").startAt, 1_000 + CASCADE_STAGGER_MS);
-  assert.equal(slot(step.slots, "c").startAt, 1_000 + 2 * CASCADE_STAGGER_MS);
+  assert.equal(slot(step.slots, "b").startAt, null);
+  assert.equal(slot(step.slots, "c").status, "pending");
+  assert.equal(slot(step.slots, "c").startAt, null);
   assert.equal(slot(step.slots, TOTAL_BOARD_ID).status, "pending");
-  assert.equal(slot(step.slots, TOTAL_BOARD_ID).startAt, 1_000 + 3 * CASCADE_STAGGER_MS);
-  assert.equal(slot(step.slots, TOTAL_BOARD_ID).live, "$12");
-
-  const starts = ["a", "b", "c", TOTAL_BOARD_ID].map((id) => {
-    const entry = slot(step.slots, id);
-    return entry.status === "flipping" ? 1_000 : entry.startAt;
-  });
-  const ordered = [...starts].sort((left, right) => (left ?? 0) - (right ?? 0));
-  assert.deepEqual(starts, ordered);
-  assert.equal(starts.at(-1), slot(step.slots, TOTAL_BOARD_ID).startAt);
+  assert.equal(slot(step.slots, TOTAL_BOARD_ID).startAt, null);
+  assert.equal(step.effects.filter((effect) => effect.type === "schedule").length, 0);
   assert.equal(seeded[0]?.committed, "$1");
+
+  const landed = [5_000, 9_000, 14_000];
+  for (const [index, id] of ["a", "b", "c"].entries()) {
+    const now = landed[index] ?? 0;
+    step = settleCascade(step.slots, id, now, false, boards({ a: "$2", b: "$4", c: "$6", [TOTAL_BOARD_ID]: "$12" }));
+    const follower = ["b", "c", TOTAL_BOARD_ID][index] ?? TOTAL_BOARD_ID;
+    assert.equal(slot(step.slots, id).status, "idle");
+    assert.equal(slot(step.slots, follower).status, "pending");
+    assert.equal(slot(step.slots, follower).startAt, now + CASCADE_STAGGER_MS);
+    if (follower !== TOTAL_BOARD_ID) {
+      step = startCascade(step.slots, follower, now + CASCADE_STAGGER_MS, true, false);
+      assert.equal(slot(step.slots, follower).status, "flipping");
+    }
+  }
+  assert.equal(slot(step.slots, TOTAL_BOARD_ID).startAt, 14_000 + CASCADE_STAGGER_MS);
+  assert.equal(slot(step.slots, "b").status, "idle");
+  assert.equal(slot(step.slots, "c").status, "idle");
 });
 
 test("an off-screen card snaps and does not take a stagger slot", () => {
@@ -89,8 +98,12 @@ test("an off-screen card snaps and does not take a stagger slot", () => {
   assert.equal(step.effects.some((effect) => effect.type === "schedule" && effect.id === "b"), false);
 
   assert.equal(slot(step.slots, "a").status, "flipping");
-  assert.equal(slot(step.slots, "c").startAt, 500 + CASCADE_STAGGER_MS);
-  assert.equal(slot(step.slots, TOTAL_BOARD_ID).startAt, 500 + 2 * CASCADE_STAGGER_MS);
+  assert.equal(slot(step.slots, "c").status, "pending");
+  assert.equal(slot(step.slots, "c").startAt, null);
+  assert.equal(slot(step.slots, TOTAL_BOARD_ID).startAt, null);
+  const afterA = settleCascade(step.slots, "a", 2_000, false, boards({ a: "$2", b: "$9", c: "$6", [TOTAL_BOARD_ID]: "$17" }, ["b"]));
+  assert.equal(slot(afterA.slots, "c").startAt, 2_000 + CASCADE_STAGGER_MS);
+  assert.equal(slot(afterA.slots, TOTAL_BOARD_ID).startAt, null);
 });
 
 test("a price mid-cascade retargets an in-flight board and sends boards that have not started to the newest value", () => {
@@ -113,42 +126,59 @@ test("a price mid-cascade retargets an in-flight board and sends boards that hav
 
   const pending = slot(second.slots, "b");
   assert.equal(pending.status, "pending");
-  assert.equal(pending.startAt, 1_000 + CASCADE_STAGGER_MS);
+  assert.equal(pending.startAt, null);
   assert.equal(pending.live, "$5");
   assert.equal(pending.committed, "$1");
-  assert.equal(second.effects.some((effect) => effect.type === "schedule" && effect.id === "b"), false);
-  assert.equal(slot(second.slots, "c").startAt, 1_000 + 2 * CASCADE_STAGGER_MS);
-  assert.equal(slot(second.slots, TOTAL_BOARD_ID).startAt, 1_000 + 3 * CASCADE_STAGGER_MS);
+  assert.equal(second.effects.some((effect) => effect.type === "schedule"), false);
+  assert.equal(slot(second.slots, "c").startAt, null);
+  assert.equal(slot(second.slots, TOTAL_BOARD_ID).startAt, null);
   assert.equal(slot(second.slots, TOTAL_BOARD_ID).live, "$15");
   assert.equal(first.slots[1]?.live, "$2");
 
-  const started = startCascade(second.slots, "b", pending.startAt ?? 0, true, false);
+  const settled = settleCascade(second.slots, "a", 1_400, false, boards({ a: "$4", b: "$5", c: "$6", [TOTAL_BOARD_ID]: "$15" }));
+  assert.equal(slot(settled.slots, "a").status, "idle");
+  assert.equal(slot(settled.slots, "a").committed, "$4");
+  assert.equal(slot(settled.slots, "b").status, "pending");
+  assert.equal(slot(settled.slots, "b").startAt, 1_400 + CASCADE_STAGGER_MS);
+  assert.equal(slot(settled.slots, "b").committed, "$1");
+  const started = startCascade(settled.slots, "b", 1_400 + CASCADE_STAGGER_MS, true, false);
   assert.equal(slot(started.slots, "b").status, "flipping");
   assert.equal(slot(started.slots, "b").committed, "$5");
   assert.deepEqual(commits(started.effects, "b"), [{ type: "commit", id: "b", value: "$5", animate: true }]);
-
-  const settled = settleCascade(started.slots, "a", 1_400, false, boards({ a: "$4", b: "$5", c: "$6", [TOTAL_BOARD_ID]: "$15" }));
-  assert.equal(slot(settled.slots, "a").status, "idle");
-  assert.equal(slot(settled.slots, "a").committed, "$4");
-  assert.equal(commits(settled.effects, "a").length, 0);
-  assert.equal(slot(settled.slots, "b").status, "flipping");
-  assert.equal(slot(settled.slots, "b").committed, "$5");
-  assert.equal(slot(settled.slots, "c").status, "pending");
-  assert.equal(slot(settled.slots, TOTAL_BOARD_ID).status, "pending");
+  assert.equal(slot(started.slots, "c").status, "pending");
+  assert.equal(slot(started.slots, "c").startAt, null);
+  assert.equal(slot(started.slots, TOTAL_BOARD_ID).startAt, null);
 });
 
 test("a board that scrolls off before its turn snaps instead of flipping", () => {
-  const first = priceCascade(
-    seedCascade(stack()),
-    boards({ a: "$2", b: "$3", c: "$4", [TOTAL_BOARD_ID]: "$9" }),
-    0,
-    false,
-  );
-  const started = startCascade(first.slots, "c", 2 * CASCADE_STAGGER_MS, false, false);
+  const next = boards({ a: "$2", b: "$3", c: "$4", [TOTAL_BOARD_ID]: "$9" });
+  let step = priceCascade(seedCascade(stack()), next, 0, false);
+  step = settleCascade(step.slots, "a", 1_000, false, next);
+  step = startCascade(step.slots, "b", 1_000 + CASCADE_STAGGER_MS, true, false);
+  step = settleCascade(step.slots, "b", 2_000, false, next);
+  assert.equal(slot(step.slots, "c").startAt, 2_000 + CASCADE_STAGGER_MS);
+  const started = startCascade(step.slots, "c", 2_000 + CASCADE_STAGGER_MS, false, false);
   assert.equal(slot(started.slots, "c").status, "idle");
   assert.equal(slot(started.slots, "c").committed, "$4");
   assert.equal(slot(started.slots, "c").animate, false);
   assert.deepEqual(commits(started.effects, "c"), [{ type: "commit", id: "c", value: "$4", animate: false }]);
+  assert.equal(slot(started.slots, TOTAL_BOARD_ID).status, "flipping");
+  assert.equal(slot(started.slots, TOTAL_BOARD_ID).committed, "$9");
+  assert.equal(started.effects.some((effect) => effect.type === "schedule"), false);
+});
+
+test("an unchanged board is skipped and adds no gap", () => {
+  const next = boards({ a: "$2", b: "$1", c: "$4", [TOTAL_BOARD_ID]: "$7" });
+  let step = priceCascade(seedCascade(stack()), next, 0, false);
+  assert.equal(slot(step.slots, "a").status, "flipping");
+  assert.equal(slot(step.slots, "b").status, "idle");
+  assert.equal(slot(step.slots, "b").committed, "$1");
+  assert.equal(slot(step.slots, "c").status, "pending");
+  assert.equal(slot(step.slots, "c").startAt, null);
+  step = settleCascade(step.slots, "a", 1_000, false, next);
+  assert.equal(slot(step.slots, "b").status, "idle");
+  assert.equal(slot(step.slots, "c").startAt, 1_000 + CASCADE_STAGGER_MS);
+  assert.equal(slot(step.slots, TOTAL_BOARD_ID).startAt, null);
 });
 
 test("reduced motion snaps the whole stack and does not schedule a cascade", () => {
@@ -186,7 +216,14 @@ test("the TOTAL word stays still while the amount follows the last card", () => 
   assert.equal(commits(step.effects, TOTAL_WORD_ID).length, 0);
   assert.equal(slot(step.slots, "a").status, "flipping");
   assert.equal(slot(step.slots, TOTAL_BOARD_ID).status, "pending");
-  assert.equal(slot(step.slots, TOTAL_BOARD_ID).startAt, CASCADE_STAGGER_MS);
+  assert.equal(slot(step.slots, TOTAL_BOARD_ID).startAt, null);
+  const landed = settleCascade(step.slots, "a", 4_000, false, boards({
+    a: "$2",
+    [TOTAL_WORD_ID]: "TOTAL",
+    [TOTAL_BOARD_ID]: "       $2.00",
+  }));
+  assert.equal(slot(landed.slots, TOTAL_WORD_ID).status, "idle");
+  assert.equal(slot(landed.slots, TOTAL_BOARD_ID).startAt, 4_000 + CASCADE_STAGGER_MS);
 });
 
 test("an empty stack schedules nothing", () => {
@@ -211,8 +248,10 @@ test("twenty cards only animate the boards on a short viewport", () => {
   const moving = step.slots.filter((entry) => entry.status === "flipping" || entry.status === "pending");
   assert.deepEqual(moving.map((entry) => entry.id), ["card-0", "card-1", TOTAL_BOARD_ID]);
   assert.equal(slot(step.slots, "card-0").status, "flipping");
-  assert.equal(slot(step.slots, "card-1").startAt, CASCADE_STAGGER_MS);
-  assert.equal(slot(step.slots, TOTAL_BOARD_ID).startAt, 2 * CASCADE_STAGGER_MS);
+  assert.equal(slot(step.slots, "card-1").status, "pending");
+  assert.equal(slot(step.slots, "card-1").startAt, null);
+  assert.equal(slot(step.slots, TOTAL_BOARD_ID).status, "pending");
+  assert.equal(slot(step.slots, TOTAL_BOARD_ID).startAt, null);
   const snapped = step.slots.filter((entry) => hidden.includes(entry.id));
   assert.equal(snapped.length, 18);
   assert.equal(snapped.every((entry) => entry.status === "idle" && entry.animate === false && entry.committed === "$2"), true);

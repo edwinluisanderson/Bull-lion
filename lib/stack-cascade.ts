@@ -1,11 +1,12 @@
 /**
  * Spot-price cascade for the My Stack boards.
  *
- * Cards run top to bottom. Each visible board starts CASCADE_STAGGER_MS after
- * the visible board above it. The total is last and shows the new sum.
- * Off-screen boards snap. A later price sends boards that have not started
- * straight to the newest value. A board already turning steers onto that newest
- * value instead of finishing its first target. Reduced motion snaps every board.
+ * One visible board turns at a time, top to bottom. The next starts
+ * CASCADE_STAGGER_MS after the one above it has landed. Unchanged boards are
+ * skipped. The total is last. Off-screen boards snap with no wait. A later
+ * price sends boards that have not started straight to the newest value. A
+ * board already turning steers onto that newest value instead of finishing its
+ * first target. Reduced motion snaps every board.
  */
 
 export const CASCADE_STAGGER_MS = 150;
@@ -75,20 +76,56 @@ function commit(effects: CascadeEffect[], slot: CascadeSlot, animate: boolean) {
   slot.startAt = null;
 }
 
-/** Visible idle boards whose text is stale, in list order. The first starts now. */
-function queueNewFlips(slots: CascadeSlot[], now: number, effects: CascadeEffect[]) {
-  const due = slots.filter((slot) => slot.status === "idle" && slot.visible && slot.committed !== slot.live);
-  due.forEach((slot, index) => {
-    if (index === 0) {
-      commit(effects, slot, true);
-      return;
+function stillOwes(slot: CascadeSlot): boolean {
+  return slot.visible && slot.committed !== slot.live && slot.status !== "flipping";
+}
+
+/** Park every visible board that still owes a flip. Timers wait until it is next. */
+function holdQueue(slots: CascadeSlot[], effects: CascadeEffect[]) {
+  const flipping = slots.some((slot) => slot.status === "flipping");
+  for (const slot of slots) {
+    if (slot.status === "flipping") continue;
+    if (!stillOwes(slot)) {
+      if (slot.status === "pending" || slot.startAt != null) {
+        if (slot.startAt != null) effects.push({ type: "cancel", id: slot.id });
+        slot.status = "idle";
+        slot.startAt = null;
+      }
+      continue;
     }
-    const at = now + index * CASCADE_STAGGER_MS;
+    if (flipping && slot.startAt != null) {
+      effects.push({ type: "cancel", id: slot.id });
+      slot.startAt = null;
+    }
     slot.status = "pending";
     slot.animate = true;
-    slot.startAt = at;
-    effects.push({ type: "schedule", id: slot.id, at });
-  });
+  }
+}
+
+/**
+ * Start the next waiting board, and only that one.
+ * `gap` waits CASCADE_STAGGER_MS after a landing. A snap has no gap.
+ */
+function releaseNext(slots: CascadeSlot[], effects: CascadeEffect[], now: number, gap: boolean) {
+  if (slots.some((slot) => slot.status === "flipping")) return;
+  const next = slots.find((slot) => stillOwes(slot));
+  for (const slot of slots) {
+    if (slot.startAt == null) continue;
+    if (next && slot.id === next.id && gap) continue;
+    effects.push({ type: "cancel", id: slot.id });
+    slot.startAt = null;
+  }
+  if (!next) return;
+  if (!gap) {
+    commit(effects, next, true);
+    return;
+  }
+  if (next.startAt != null) return;
+  const at = now + CASCADE_STAGGER_MS;
+  next.status = "pending";
+  next.animate = true;
+  next.startAt = at;
+  effects.push({ type: "schedule", id: next.id, at });
 }
 
 function snapOffscreen(slots: CascadeSlot[], effects: CascadeEffect[]) {
@@ -162,16 +199,8 @@ export function priceCascade(
   // Off-screen work snaps. A board already turning on screen steers onto the newest text.
   snapOffscreen(slots, effects);
   retargetInFlight(slots, effects);
-
-  for (const slot of slots) {
-    if (slot.status !== "pending") continue;
-    if (slot.committed !== slot.live) continue;
-    effects.push({ type: "cancel", id: slot.id });
-    slot.status = "idle";
-    slot.startAt = null;
-  }
-
-  queueNewFlips(slots, now, effects);
+  holdQueue(slots, effects);
+  releaseNext(slots, effects, now, false);
   return { slots, effects };
 }
 
@@ -187,7 +216,6 @@ export function startCascade(
   visible: boolean,
   reduced: boolean,
 ): CascadeStep {
-  void now;
   const slots = previous.map((slot) => ({ ...slot }));
   const effects: CascadeEffect[] = [];
   const slot = slots.find((entry) => entry.id === id);
@@ -199,11 +227,13 @@ export function startCascade(
       slot.status = "idle";
       slot.startAt = null;
     }
+    releaseNext(slots, effects, now, false);
     return { slots, effects };
   }
   if (slot.committed === slot.live) {
     slot.status = "idle";
     slot.startAt = null;
+    releaseNext(slots, effects, now, false);
     return { slots, effects };
   }
   commit(effects, slot, true);
@@ -211,8 +241,8 @@ export function startCascade(
 }
 
 /**
- * An on-screen flip landed. Boards that are now idle and stale start a cascade.
- * Pending boards keep the start they already have.
+ * An on-screen flip landed. The next visible board waits CASCADE_STAGGER_MS,
+ * then starts. Boards still waiting keep the newest text for their one turn.
  */
 export function settleCascade(
   previous: readonly CascadeSlot[],
@@ -242,7 +272,8 @@ export function settleCascade(
   }
 
   snapOffscreen(slots, effects);
-  queueNewFlips(slots, now, effects);
+  holdQueue(slots, effects);
+  releaseNext(slots, effects, now, true);
   return { slots, effects };
 }
 
