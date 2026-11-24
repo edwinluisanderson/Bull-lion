@@ -419,11 +419,11 @@ button,
 }
 
 .reel-outer-light[data-edge="left"] {
-  left: calc(var(--plate-pad-x) - 1px);
+  left: calc(var(--plate-pad-x) + 1px);
 }
 
 .reel-outer-light[data-edge="right"] {
-  right: calc(var(--plate-pad-x) - 1px);
+  right: calc(var(--plate-pad-x) + 1px);
 }
 
 .reel-outer-light[data-lit="bright"] {

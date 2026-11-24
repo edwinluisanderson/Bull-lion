@@ -65,8 +65,8 @@ test("outer lights match the inner seams and follow only the adjacent reel", () 
   assert.match(outer, /position:\s*absolute/);
   assert.match(outer, /z-index:\s*2/);
   assert.equal(outer.match(/mask-image:\s*([^;]+);/)?.[1], seam.match(/mask-image:\s*([^;]+);/)?.[1]);
-  assert.match(css, /\.reel-outer-light\[data-edge="left"\]\s*\{[^}]*left:\s*calc\(var\(--plate-pad-x\) - 1px\)/);
-  assert.match(css, /\.reel-outer-light\[data-edge="right"\]\s*\{[^}]*right:\s*calc\(var\(--plate-pad-x\) - 1px\)/);
+  assert.match(css, /\.reel-outer-light\[data-edge="left"\]\s*\{[^}]*left:\s*calc\(var\(--plate-pad-x\) \+ 1px\)/);
+  assert.match(css, /\.reel-outer-light\[data-edge="right"\]\s*\{[^}]*right:\s*calc\(var\(--plate-pad-x\) \+ 1px\)/);
   const payline = css.match(/\.payline\s*\{([^}]*)\}/)?.[1] ?? "";
   assert.match(payline, /z-index:\s*3/);
   assert.match(css, /\.payline::before,\s*\.payline::after\s*\{[^}]*border:\s*10px solid transparent/);
