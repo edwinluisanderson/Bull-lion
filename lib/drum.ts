@@ -170,7 +170,8 @@ export function coastAdvance(
   count: number,
   decel = brakeDecel(),
 ): { position: number; velocity: number } {
-  if (count <= 0 || dt <= 0 || velocity === 0 || decel <= 0) return { position, velocity };
+  if (count <= 0 || dt <= 0 || velocity === 0) return { position, velocity };
+  if (!(decel > 0)) return { position: position + velocity * dt, velocity };
   const sign = Math.sign(velocity);
   const speed = Math.abs(velocity);
   const drop = decel * dt;
@@ -182,8 +183,9 @@ export function coastAdvance(
 }
 
 /**
- * Brake from the speed the reel already has. A flick and a pull both start
- * at that speed. One step never covers more than a 60Hz frame.
+ * Brake from the speed a flick already has.
+ * One step never covers more than a 60Hz frame, so a slow paint cannot alias.
+ * A lever pull does not come through here. Its pose is taken from wall-clock time.
  */
 export function flywheelAdvance(
   position: number,

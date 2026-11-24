@@ -69,6 +69,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const [countGuard, setCountGuard] = useState(0);
   const [countGuardHold, setCountGuardHold] = useState(false);
   const [lampCompare, setLampCompare] = useState(false);
+  const [pullDebug, setPullDebug] = useState(false);
   const pullHold = useRef(IDLE_COUNT_GUARD);
   const lastPull = useRef(0);
 
@@ -169,8 +170,9 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   }, []);
 
   useEffect(() => {
-    const raw = new URLSearchParams(window.location.search).get("lamps");
-    if (raw === "compare") setLampCompare(true);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("lamps") === "compare") setLampCompare(true);
+    if (params.get("debug") === "1") setPullDebug(true);
   }, []);
 
   useEffect(() => {
@@ -304,9 +306,15 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   data-divider-left={dividers.left === DIVIDER_BRIGHT ? "bright" : "dim"}
                   data-divider-right={dividers.right === DIVIDER_BRIGHT ? "bright" : "dim"}
                 >
+                {pullDebug ? (
+                  <p className="pull-debug">
+                    {`build ${(process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || "local").slice(0, 7)}`}
+                  </p>
+                ) : null}
                 <Reel
                   lampIndex={0}
                   label="Metal"
+                  debug={pullDebug}
                   items={metalItems}
                   initialIndex={DEFAULT_METAL_INDEX}
                   spinToken={spinToken}
@@ -322,6 +330,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                 <Reel
                   lampIndex={1}
                   label="Weight"
+                  debug={pullDebug}
                   items={weightItems}
                   initialIndex={DEFAULT_WEIGHT_INDEX}
                   spinToken={spinToken}
@@ -356,6 +365,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                 <Reel
                   lampIndex={2}
                   label="Count"
+                  debug={pullDebug}
                   items={countItems}
                   initialIndex={DEFAULT_COUNT_INDEX}
                   spinToken={spinToken}

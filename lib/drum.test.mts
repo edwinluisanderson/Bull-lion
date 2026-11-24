@@ -188,6 +188,12 @@ test("a late frame cannot jump half a stop", () => {
   assert.ok(Math.abs(step.position) > 0);
 });
 
+test("zero deceleration keeps the speed and covers speed times time", () => {
+  const step = coastAdvance(2, -REEL_SPEED_CAP, 0.02, () => true, 8, 0);
+  assert.equal(step.velocity, -REEL_SPEED_CAP);
+  assert.ok(Math.abs(step.position - (2 - REEL_SPEED_CAP * 0.02)) < 1e-9);
+});
+
 test("the flick brake is locked to the light preset", () => {
   assert.equal(brakeDecel(), BRAKE_PRESETS.light);
   assert.equal(brakeDecel(), 8);
