@@ -3,15 +3,17 @@
  *
  * Cards run top to bottom. Each visible board starts CASCADE_STAGGER_MS after
  * the visible board above it. The total is last and shows the new sum.
- * Off-screen boards snap. A later price retargets boards that have not started
- * and leaves an in-flight flip alone until it settles, then that board joins a
- * new cascade. Reduced motion snaps every board.
+ * Off-screen boards snap. A later price sends boards that have not started
+ * straight to the newest value. A board already turning steers onto that newest
+ * value instead of finishing its first target. Reduced motion snaps every board.
  */
 
 export const CASCADE_STAGGER_MS = 150;
 
-/** The total board is not a stack line. Line ids never use this value. */
+/** The amount row. Line ids never use this value. */
 export const TOTAL_BOARD_ID = "stack-total";
+/** The word row above the amount. It stays on TOTAL while the amount flips. */
+export const TOTAL_WORD_ID = "stack-total-word";
 
 export type CascadeStatus = "idle" | "pending" | "flipping";
 
@@ -99,6 +101,17 @@ function snapOffscreen(slots: CascadeSlot[], effects: CascadeEffect[]) {
   }
 }
 
+/** The drum is already moving, so the newest text replaces the old target in that same turn. */
+function retargetInFlight(slots: CascadeSlot[], effects: CascadeEffect[]) {
+  for (const slot of slots) {
+    if (slot.status !== "flipping" || !slot.visible) continue;
+    if (slot.committed === slot.live) continue;
+    effects.push({ type: "commit", id: slot.id, value: slot.live, animate: true });
+    slot.committed = slot.live;
+    slot.animate = true;
+  }
+}
+
 function snapAll(slots: CascadeSlot[], effects: CascadeEffect[]) {
   for (const slot of slots) {
     if (slot.status === "pending") effects.push({ type: "cancel", id: slot.id });
@@ -146,8 +159,9 @@ export function priceCascade(
     return { slots, effects };
   }
 
-  // A board already turning on screen keeps its target. Off-screen work snaps.
+  // Off-screen work snaps. A board already turning on screen steers onto the newest text.
   snapOffscreen(slots, effects);
+  retargetInFlight(slots, effects);
 
   for (const slot of slots) {
     if (slot.status !== "pending") continue;

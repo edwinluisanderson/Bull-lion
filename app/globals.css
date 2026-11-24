@@ -1378,7 +1378,6 @@ html[data-ball="cobalt"] .pull-ball {
   cursor: default;
 }
 
-.split-total-label,
 .split-head,
 .split-empty {
   margin: 0;
@@ -1404,10 +1403,10 @@ html[data-ball="cobalt"] .pull-ball {
 }
 
 .split-total {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  column-gap: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
 }
 
 .split-empty {
@@ -1434,8 +1433,15 @@ html[data-ball="cobalt"] .pull-ball {
 
 .split-total {
   container-type: inline-size;
-  /* The Total label stays at 1.25rem. The My Stack title is 1.5rem. */
-  --flap-font: 1.25rem;
+  /* Same body as a stack card: two flap rows, two kickers, the kicker's 6px margin, three 2px gaps. */
+  --card-flap: clamp(16px, calc((100cqw - 36px) / 19 / 0.85), 19.3px);
+  --card-body: calc(var(--card-flap) * 1.12 * 2 + 0.46rem * 2 + 12px);
+  /* Thirteen amount cells. Digit 0 is the widest money glyph, at 0.653em. */
+  --amount-cell: calc((100cqw - 24px) / 13);
+  --amount-font: calc(var(--amount-cell) / 0.653);
+  --amount-h: min(calc(var(--amount-font) * 1.12), calc((var(--card-body) - 2px) * 0.64));
+  --word-h: calc(var(--card-body) - 2px - var(--amount-h));
+  --word-font: calc(var(--word-h) / 1.12);
 }
 
 .stack-card {
@@ -1907,39 +1913,41 @@ html[data-ball="cobalt"] .pull-ball {
 }
 
 .split-total {
-  margin-top: 8px;
-  padding: 7px 8px;
+  box-sizing: border-box;
+  min-height: calc(10px + var(--card-body) + 11px);
+  margin: 2px 0 8px;
+  padding: 10px 8px 11px;
   border-radius: 8px;
-  background: linear-gradient(180deg, rgba(90, 58, 32, 0.4), rgba(18, 10, 6, 0.55));
+  background:
+    linear-gradient(165deg, rgba(90, 58, 32, 0.55), rgba(18, 10, 6, 0.72));
   box-shadow:
     inset 0 0 0 1px #2a160c,
     inset 0 0 0 3px #c4963e,
-    inset 0 0 0 4px #3a2416;
+    inset 0 0 0 4px #3a2416,
+    0 2px 0 rgba(0, 0, 0, 0.35);
 }
 
-.split-total-label {
-  justify-self: stretch;
-  align-self: center;
-  min-width: 0;
-  font-family: var(--font-body), Palatino, serif;
-  font-weight: 600;
-  font-size: 1.25rem;
-  font-variant: normal;
-  font-variant-caps: normal;
-  letter-spacing: 0.01em;
-  line-height: 1.05;
-  text-align: left;
-  text-transform: none;
-  white-space: nowrap;
+.split-total-word {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: var(--word-h);
+  --flap-font: var(--word-font);
 }
 
-.split-total-flaps {
+.split-total-word .flap-tile {
+  height: var(--word-h);
+}
+
+.split-total-amount {
   display: grid;
-  grid-template-columns: repeat(var(--total-flaps, 11), calc(var(--flap-font) * 0.72));
+  grid-template-columns: repeat(var(--total-flaps, 13), minmax(0, 1fr));
   column-gap: 2px;
+  height: var(--amount-h);
+  --flap-font: var(--amount-font);
 }
 
-.split-total-flaps > .split-flap {
+.split-total-amount > .split-flap {
   display: grid;
   grid-template-columns: subgrid;
   grid-column: 1 / -1;
@@ -1947,9 +1955,10 @@ html[data-ball="cobalt"] .pull-ball {
   max-width: none;
 }
 
-.split-total-flaps .flap-tile {
+.split-total-amount .flap-tile {
   width: auto;
   min-width: 0;
+  height: var(--amount-h);
 }
 
 .split-flap.is-instant .flap-leaf {

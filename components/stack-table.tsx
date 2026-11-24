@@ -26,12 +26,9 @@ import {
   FLAP_QTY,
   FLAP_TOTAL_COLUMNS,
   FLAP_WEIGHT,
-  fitFlapMoney,
-  rightFlap,
 } from "@/lib/split-flap";
 import {
   flapMoney,
-  grandTotal,
   insertCascade,
   readStack,
   CLEAR_STACK_EVENT,
@@ -47,6 +44,7 @@ import {
 } from "@/lib/stack-board";
 import {
   TOTAL_BOARD_ID,
+  TOTAL_WORD_ID,
   priceCascade,
   rectIntersectsViewport,
   seedCascade,
@@ -58,6 +56,7 @@ import {
   type CascadeSlot,
 } from "@/lib/stack-cascade";
 import { stackCsvFilename, stackToCsv } from "@/lib/stack-csv";
+import { formatTotalAmount, totalBoardCopy } from "@/lib/stack-total";
 
 export type StackSelection = {
   symbol: string;
@@ -169,13 +168,14 @@ export function StackTable({
       live: flapMoney(rowMelt(priceFor(priced, line.symbol), line.grams, line.qty)),
       visible: measureVisible(line.id),
     }));
-    if (rows.length === 0) return next;
-    const sum = grandTotal(rows.map((line) => rowMelt(priceFor(priced, line.symbol), line.grams, line.qty)));
-    next.push({
-      id: TOTAL_BOARD_ID,
-      live: fitFlapMoney(flapMoney(sum), FLAP_TOTAL_COLUMNS),
-      visible: measureVisible(TOTAL_BOARD_ID),
-    });
+    const sum = rows.reduce((total, line) => {
+      const melt = rowMelt(priceFor(priced, line.symbol), line.grams, line.qty);
+      return total + (melt ?? 0);
+    }, 0);
+    const copy = totalBoardCopy(rows.length, formatTotalAmount(rows.length === 0 ? null : sum));
+    const visible = measureVisible(TOTAL_BOARD_ID);
+    next.push({ id: TOTAL_WORD_ID, live: copy.top, visible });
+    next.push({ id: TOTAL_BOARD_ID, live: copy.bottom, visible });
     return next;
   }, [measureVisible]);
 
@@ -469,8 +469,13 @@ export function StackTable({
   }
 
   const shown: StackFace[] = shift ? (shift[shiftStep] ?? shift[0] ?? []) : lines;
-  const melts = lines.map((line) => rowMelt(priceFor(quotes, line.symbol), line.grams, line.qty));
-  const total = grandTotal(melts);
+  const stackSum = lines.reduce((sum, line) => {
+    const melt = rowMelt(priceFor(quotes, line.symbol), line.grams, line.qty);
+    return sum + (melt ?? 0);
+  }, 0);
+  const totalCopy = totalBoardCopy(lines.length, formatTotalAmount(lines.length === 0 ? null : stackSum));
+  const wordFace = faceFor(TOTAL_WORD_ID, totalCopy.top);
+  const amountFace = faceFor(TOTAL_BOARD_ID, totalCopy.bottom);
 
   return (
     <section ref={boardRef} className="split-stack" aria-label="My Stack">
@@ -537,7 +542,30 @@ export function StackTable({
           </svg>
         </button>
       </div>
-      {shown.length === 0 ? <p className="split-empty">The board is clear.</p> : null}
+      <div
+        ref={totalNode}
+        className={`split-total${cover?.phase === "slide" && !cover.tail ? " is-cover-front" : ""}${cover?.phase === "slide" && cover.tail ? " is-rise" : ""}`}
+      >
+        <span className="sr-only">
+          {lines.length === 0 ? "Let's get stacking!" : `Total ${formatTotalAmount(stackSum)}`}
+        </span>
+        <span className="split-total-word">
+          <SplitFlap
+            text={wordFace.text}
+            width={Math.max(wordFace.text.trimEnd().length, 1)}
+            instant={wordFace.instant}
+            onSettled={() => settleBoard(TOTAL_WORD_ID)}
+          />
+        </span>
+        <span className="split-total-amount" style={{ ["--total-flaps" as string]: FLAP_TOTAL_COLUMNS }}>
+          <SplitFlap
+            text={amountFace.text}
+            width={FLAP_TOTAL_COLUMNS}
+            instant={amountFace.instant}
+            onSettled={() => settleBoard(TOTAL_BOARD_ID)}
+          />
+        </span>
+      </div>
       <ul className="split-rows">
         {shown.map((line, index) => {
           const blank = line == null;
@@ -685,27 +713,6 @@ export function StackTable({
           );
         })}
       </ul>
-      {lines.length > 0 ? (
-        <div
-          ref={totalNode}
-          className={`split-total${cover?.phase === "slide" && !cover.tail ? " is-cover-front" : ""}${cover?.phase === "slide" && cover.tail ? " is-rise" : ""}${cover?.phase === "slide" && cover.solo ? " is-collapsing" : ""}`}
-          style={
-            cover?.phase === "slide" && cover.solo
-              ? { height: coverLive ? 0 : cover.totalHeight, marginTop: coverLive ? 0 : undefined }
-              : undefined
-          }
-        >
-          <span className="split-total-label">Total</span>
-          <span className="split-total-flaps" style={{ ["--total-flaps" as string]: FLAP_TOTAL_COLUMNS }}>
-            <SplitFlap
-              text={faceFor(TOTAL_BOARD_ID, fitFlapMoney(flapMoney(total), FLAP_TOTAL_COLUMNS)).text}
-              width={FLAP_TOTAL_COLUMNS}
-              instant={faceFor(TOTAL_BOARD_ID, fitFlapMoney(flapMoney(total), FLAP_TOTAL_COLUMNS)).instant}
-              onSettled={() => settleBoard(TOTAL_BOARD_ID)}
-            />
-          </span>
-        </div>
-      ) : null}
     </section>
   );
 }

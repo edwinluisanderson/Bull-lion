@@ -1,5 +1,5 @@
 /** Train-board alphabet. Unknown marks fall back to a blank. */
-export const FLAP_ALPHABET = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$.,/-+";
+export const FLAP_ALPHABET = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$.,/-+'!";
 
 export const FLAP_METAL = 2;
 export const FLAP_WEIGHT = 7;
@@ -9,9 +9,16 @@ export const FLAP_MELT = 7;
 export const FLAP_BOARD_COLUMNS = FLAP_METAL + FLAP_WEIGHT + FLAP_QTY + FLAP_MELT;
 /** Descriptions stay on row 2. Letters past the grid are cut, not given another row. */
 export const FLAP_DESCRIPTION = FLAP_BOARD_COLUMNS;
-/** Eleven cells hold $99,999,999. Wider totals drop commas, then show the largest value that fits. */
-export const FLAP_TOTAL_COLUMNS = 11;
-export const FLAP_TOTAL_LABEL_COLUMNS = FLAP_BOARD_COLUMNS - FLAP_TOTAL_COLUMNS;
+/**
+ * Amount row on the Total board. Thirteen cells hold $9,999,999.99.
+ * Wider totals drop commas, then show the largest value that fits.
+ */
+export const FLAP_TOTAL_COLUMNS = 13;
+/**
+ * Small flaps that fit across that amount row at a 320px viewport.
+ * The empty message splits onto however many of these the words need.
+ */
+export const FLAP_TOTAL_WORD_COLUMNS = 16;
 /** Advance width of Cinzel 700, in ems, so a tile can match its glyph. */
 const FLAP_EM: Record<string, number> = {
   " ": 0.25,
@@ -57,6 +64,8 @@ const FLAP_EM: Record<string, number> = {
   "/": 0.426,
   "-": 0.38,
   "+": 0.481,
+  "'": 0.28,
+  "!": 0.4,
 };
 
 export function flapEm(char: string): number {

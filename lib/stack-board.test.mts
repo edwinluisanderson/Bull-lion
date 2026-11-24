@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { FLAP_GAIN, FLAP_MAX_PER_WINDOW, nextFlapSound } from "@/lib/flap-sound";
-import { FLAP_BOARD_COLUMNS, FLAP_DESCRIPTION, FLAP_MELT, FLAP_METAL, FLAP_QTY, FLAP_TOTAL_COLUMNS, FLAP_TOTAL_LABEL_COLUMNS, FLAP_WEIGHT, fitFlapMoney, flapFrames, flapText, padFlap, rightFlap } from "@/lib/split-flap";
+import { FLAP_BOARD_COLUMNS, FLAP_DESCRIPTION, FLAP_MELT, FLAP_METAL, FLAP_QTY, FLAP_TOTAL_COLUMNS, FLAP_WEIGHT, fitFlapMoney, flapFrames, flapText, padFlap, rightFlap } from "@/lib/split-flap";
 import {
   STACK_STORAGE_KEY,
   defaultLineDescription,
@@ -187,24 +187,23 @@ test("the stack survives a reload and drops a broken record", () => {
   assert.deepEqual(readStack(store), []);
 });
 
-test("the melt total label stays put and the value sits on the right of a fixed field", () => {
-  assert.equal(FLAP_TOTAL_COLUMNS, 11);
-  assert.equal(fitFlapMoney("$99,999,999", FLAP_TOTAL_COLUMNS), "$99,999,999");
-  assert.equal(fitFlapMoney("$1,234,567", FLAP_TOTAL_COLUMNS), " $1,234,567");
-  assert.equal(fitFlapMoney("$999,999,999", FLAP_TOTAL_COLUMNS), " $999999999");
-  assert.equal(fitFlapMoney("$99,999,999,999", FLAP_TOTAL_COLUMNS), "$9999999999");
-  assert.equal(FLAP_TOTAL_LABEL_COLUMNS + FLAP_TOTAL_COLUMNS, FLAP_BOARD_COLUMNS);
-  const narrow = fitFlapMoney("$30", FLAP_TOTAL_COLUMNS);
-  const wide = fitFlapMoney("$10,000", FLAP_TOTAL_COLUMNS);
-  assert.equal(narrow.length, wide.length);
-  assert.equal(narrow.endsWith("$30"), true);
-  assert.equal(wide.endsWith("$10,000"), true);
-  assert.equal(narrow.startsWith(" "), true);
-  assert.match(table, />Total</);
-  assert.match(table, /fitFlapMoney\(flapMoney\(total\), FLAP_TOTAL_COLUMNS\)/);
+test("the total amount keeps a fixed field wide enough for cents", () => {
+  assert.equal(FLAP_TOTAL_COLUMNS, 13);
+  assert.equal("$9,999,999.99".length, FLAP_TOTAL_COLUMNS);
+  assert.equal(fitFlapMoney("$9,999,999.99", FLAP_TOTAL_COLUMNS), "$9,999,999.99");
+  assert.equal(fitFlapMoney("$1,234.50", FLAP_TOTAL_COLUMNS), "    $1,234.50");
+  assert.equal(fitFlapMoney("$99,999,999.99", FLAP_TOTAL_COLUMNS), " $99999999.99");
+  const narrow = fitFlapMoney("$30.00", FLAP_TOTAL_COLUMNS);
+  const wide = fitFlapMoney("$10,000.00", FLAP_TOTAL_COLUMNS);
+  assert.equal(narrow.length, FLAP_TOTAL_COLUMNS);
+  assert.equal(wide.length, FLAP_TOTAL_COLUMNS);
+  assert.equal(narrow.endsWith("$30.00"), true);
+  assert.equal(wide.endsWith("$10,000.00"), true);
+  assert.match(table, /totalBoardCopy\(/);
   assert.equal(table.includes("Melt Total"), false);
   assert.equal(table.includes("Stack Total"), false);
   assert.equal(table.includes("--total-em"), false);
+  assert.equal(table.includes("The board is clear."), false);
 });
 
 test("My Stack sits between the cabinet and the scrap plate", () => {
@@ -241,7 +240,7 @@ test("the split-flap stack keeps its board and the flaps stay quiet when sound i
   assert.equal(table.includes("stack-add"), false);
   assert.equal(table.includes("addCurrent"), false);
   assert.equal(table.includes("Keep separate"), false);
-  assert.match(table, />Total</);
+  assert.match(table, /Let's get stacking!/);
   assert.equal(table.includes("Grand total"), false);
   assert.equal(table.includes("--total-em"), false);
   assert.match(table, /readStack\(window\.localStorage\)/);
@@ -259,14 +258,11 @@ test("the split-flap stack keeps its board and the flaps stay quiet when sound i
   assert.match(css, /\.split-stack-title \{[^}]*font-size:\s*1\.5rem/);
   assert.match(css, /\.split-stack-title \{[^}]*text-align:\s*center/);
   assert.match(css, /\.split-stack-head \{[^}]*justify-content:\s*center/);
-  assert.match(css, /\.split-total-label \{[^}]*font-size:\s*1\.25rem/);
-  assert.match(css, /\.split-total \{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*auto/);
-  assert.match(css, /\.split-total \{[^}]*--flap-font:\s*1\.25rem/);
-  assert.match(css, /\.split-total-label \{[^}]*text-align:\s*left/);
-  assert.match(css, /\.split-total-label \{[^}]*text-transform:\s*none/);
-  assert.match(css, /\.split-total-label \{[^}]*font-family:\s*var\(--font-body\)/);
-  assert.match(css, /\.split-total-label \{[^}]*font-variant:\s*normal/);
-  assert.match(css, /\.split-total-label \{[^}]*font-size:\s*1\.25rem/);
+  assert.match(css, /\.split-total \{[^}]*min-height:\s*calc\(10px \+ var\(--card-body\) \+ 11px\)/);
+  assert.match(css, /\.split-total \{[^}]*padding:\s*10px 8px 11px/);
+  assert.match(css, /\.split-total-word \{[^}]*justify-content:\s*center/);
+  assert.match(css, /\.split-total-amount \{[^}]*repeat\(var\(--total-flaps, 13\)/);
+  assert.equal(css.includes(".split-total-label"), false);
   assert.match(css, /\.flap-tile \{[^}]*background:\s*#000/);
   assert.match(css, /\.flap-top,\s*\.flap-bottom,\s*\.flap-leaf \{[^}]*background:\s*#000/);
   assert.match(css, /\.flap-bottom \{[^}]*border-top:\s*1px solid #1f1f1f/);

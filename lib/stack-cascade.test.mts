@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   CASCADE_STAGGER_MS,
   TOTAL_BOARD_ID,
+  TOTAL_WORD_ID,
   priceCascade,
   rectIntersectsViewport,
   seedCascade,
@@ -92,7 +93,7 @@ test("an off-screen card snaps and does not take a stagger slot", () => {
   assert.equal(slot(step.slots, TOTAL_BOARD_ID).startAt, 500 + 2 * CASCADE_STAGGER_MS);
 });
 
-test("a price mid-cascade retargets boards that have not started and cascades the ones that already flipped", () => {
+test("a price mid-cascade retargets an in-flight board and sends boards that have not started to the newest value", () => {
   const first = priceCascade(
     seedCascade(stack()),
     boards({ a: "$2", b: "$2", c: "$2", [TOTAL_BOARD_ID]: "$6" }),
@@ -107,8 +108,8 @@ test("a price mid-cascade retargets boards that have not started and cascades th
   );
 
   assert.equal(slot(second.slots, "a").status, "flipping");
-  assert.equal(slot(second.slots, "a").committed, "$2");
-  assert.equal(commits(second.effects, "a").length, 0);
+  assert.equal(slot(second.slots, "a").committed, "$4");
+  assert.deepEqual(commits(second.effects, "a"), [{ type: "commit", id: "a", value: "$4", animate: true }]);
 
   const pending = slot(second.slots, "b");
   assert.equal(pending.status, "pending");
@@ -127,9 +128,9 @@ test("a price mid-cascade retargets boards that have not started and cascades th
   assert.deepEqual(commits(started.effects, "b"), [{ type: "commit", id: "b", value: "$5", animate: true }]);
 
   const settled = settleCascade(started.slots, "a", 1_400, false, boards({ a: "$4", b: "$5", c: "$6", [TOTAL_BOARD_ID]: "$15" }));
-  assert.equal(slot(settled.slots, "a").status, "flipping");
+  assert.equal(slot(settled.slots, "a").status, "idle");
   assert.equal(slot(settled.slots, "a").committed, "$4");
-  assert.deepEqual(commits(settled.effects, "a"), [{ type: "commit", id: "a", value: "$4", animate: true }]);
+  assert.equal(commits(settled.effects, "a").length, 0);
   assert.equal(slot(settled.slots, "b").status, "flipping");
   assert.equal(slot(settled.slots, "b").committed, "$5");
   assert.equal(slot(settled.slots, "c").status, "pending");
@@ -160,6 +161,32 @@ test("reduced motion snaps the whole stack and does not schedule a cascade", () 
   assert.equal(step.effects.some((effect) => effect.type === "schedule"), false);
   assert.equal(step.slots.every((entry) => entry.status === "idle" && entry.committed === entry.live && entry.animate === false), true);
   assert.equal(step.effects.filter((effect) => effect.type === "commit").every((effect) => effect.animate === false), true);
+});
+
+test("the TOTAL word stays still while the amount follows the last card", () => {
+  const previous = seedCascade(
+    boards({
+      a: "$1",
+      [TOTAL_WORD_ID]: "TOTAL",
+      [TOTAL_BOARD_ID]: "       $1.00",
+    }),
+  );
+  const step = priceCascade(
+    previous,
+    boards({
+      a: "$2",
+      [TOTAL_WORD_ID]: "TOTAL",
+      [TOTAL_BOARD_ID]: "       $2.00",
+    }),
+    0,
+    false,
+  );
+  assert.equal(slot(step.slots, TOTAL_WORD_ID).status, "idle");
+  assert.equal(slot(step.slots, TOTAL_WORD_ID).committed, "TOTAL");
+  assert.equal(commits(step.effects, TOTAL_WORD_ID).length, 0);
+  assert.equal(slot(step.slots, "a").status, "flipping");
+  assert.equal(slot(step.slots, TOTAL_BOARD_ID).status, "pending");
+  assert.equal(slot(step.slots, TOTAL_BOARD_ID).startAt, CASCADE_STAGGER_MS);
 });
 
 test("an empty stack schedules nothing", () => {
@@ -211,14 +238,17 @@ test("a flap counts as on screen only when its own box meets the viewport", () =
   );
 });
 
-test("the stack wires the cascade and the empty board stays the clear board", () => {
-  assert.match(table, /The board is clear\./);
-  assert.match(table, /lines\.length > 0 \? \(/);
+test("the stack wires the cascade and the total board stays under the title", () => {
+  assert.match(table, /Let's get stacking!/);
+  assert.equal(table.includes("The board is clear."), false);
+  assert.match(table, /split-total-word/);
+  assert.match(table, /split-total-amount/);
   assert.match(table, /priceCascade\(/);
   assert.match(table, /startCascade\(/);
   assert.match(table, /settleCascade\(/);
-  assert.match(table, /fitFlapMoney\(flapMoney\(total\), FLAP_TOTAL_COLUMNS\)/);
-  assert.equal(table.includes("Let's get stacking!"), false);
+  assert.match(table, /totalBoardCopy\(/);
+  assert.ok(table.indexOf('className="split-stack-head"') < table.indexOf('className={`split-total'));
+  assert.ok(table.indexOf("split-total-amount") < table.indexOf('className="split-rows"'));
   assert.match(flap, /trackFlippingFlap/);
   assert.match(flap, /is-instant/);
   assert.match(sound, /new IntersectionObserver/);
