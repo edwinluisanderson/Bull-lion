@@ -167,21 +167,34 @@ test("a gray pull still lands on the lit face inside the brake, without passing 
     let elapsed = 0;
     let cursor = 0;
     let locked: number | null = null;
+    let restingAt = -1;
+    let crossing = 0;
     const frames = [16.7, 25, 90, 22];
-    let pose = { position: 0, velocity: pullLaunchVelocity({ order }) };
-    while (elapsed < 4 && pose.velocity !== 0) {
-      elapsed += frames[cursor % frames.length] / 1000;
+    let pose = { position: 0, velocity: pullLaunchVelocity({ order }), resting: false };
+    while (elapsed < 6 && !pose.resting) {
+      const dt = frames[cursor % frames.length] / 1000;
       cursor += 1;
+      elapsed += dt;
       const frame = pullFrame({ origin: 0, order, elapsedS: elapsed, count, isEnabled: enabled, locked });
       locked = frame.locked;
+      assert.equal(frame.resting, elapsed >= PULL_LIGHT_STOP_S[order]);
       assert.ok(frame.velocity === 0 || frame.velocity < 0);
-      if (locked !== null) assert.ok((locked - frame.position) * Math.sign(pullLaunchVelocity({ order })) >= -1e-6);
+      if (locked !== null) {
+        const overshoot = (frame.position - locked) * Math.sign(pullLaunchVelocity({ order }));
+        assert.ok(overshoot <= 0.07 + 1e-6);
+      }
+      if (frame.resting) {
+        restingAt = elapsed;
+        crossing = dt;
+      }
       pose = frame;
     }
     assert.ok(locked !== null);
-    const timed = nearestEnabledNotch(pose.position, count, enabled);
-    assert.equal(timed, locked);
-    assert.ok(Math.abs(pose.position - timed) < 0.5);
+    assert.equal(pose.resting, true);
+    assert.equal(pose.position, locked);
+    assert.equal(pose.velocity, 0);
+    assert.ok(restingAt + 1e-9 >= PULL_LIGHT_STOP_S[order]);
+    assert.ok(restingAt - PULL_LIGHT_STOP_S[order] <= Math.max(0.05, crossing) + 1e-9);
   }
 });
 
@@ -208,9 +221,17 @@ test("uneven frames still stop a pull at 2.0, 2.4, and 2.8", () => {
         locked,
       });
       locked = frame.locked;
-      const pose = pullPose(0, order, elapsed);
-      assert.ok(Math.abs(frame.position - pose.position) < 1e-9);
-      assert.ok(Math.abs(frame.velocity - pose.velocity) < 1e-9);
+      const pose = pullPose(0, order, Math.min(elapsed, PULL_LIGHT_STOP_S[order]));
+      const notch = Math.round(pullRest(order));
+      if (frame.resting) {
+        assert.equal(frame.velocity, 0);
+        assert.equal(frame.position, notch);
+      } else {
+        assert.equal(frame.resting, false);
+        assert.ok(elapsed < PULL_LIGHT_STOP_S[order]);
+        assert.ok(Math.abs(frame.position - pose.position) < 1e-6);
+        assert.ok(Math.abs(frame.velocity - pose.velocity) < 1e-6);
+      }
       if (pullFreeSpinning(elapsed)) {
         assert.ok(Math.abs(Math.abs(frame.velocity) - REEL_SPEED_CAP) < 1e-9);
         assert.ok(Math.abs(frame.position - -REEL_SPEED_CAP * elapsed) < 1e-9);
@@ -224,8 +245,11 @@ test("uneven frames still stop a pull at 2.0, 2.4, and 2.8", () => {
       assert.ok(frame.velocity === 0 || frame.velocity < 0);
       assert.ok(Math.abs(frame.velocity) <= previousSpeed + 1e-6);
       previousSpeed = Math.abs(frame.velocity);
-      if (frame.velocity === 0) {
+      if (frame.resting) {
         stoppedAt = elapsed;
+        const slack = Math.max(0.05, dt);
+        assert.ok(stoppedAt + 1e-9 >= PULL_LIGHT_STOP_S[order]);
+        assert.ok(stoppedAt - PULL_LIGHT_STOP_S[order] <= slack + 1e-9);
         break;
       }
     }
@@ -240,6 +264,83 @@ test("uneven frames still stop a pull at 2.0, 2.4, and 2.8", () => {
   const hitch = pullPose(0, 0, 0.09);
   assert.ok(Math.abs(hitch.position - -REEL_SPEED_CAP * 0.09) < 1e-9);
   assert.ok(Math.abs(hitch.position) > REEL_SPEED_CAP / 60 + 0.5);
+});
+
+test("a pull is still braking 40ms before the stop, then rests on its face", () => {
+  const count = 120;
+  for (const order of [0, 1, 2] as const) {
+    const stop = PULL_LIGHT_STOP_S[order];
+    const notch = Math.round(pullRest(order));
+    const early = pullFrame({
+      origin: 0,
+      order,
+      elapsedS: stop - 0.04,
+      count,
+      isEnabled: () => true,
+      locked: null,
+    });
+    assert.equal(early.resting, false);
+    assert.ok(Math.abs(early.velocity) > 0.2);
+    const rest = pullFrame({
+      origin: 0,
+      order,
+      elapsedS: stop,
+      count,
+      isEnabled: () => true,
+      locked: null,
+    });
+    assert.equal(rest.resting, true);
+    assert.equal(rest.velocity, 0);
+    assert.equal(rest.position, notch);
+  }
+});
+
+test("throttled frames still rest within one frame and never stall", () => {
+  const patterns = [
+    [16.7, 25, 24, 45, 90, 121],
+    [55, 80, 120, 180, 262],
+  ];
+  const count = 120;
+  for (const frames of patterns) {
+    for (const order of [0, 1, 2] as const) {
+      let elapsed = 0;
+      let cursor = 0;
+      let locked: number | null = null;
+      let previous: { position: number; velocity: number; resting: boolean } | null = null;
+      let restingAt = -1;
+      let crossing = 0;
+      while (elapsed < 8) {
+        const dt = frames[cursor % frames.length] / 1000;
+        cursor += 1;
+        elapsed += dt;
+        const frame = pullFrame({
+          origin: 0,
+          order,
+          elapsedS: elapsed,
+          count,
+          isEnabled: () => true,
+          locked,
+        });
+        locked = frame.locked;
+        if (previous && !previous.resting && !frame.resting && Math.abs(previous.velocity) > 0.05) {
+          assert.ok(Math.abs(frame.position - previous.position) > 1e-4);
+        }
+        assert.ok(frame.velocity === 0 || frame.velocity < 0);
+        assert.ok(!frame.resting || elapsed + 1e-9 >= PULL_LIGHT_STOP_S[order]);
+        previous = frame;
+        if (frame.resting) {
+          restingAt = elapsed;
+          crossing = dt;
+          break;
+        }
+      }
+      const notch = Math.round(pullRest(order));
+      assert.equal(previous?.position, notch);
+      assert.equal(previous?.velocity, 0);
+      assert.ok(restingAt + 1e-9 >= PULL_LIGHT_STOP_S[order]);
+      assert.ok(restingAt - PULL_LIGHT_STOP_S[order] <= Math.max(0.05, crossing) + 1e-9);
+    }
+  }
 });
 
 test("an over-cap launch lowers every reel by the same overshoot", () => {

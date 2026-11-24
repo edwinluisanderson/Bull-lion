@@ -121,10 +121,19 @@ export function brakePose(
   };
 }
 
+export type PullFrame = PullSample & {
+  locked: number | null;
+  /** True only at the scheduled stop. The snap has finished and the reel is at rest. */
+  resting: boolean;
+};
+
 /**
- * One displayed sample of a lever pull. The pose is the closed form at `elapsedS`,
- * so a 25ms or 90ms frame cannot leave the reel behind. A gray landing retargets
- * once, from the free-spin handoff, and then follows that constant brake.
+ * One displayed sample of a lever pull, including the landing snap.
+ * Position and velocity are the closed form at `elapsedS`. A 25ms frame or a
+ * 200ms hitch jumps to that pose. The reel is at rest at {@link pullStopSeconds},
+ * not when the brake merely drops under the coast threshold.
+ * A gray landing retargets once from the free-spin handoff, then eases onto
+ * that face so the rest still falls on the scheduled stop.
  */
 export function pullFrame(input: {
   origin: number;
@@ -133,10 +142,11 @@ export function pullFrame(input: {
   count: number;
   isEnabled: (index: number) => boolean;
   locked: number | null;
-}): PullSample & { locked: number | null } {
+}): PullFrame {
   const { origin, order, elapsedS, count, isEnabled } = input;
+  const stop = pullStopSeconds(order);
   if (pullFreeSpinning(elapsedS)) {
-    return { ...pullPose(origin, order, elapsedS), locked: null };
+    return { ...pullPose(origin, order, elapsedS), locked: null, resting: false };
   }
   const handoff = pullPose(origin, order, PULL_FREE_SPIN_S);
   const decel = pullDecel(order);
@@ -149,8 +159,24 @@ export function pullFrame(input: {
     locked: input.locked,
   });
   const locked = glide.fallback ? null : glide.target;
-  if (locked === null) return { ...pullPose(origin, order, elapsedS), locked: null };
-  return { ...brakePose(handoff, glide.decel, elapsedS - PULL_FREE_SPIN_S), locked };
+  const natural = pullPose(origin, order, stop);
+  const notch = locked ?? Math.round(natural.position);
+  if (elapsedS >= stop) return { position: notch, velocity: 0, locked, resting: true };
+  if (locked === null) return { ...pullPose(origin, order, elapsedS), locked: null, resting: false };
+  const span = Math.abs(handoff.velocity) / Math.max(glide.decel, 1e-6);
+  const finish = PULL_FREE_SPIN_S + span;
+  const brakeT = elapsedS - PULL_FREE_SPIN_S;
+  if (elapsedS <= finish) return { ...brakePose(handoff, glide.decel, brakeT), locked, resting: false };
+  const aim = brakePose(handoff, glide.decel, span).position;
+  const remain = Math.max(1e-4, stop - finish);
+  const u = Math.min(1, Math.max(0, (elapsedS - finish) / remain));
+  const direction = Math.sign(handoff.velocity) || -1;
+  return {
+    position: aim + (notch - aim) * u,
+    velocity: direction * (Math.abs(notch - aim) / remain) * (1 - u),
+    locked,
+    resting: false,
+  };
 }
 
 /** Nominal stop time for a reel on the light brake. */

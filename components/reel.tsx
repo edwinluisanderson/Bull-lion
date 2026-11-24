@@ -515,9 +515,14 @@ export function createReelEngine(options: {
         });
         glideTarget = frame.locked;
         velocity = frame.velocity;
+        if (frame.resting) camNotch = Math.round(frame.position);
         setPos(frame.position);
-        if (Math.abs(velocity) < COAST_SETTLE_SPEED) {
-          camToNotch(nearestEnabledSlot(position), 180);
+        if (frame.resting) {
+          camNotch = null;
+          parkSettledPosition();
+          setAudioSpin(false);
+          setPhase("idle");
+          settleLanding();
           return;
         }
       } else {
