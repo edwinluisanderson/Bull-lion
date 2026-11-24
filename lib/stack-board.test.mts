@@ -127,8 +127,8 @@ test("new lines stay newest-first and the cascade walks downward", () => {
   assert.equal(frames[1]?.[1]?.id, "a");
   const slidingIds = (frames[1] ?? []).map((face) => face?.id).filter((id) => id != null);
   assert.equal(new Set(slidingIds).size < slidingIds.length, true);
-  assert.match(table, /key=\{index\}/);
-  assert.equal(table.includes("key={line ? line.id"), false);
+  assert.match(table, /key=\{line == null \? `blank-\$\{index\}` : line\.id\}/);
+  assert.equal(table.includes("key={index}"), false);
   assert.equal(frames[2]?.[1]?.id, "b");
   assert.equal(frames.at(-1)?.[0]?.id, "c");
   assert.deepEqual(
@@ -273,7 +273,7 @@ test("the split-flap stack keeps its board and the flaps stay quiet when sound i
   assert.match(table, /width=\{FLAP_DESCRIPTION\}/);
   assert.match(table, /gridRow: 1 \}\}>\s*Description/);
   assert.match(table, /gridRow: 3 \}\}>\s*Metal/);
-  assert.match(table, /insertCascade\(existing, incoming\)/);
+  assert.equal(table.includes("insertCascade"), false);
   assert.match(table, /prefers-reduced-motion: reduce/);
   assert.match(css, /\.split-stack \{/);
   assert.match(css, /\.flap-leaf \{[^}]*animation:\s*flap-turn 70ms linear/);

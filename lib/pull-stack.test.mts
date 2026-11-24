@@ -143,7 +143,7 @@ test("a drag launches at stage C, and the spin snapshots before the token", () =
   const token = pull.indexOf("setSpinToken");
   assert.ok(gate >= 0 && serial > gate && token > serial);
   assert.match(table, /unlockFlapSamples\(\)/);
-  assert.match(table, /insertCascade\(existing, incoming\)/);
+  assert.match(table, /landNewest\(result\.phase\.lines\)/);
   assert.match(flap, /playFlapSound\(\)/);
   assert.match(table, /pullSerial/);
 });

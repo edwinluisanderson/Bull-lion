@@ -115,5 +115,5 @@ test("the card that slides into a deleted slot does not inherit the shoot-off", 
   assert.match(card, /reusedSlotMustSnap\(prevId\.current, id, prevLeaving\.current, leaving\)/);
   assert.match(card, /face\.style\.transition = "none"/);
   assert.match(card, /translateX\(0px\)/);
-  assert.match(table, /key=\{index\}/);
+  assert.match(table, /key=\{line == null \? `blank-\$\{index\}` : line\.id\}/);
 });

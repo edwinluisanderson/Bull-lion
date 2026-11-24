@@ -29,7 +29,6 @@ import {
 } from "@/lib/split-flap";
 import {
   flapMoney,
-  insertCascade,
   readStack,
   CLEAR_STACK_EVENT,
   TEMP_CLEAR_ALL,
@@ -417,19 +416,13 @@ export function StackTable({
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
-  function landNewest(existing: readonly StackLine[], incoming: StackLine, finalLines: StackLine[]) {
-    phaseRef.current = { ...phaseRef.current, lines: finalLines, cascading: !motionReduced() };
-    if (motionReduced()) {
-      setShift(null);
-      setShiftStep(0);
-      finalRef.current = null;
-      setLines(finalLines);
-      applyPull(finishPullCascade(phaseRef.current));
-      return;
-    }
-    finalRef.current = finalLines;
+  function landNewest(finalLines: StackLine[]) {
+    phaseRef.current = { ...phaseRef.current, lines: finalLines, cascading: false };
+    setShift(null);
     setShiftStep(0);
-    setShift(insertCascade(existing, incoming));
+    finalRef.current = null;
+    setLines(finalLines);
+    applyPull(finishPullCascade(phaseRef.current));
   }
 
   function applyPull(result: PullAddResult) {
@@ -439,7 +432,7 @@ export function StackTable({
     if (!incoming) return;
     unlockReelClick();
     unlockFlapSamples();
-    landNewest(result.from, incoming, result.phase.lines);
+    landNewest(result.phase.lines);
   }
 
   useEffect(() => {
@@ -634,7 +627,7 @@ export function StackTable({
           );
           return (
             <SwipeCard
-              key={index}
+              key={line == null ? `blank-${index}` : line.id}
               id={line ? line.id : `blank-${index}`}
               label={line?.description ?? "entry"}
               open={line != null && openId === line.id}
