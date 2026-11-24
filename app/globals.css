@@ -354,6 +354,10 @@ button,
 .window-frame {
   position: relative;
   padding: 14px;
+  --plate-pad-top: 14px;
+  --plate-pad-x: 14px;
+  --divider-fade-in: 250ms;
+  --divider-fade-out: 600ms;
   border-radius: 18px;
   background: var(--brass-plate);
   box-shadow:
@@ -394,8 +398,37 @@ button,
 }
 
 .reel-grid {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* In the brass gap, flush with the outer drum and under the payline triangles. */
+.reel-outer-light {
+  position: absolute;
+  z-index: 2;
+  top: calc(var(--plate-pad-top) + var(--reel-name) + 15px);
+  width: 1px;
+  height: calc(var(--reel-window) - 30px);
+  pointer-events: none;
+  background: #f0d78c;
+  opacity: 0.6;
+  -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.38) 3%, rgba(0,0,0,0.56) 7%, rgba(0,0,0,0.75) 11%, rgba(0,0,0,0.90) 15%, #000 20%, #000 75%, rgba(0,0,0,0.91) 80%, rgba(0,0,0,0.74) 84%, rgba(0,0,0,0.53) 88%, rgba(0,0,0,0.33) 92%, rgba(0,0,0,0.20) 96%, rgba(0,0,0,0.15) 100%);
+  mask-image: linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.38) 3%, rgba(0,0,0,0.56) 7%, rgba(0,0,0,0.75) 11%, rgba(0,0,0,0.90) 15%, #000 20%, #000 75%, rgba(0,0,0,0.91) 80%, rgba(0,0,0,0.74) 84%, rgba(0,0,0,0.53) 88%, rgba(0,0,0,0.33) 92%, rgba(0,0,0,0.20) 96%, rgba(0,0,0,0.15) 100%);
+  transition: opacity var(--divider-fade-out) ease-out;
+}
+
+.reel-outer-light[data-edge="left"] {
+  left: calc(var(--plate-pad-x) + 1px);
+}
+
+.reel-outer-light[data-edge="right"] {
+  right: calc(var(--plate-pad-x) + 1px);
+}
+
+.reel-outer-light[data-lit="bright"] {
+  opacity: 1;
+  transition: opacity var(--divider-fade-in) cubic-bezier(0.33, 0, 0.2, 1);
 }
 
 .reel-column {
@@ -421,12 +454,13 @@ button,
   opacity: 0.6;
   -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.38) 3%, rgba(0,0,0,0.56) 7%, rgba(0,0,0,0.75) 11%, rgba(0,0,0,0.90) 15%, #000 20%, #000 75%, rgba(0,0,0,0.91) 80%, rgba(0,0,0,0.74) 84%, rgba(0,0,0,0.53) 88%, rgba(0,0,0,0.33) 92%, rgba(0,0,0,0.20) 96%, rgba(0,0,0,0.15) 100%);
   mask-image: linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.38) 3%, rgba(0,0,0,0.56) 7%, rgba(0,0,0,0.75) 11%, rgba(0,0,0,0.90) 15%, #000 20%, #000 75%, rgba(0,0,0,0.91) 80%, rgba(0,0,0,0.74) 84%, rgba(0,0,0,0.53) 88%, rgba(0,0,0,0.33) 92%, rgba(0,0,0,0.20) 96%, rgba(0,0,0,0.15) 100%);
-  transition: opacity 280ms ease;
+  transition: opacity var(--divider-fade-out) ease-out;
 }
 
 .reel-grid[data-divider-left="bright"] .reel-column:nth-child(2)::after,
 .reel-grid[data-divider-right="bright"] .reel-column:nth-child(3)::after {
   opacity: 1;
+  transition: opacity var(--divider-fade-in) cubic-bezier(0.33, 0, 0.2, 1);
 }
 
 .reel-name {
@@ -2588,6 +2622,7 @@ html[data-compact="3"][data-plate] .playfield { margin-top: -13px; }
 html[data-compact="3"][data-plate] .window-frame {
   margin-top: 8px;
   padding-top: 6px;
+  --plate-pad-top: 6px;
 }
 
 /* Rolling digit wheels inside the melt-plate bezel. Right-locked drum, curve 3, blank faces, front-digit nixie. */
@@ -2736,42 +2771,6 @@ html[data-compact="3"][data-plate] .window-frame {
   filter: url(#melt-fil-core);
 }
 
-.brake-switch {
-  position: fixed;
-  z-index: 6;
-  left: 324px;
-  bottom: 14px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
-  margin: 0;
-  color: #c4a574;
-  font-family: var(--font-readout), ui-monospace, monospace;
-  font-size: 9px;
-  line-height: 1;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.brake-switch button {
-  padding: 1px 0.08em 1px 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  letter-spacing: inherit;
-  line-height: inherit;
-  text-transform: inherit;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.brake-switch button[data-on="true"] {
-  color: #f0d78c;
-}
-
 /* Below the 390px machine, keep the price, the long metal name, the reel
    label, and the brass arch between the gauges inside the row. At 390 and
    412 the min() stays on the existing sizes. */
@@ -2796,12 +2795,5 @@ html[data-compact="3"][data-plate] .window-frame {
 @container gauges (min-width: 0px) {
   html[data-compact="3"] .gauge.weight-dial {
     --gauge-b: min(75px, calc((100cqi - 72px) / 3));
-  }
-}
-
-@media (max-width: 389px) {
-  .brake-switch {
-    left: auto;
-    right: 10px;
   }
 }

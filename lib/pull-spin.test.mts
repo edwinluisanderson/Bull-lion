@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import { BRAKE_PRESETS, REEL_SPEED_CAP } from "@/lib/drum";
+import { brakeDecel, REEL_SPEED_CAP } from "@/lib/drum";
 import {
   PULL_LIGHT_STOP_S,
   PULL_STAGGER_S,
@@ -20,9 +21,9 @@ test("every reel launches at the cap", () => {
 });
 
 test("the light brakes stop the reels left to right about 0.4s apart", () => {
-  const times = [0, 1, 2].map((order) => pullStopSeconds(order, "light"));
+  const times = [0, 1, 2].map((order) => pullStopSeconds(order));
   assert.deepEqual(times, [...PULL_LIGHT_STOP_S]);
-  const decels = [0, 1, 2].map((order) => pullDecel(order, "light"));
+  const decels = [0, 1, 2].map((order) => pullDecel(order));
   assert.ok(Math.abs(decels[0] - 10) < 1e-9);
   assert.ok(Math.abs(decels[1] - 20 / 2.4) < 1e-9);
   assert.ok(Math.abs(decels[2] - 20 / 2.8) < 1e-9);
@@ -31,24 +32,17 @@ test("the light brakes stop the reels left to right about 0.4s apart", () => {
   assert.equal(stillAtMs(2) - stillAtMs(1), Math.round(PULL_STAGGER_S * 1000));
 });
 
-test("heavier presets shorten every stop and keep the proportions", () => {
-  const light = [0, 1, 2].map((order) => pullStopSeconds(order, "light"));
-  const medium = [0, 1, 2].map((order) => pullStopSeconds(order, "medium"));
-  const heavy = [0, 1, 2].map((order) => pullStopSeconds(order, "heavy"));
-  for (let order = 0; order < 3; order += 1) {
-    assert.ok(Math.abs(medium[order] - light[order] / 2) < 1e-9);
-    assert.ok(Math.abs(heavy[order] - light[order] / 4) < 1e-9);
-    assert.ok(Math.abs(medium[order] / medium[0] - light[order] / light[0]) < 1e-9);
-    assert.ok(Math.abs(heavy[order] / heavy[0] - light[order] / light[0]) < 1e-9);
-  }
-  const decels = (preset: keyof typeof BRAKE_PRESETS) =>
-    [0, 1, 2].map((order) => pullDecel(order, preset));
-  for (const preset of ["light", "medium", "heavy"] as const) {
-    const values = decels(preset);
-    assert.ok(values[0] > values[1] && values[1] > values[2]);
-    assert.ok(Math.abs(values[0] / BRAKE_PRESETS[preset] - decels("light")[0] / BRAKE_PRESETS.light) < 1e-9);
-  }
-  assert.ok(stillAtMs(0, "light") > stillAtMs(0, "heavy"));
+test("pulls and flicks stay on the light brake", () => {
+  assert.equal(brakeDecel(), 8);
+  assert.deepEqual(
+    [0, 1, 2].map((order) => pullDecel(order)),
+    [0, 1, 2].map((order) => REEL_SPEED_CAP / PULL_LIGHT_STOP_S[order]),
+  );
+  const machine = readFileSync(new URL("../components/slot-machine.tsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.equal(machine.includes("BrakeSwitch"), false);
+  assert.equal(machine.includes('get("brake")'), false);
+  assert.equal(css.includes("brake-switch"), false);
 });
 
 test("an over-cap launch lowers every reel by the same overshoot", () => {

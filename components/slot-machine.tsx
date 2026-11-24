@@ -33,8 +33,7 @@ import { settleReels } from "@/lib/haptics";
 import { pullStartsSpin } from "@/lib/pull-stack";
 import { installAppAudioUnlock, preloadAppSounds } from "@/lib/sound-preload";
 import { playSpinOverlay, spinOverlayFor } from "@/lib/spin-overlay";
-import { getBrakePreset, setBrakePreset, type BrakePreset } from "@/lib/drum";
-import { DIVIDER_BRIGHT, dividerLevels } from "@/lib/reel-dividers";
+import { DIVIDER_BRIGHT, dividerLevels, outerDividerLevels } from "@/lib/reel-dividers";
 import { CLEAR_STACK_EVENT, TEMP_CLEAR_ALL } from "@/lib/stack-board";
 import { meltValue } from "@/lib/value";
 import { LAMP_FULL, LAMP_LOW, LAMP_MEDIUM, LAMP_OFF } from "@/lib/steampunk-light";
@@ -53,32 +52,6 @@ const METAL_SEGMENT_FILL: Record<string, string> = {
   Cu: "#c98a5e",
 };
 
-function BrakeSwitch() {
-  const [preset, setPreset] = useState<BrakePreset>("light");
-  useEffect(() => {
-    const query = new URLSearchParams(window.location.search).get("brake");
-    if (query === "light" || query === "medium" || query === "heavy") setBrakePreset(query);
-    setPreset(getBrakePreset());
-  }, []);
-  return (
-    <div className="brake-switch" aria-label="Reel brake">
-      {(["light", "medium", "heavy"] as const).map((name) => (
-        <button
-          key={name}
-          type="button"
-          data-on={preset === name ? "true" : "false"}
-          onClick={() => {
-            setBrakePreset(name);
-            setPreset(name);
-          }}
-        >
-          {name}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const [book, setBook] = useState(initialBook);
   const [metalIndex, setMetalIndex] = useState(DEFAULT_METAL_INDEX);
@@ -91,6 +64,8 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const [bendDegrees, setBendDegrees] = useState(0);
   const [motion, setMotion] = useState([false, false, false]);
   const motionRef = useRef(motion);
+  const [handled, setHandled] = useState([false, false, false]);
+  const handledRef = useRef(handled);
   const [countGuard, setCountGuard] = useState(0);
   const [countGuardHold, setCountGuardHold] = useState(false);
   const [lampCompare, setLampCompare] = useState(false);
@@ -107,6 +82,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const pieces = customPieces ?? COUNTS[countIndex] ?? COUNTS[0];
   const spinning = motion.some(Boolean);
   const dividers = dividerLevels(motion);
+  const outers = outerDividerLevels(handled);
 
   const metalItems = useMemo<ReelSymbol[]>(
     () =>
@@ -163,6 +139,18 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const onMetalMotion = useCallback((moving: boolean) => setReelMotion(0, moving), [setReelMotion]);
   const onWeightMotion = useCallback((moving: boolean) => setReelMotion(1, moving), [setReelMotion]);
   const onCountMotion = useCallback((moving: boolean) => setReelMotion(2, moving), [setReelMotion]);
+
+  const setReelHandled = useCallback((reel: number, moving: boolean) => {
+    const current = handledRef.current;
+    if (current[reel] === moving) return;
+    const next = [...current];
+    next[reel] = moving;
+    handledRef.current = next;
+    setHandled(next);
+  }, []);
+  const onMetalHandled = useCallback((moving: boolean) => setReelHandled(0, moving), [setReelHandled]);
+  const onWeightHandled = useCallback((moving: boolean) => setReelHandled(1, moving), [setReelHandled]);
+  const onCountHandled = useCallback((moving: boolean) => setReelHandled(2, moving), [setReelHandled]);
 
   const noun = pieces === 1 ? "piece" : "pieces";
   const total = metal ? meltValue(metal.usdPerTroyOz, weight.grams, pieces) : 0;
@@ -329,6 +317,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                     setMetalIndex(index);
                   }}
                   onMotion={onMetalMotion}
+                  onGestureMotion={onMetalHandled}
                 />
                 <Reel
                   lampIndex={1}
@@ -361,6 +350,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                     setCustomGrams(null);
                   }}
                   onMotion={onWeightMotion}
+                  onGestureMotion={onWeightHandled}
                   alternatePullStops
                 />
                 <Reel
@@ -400,11 +390,24 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                     setCustomPieces(null);
                   }}
                   onMotion={onCountMotion}
+                  onGestureMotion={onCountHandled}
                 />
                 </div>
                 <div className="payline" aria-hidden="true" />
                 <div className="glass" aria-hidden="true" />
               </div>
+              <span
+                className="reel-outer-light"
+                data-edge="left"
+                data-lit={outers.left === DIVIDER_BRIGHT ? "bright" : "dim"}
+                aria-hidden="true"
+              />
+              <span
+                className="reel-outer-light"
+                data-edge="right"
+                data-lit={outers.right === DIVIDER_BRIGHT ? "bright" : "dim"}
+                aria-hidden="true"
+              />
             </div>
             <PullBall onCommit={pull} onBend={setBendDegrees} />
           </div>
@@ -473,7 +476,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
         <p className="sr-only" aria-live="polite">
           {announcement}
         </p>
-        <BrakeSwitch />
       </main>
     </div>
   );
