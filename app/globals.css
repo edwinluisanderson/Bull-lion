@@ -397,6 +397,8 @@ button,
   position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  --divider-fade-in: 250ms;
+  --divider-fade-out: 600ms;
 }
 
 /* Outside edges of the first and last drums. Same line as the inner seams. */
@@ -413,7 +415,7 @@ button,
   opacity: 0.6;
   -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.38) 3%, rgba(0,0,0,0.56) 7%, rgba(0,0,0,0.75) 11%, rgba(0,0,0,0.90) 15%, #000 20%, #000 75%, rgba(0,0,0,0.91) 80%, rgba(0,0,0,0.74) 84%, rgba(0,0,0,0.53) 88%, rgba(0,0,0,0.33) 92%, rgba(0,0,0,0.20) 96%, rgba(0,0,0,0.15) 100%);
   mask-image: linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.38) 3%, rgba(0,0,0,0.56) 7%, rgba(0,0,0,0.75) 11%, rgba(0,0,0,0.90) 15%, #000 20%, #000 75%, rgba(0,0,0,0.91) 80%, rgba(0,0,0,0.74) 84%, rgba(0,0,0,0.53) 88%, rgba(0,0,0,0.33) 92%, rgba(0,0,0,0.20) 96%, rgba(0,0,0,0.15) 100%);
-  transition: opacity 280ms ease;
+  transition: opacity var(--divider-fade-out) ease-out;
 }
 
 .reel-grid::before {
@@ -426,10 +428,12 @@ button,
 
 .reel-grid[data-outer-left="bright"]::before {
   opacity: 1;
+  transition: opacity var(--divider-fade-in) cubic-bezier(0.33, 0, 0.2, 1);
 }
 
 .reel-grid[data-outer-right="bright"]::after {
   opacity: 1;
+  transition: opacity var(--divider-fade-in) cubic-bezier(0.33, 0, 0.2, 1);
 }
 
 .reel-column {
@@ -455,12 +459,13 @@ button,
   opacity: 0.6;
   -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.38) 3%, rgba(0,0,0,0.56) 7%, rgba(0,0,0,0.75) 11%, rgba(0,0,0,0.90) 15%, #000 20%, #000 75%, rgba(0,0,0,0.91) 80%, rgba(0,0,0,0.74) 84%, rgba(0,0,0,0.53) 88%, rgba(0,0,0,0.33) 92%, rgba(0,0,0,0.20) 96%, rgba(0,0,0,0.15) 100%);
   mask-image: linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.38) 3%, rgba(0,0,0,0.56) 7%, rgba(0,0,0,0.75) 11%, rgba(0,0,0,0.90) 15%, #000 20%, #000 75%, rgba(0,0,0,0.91) 80%, rgba(0,0,0,0.74) 84%, rgba(0,0,0,0.53) 88%, rgba(0,0,0,0.33) 92%, rgba(0,0,0,0.20) 96%, rgba(0,0,0,0.15) 100%);
-  transition: opacity 280ms ease;
+  transition: opacity var(--divider-fade-out) ease-out;
 }
 
 .reel-grid[data-divider-left="bright"] .reel-column:nth-child(2)::after,
 .reel-grid[data-divider-right="bright"] .reel-column:nth-child(3)::after {
   opacity: 1;
+  transition: opacity var(--divider-fade-in) cubic-bezier(0.33, 0, 0.2, 1);
 }
 
 .reel-name {

@@ -2,7 +2,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { DIVIDER_BRIGHT, DIVIDER_DIM, dividerLevels, outerDividerLevels } from "@/lib/reel-dividers";
+import {
+  DIVIDER_BRIGHT,
+  DIVIDER_DIM,
+  DIVIDER_FADE_IN_MS,
+  DIVIDER_FADE_OUT_MS,
+  dividerLevels,
+  outerDividerLevels,
+} from "@/lib/reel-dividers";
 
 const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 
@@ -54,7 +61,7 @@ test("outer lights match the inner seams and follow only the adjacent reel", () 
   assert.match(outer, /width:\s*1px/);
   assert.match(outer, /background:\s*#f0d78c/);
   assert.match(outer, /opacity:\s*0\.6;/);
-  assert.match(outer, /transition:\s*opacity 280ms ease/);
+  assert.match(outer, /transition:\s*opacity var\(--divider-fade-out\) ease-out/);
   assert.match(outer, /position:\s*absolute/);
   assert.equal(outer.match(/mask-image:\s*([^;]+);/)?.[1], seam.match(/mask-image:\s*([^;]+);/)?.[1]);
   assert.match(css, /\.reel-grid::before\s*\{[^}]*left:\s*0/);
@@ -69,6 +76,25 @@ test("outer lights match the inner seams and follow only the adjacent reel", () 
   assert.match(machine, /outerDividerLevels\(handled\)/);
   assert.match(machine, /data-outer-left=\{outers\.left === DIVIDER_BRIGHT \? "bright" : "dim"\}/);
   assert.match(machine, /data-outer-right=\{outers\.right === DIVIDER_BRIGHT \? "bright" : "dim"\}/);
+});
+
+test("all four divider lights rise softly and ease out longer", () => {
+  assert.equal(DIVIDER_FADE_IN_MS, 250);
+  assert.equal(DIVIDER_FADE_OUT_MS, 600);
+  assert.match(css, new RegExp(`--divider-fade-in:\\s*${DIVIDER_FADE_IN_MS}ms`));
+  assert.match(css, new RegExp(`--divider-fade-out:\\s*${DIVIDER_FADE_OUT_MS}ms`));
+  const outer = css.match(/\.reel-grid::before,\s*\.reel-grid::after\s*\{([^}]*)\}/)?.[1] ?? "";
+  const seam = css.match(/\.reel-column \+ \.reel-column::after\s*\{([^}]*)\}/)?.[1] ?? "";
+  const fadeOut = /transition:\s*opacity var\(--divider-fade-out\) ease-out/;
+  const fadeIn = /transition:\s*opacity var\(--divider-fade-in\) cubic-bezier\(0\.33, 0, 0\.2, 1\)/;
+  assert.match(outer, fadeOut);
+  assert.match(seam, fadeOut);
+  assert.match(css, /\.reel-grid\[data-outer-left="bright"\]::before\s*\{[^}]*opacity:\s*1;\s*transition:\s*opacity var\(--divider-fade-in\)/);
+  assert.match(css, /\.reel-grid\[data-outer-right="bright"\]::after\s*\{[^}]*opacity:\s*1;\s*transition:\s*opacity var\(--divider-fade-in\)/);
+  const innerBright = css.match(/\.reel-grid\[data-divider-left="bright"\][\s\S]*?\{([^}]*)\}/)?.[1] ?? "";
+  assert.match(innerBright, fadeIn);
+  assert.equal(css.includes("transition: opacity 280ms ease"), false);
+  assert.equal(/@keyframes[^}]*divider/.test(css), false);
 });
 
 test("a metal drag release does not light the right outer line", () => {

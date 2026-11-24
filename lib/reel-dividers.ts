@@ -5,6 +5,10 @@
 export const DIVIDER_COLOR = "#f0d78c";
 export const DIVIDER_BRIGHT = 1;
 export const DIVIDER_DIM = 0.6;
+/** Soft rise while the adjacent reel is moving. */
+export const DIVIDER_FADE_IN_MS = 250;
+/** Ease-out after that reel stops. */
+export const DIVIDER_FADE_OUT_MS = 600;
 
 export type DividerLevels = { left: number; right: number };
 
