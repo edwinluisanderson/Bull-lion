@@ -59,12 +59,24 @@ test("outer lights match the inner seams and follow only the adjacent reel", () 
   assert.equal(outer.match(/mask-image:\s*([^;]+);/)?.[1], seam.match(/mask-image:\s*([^;]+);/)?.[1]);
   assert.match(css, /\.reel-grid::before\s*\{[^}]*left:\s*0/);
   assert.match(css, /\.reel-grid::after\s*\{[^}]*right:\s*0/);
-  assert.match(css, /\.reel-grid\[data-outer-left="bright"\]::before/);
-  assert.match(css, /\.reel-grid\[data-outer-right="bright"\]::after/);
-  assert.match(css, /data-outer-left|data-outer-right/);
-
+  assert.match(css, /\.reel-grid\[data-outer-left="bright"\]::before\s*\{[^}]*opacity:\s*1/);
+  assert.match(css, /\.reel-grid\[data-outer-right="bright"\]::after\s*\{[^}]*opacity:\s*1/);
+  assert.equal(
+    /\.reel-grid\[data-outer-left="bright"\]::before\s*,/.test(css),
+    false,
+  );
   const machine = readFileSync(new URL("../components/slot-machine.tsx", import.meta.url), "utf8");
-  assert.match(machine, /outerDividerLevels\(motion\)/);
+  assert.match(machine, /outerDividerLevels\(handled\)/);
   assert.match(machine, /data-outer-left=\{outers\.left === DIVIDER_BRIGHT \? "bright" : "dim"\}/);
   assert.match(machine, /data-outer-right=\{outers\.right === DIVIDER_BRIGHT \? "bright" : "dim"\}/);
+});
+
+test("a metal drag release does not light the right outer line", () => {
+  const inner = dividerLevels([true, false, true]);
+  const outer = outerDividerLevels([true, false, false]);
+  assert.equal(inner.right, DIVIDER_BRIGHT);
+  assert.equal(outer.left, DIVIDER_BRIGHT);
+  assert.equal(outer.right, DIVIDER_DIM);
+  assert.deepEqual(outerDividerLevels([false, true, false]), { left: DIVIDER_DIM, right: DIVIDER_DIM });
+  assert.deepEqual(outerDividerLevels([false, false, true]), { left: DIVIDER_DIM, right: DIVIDER_BRIGHT });
 });

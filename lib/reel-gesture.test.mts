@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, mock, test } from "node:test";
 
 import { createReelEngine, type StretchFrame } from "@/components/reel";
+import { DIVIDER_BRIGHT, DIVIDER_DIM, dividerLevels, outerDividerLevels } from "@/lib/reel-dividers";
 import { REEL_SPEED_CAP } from "@/lib/drum";
 import { settleReels } from "@/lib/haptics";
 import { COUNTS, REEL_ITEM_HEIGHT } from "@/lib/metals";
@@ -421,6 +422,52 @@ test("wrap stretches keep the lift faces and rest on an exact notch", () => {
     assert.ok(Math.abs(rested.position - Math.round(rested.position)) < 1e-9, `${label} notch`);
     engine.destroy();
   }
+});
+
+test("a metal drag release keeps the far outer light dim while the count reel jumps", () => {
+  installFrame();
+  mock.timers.enable({ apis: ["setTimeout"] });
+  const flags = () => ({ motion: false, gesture: false });
+  const metal = flags();
+  const count = flags();
+  const engineFor = (slot: { motion: boolean; gesture: boolean }, index: number) =>
+    createReelEngine({
+      initialIndex: index,
+      setKinetics() {},
+      getCount: () => COUNTS.length,
+      onIndex() {},
+      onMotion(moving) {
+        slot.motion = moving;
+      },
+      onGestureMotion(moving) {
+        slot.gesture = moving;
+      },
+      isReduced: () => false,
+      isEnabled: () => true,
+      getStretch: () => null,
+      onPieces() {},
+      onStretchFrame() {},
+      onGuest() {},
+      alternatePullStops: () => false,
+      speedCap: REEL_SPEED_CAP,
+    });
+  const metalEngine = engineFor(metal, 2);
+  const countEngine = engineFor(count, 0);
+  const y = 400;
+  metalEngine.pointerDown(y, 1_000, 40, 258);
+  metalEngine.pointerMove(y + 24, 1_200);
+  metalEngine.pointerUp();
+  countEngine.jump(1);
+  assert.equal(metal.motion, true);
+  assert.equal(metal.gesture, true);
+  assert.equal(count.motion, true);
+  assert.equal(count.gesture, false);
+  const moving = [metal.motion, false, count.motion];
+  const handled = [metal.gesture, false, count.gesture];
+  assert.equal(dividerLevels(moving).right, DIVIDER_BRIGHT);
+  assert.deepEqual(outerDividerLevels(handled), { left: DIVIDER_BRIGHT, right: DIVIDER_DIM });
+  metalEngine.destroy();
+  countEngine.destroy();
 });
 
 test("a one-step stretch from 50 to 49 keeps 25 and then sits still", () => {

@@ -91,6 +91,8 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const [bendDegrees, setBendDegrees] = useState(0);
   const [motion, setMotion] = useState([false, false, false]);
   const motionRef = useRef(motion);
+  const [handled, setHandled] = useState([false, false, false]);
+  const handledRef = useRef(handled);
   const [countGuard, setCountGuard] = useState(0);
   const [countGuardHold, setCountGuardHold] = useState(false);
   const [lampCompare, setLampCompare] = useState(false);
@@ -107,7 +109,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const pieces = customPieces ?? COUNTS[countIndex] ?? COUNTS[0];
   const spinning = motion.some(Boolean);
   const dividers = dividerLevels(motion);
-  const outers = outerDividerLevels(motion);
+  const outers = outerDividerLevels(handled);
 
   const metalItems = useMemo<ReelSymbol[]>(
     () =>
@@ -164,6 +166,18 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const onMetalMotion = useCallback((moving: boolean) => setReelMotion(0, moving), [setReelMotion]);
   const onWeightMotion = useCallback((moving: boolean) => setReelMotion(1, moving), [setReelMotion]);
   const onCountMotion = useCallback((moving: boolean) => setReelMotion(2, moving), [setReelMotion]);
+
+  const setReelHandled = useCallback((reel: number, moving: boolean) => {
+    const current = handledRef.current;
+    if (current[reel] === moving) return;
+    const next = [...current];
+    next[reel] = moving;
+    handledRef.current = next;
+    setHandled(next);
+  }, []);
+  const onMetalHandled = useCallback((moving: boolean) => setReelHandled(0, moving), [setReelHandled]);
+  const onWeightHandled = useCallback((moving: boolean) => setReelHandled(1, moving), [setReelHandled]);
+  const onCountHandled = useCallback((moving: boolean) => setReelHandled(2, moving), [setReelHandled]);
 
   const noun = pieces === 1 ? "piece" : "pieces";
   const total = metal ? meltValue(metal.usdPerTroyOz, weight.grams, pieces) : 0;
@@ -332,6 +346,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                     setMetalIndex(index);
                   }}
                   onMotion={onMetalMotion}
+                  onGestureMotion={onMetalHandled}
                 />
                 <Reel
                   lampIndex={1}
@@ -364,6 +379,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                     setCustomGrams(null);
                   }}
                   onMotion={onWeightMotion}
+                  onGestureMotion={onWeightHandled}
                   alternatePullStops
                 />
                 <Reel
@@ -403,6 +419,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                     setCustomPieces(null);
                   }}
                   onMotion={onCountMotion}
+                  onGestureMotion={onCountHandled}
                 />
                 </div>
                 <div className="payline" aria-hidden="true" />

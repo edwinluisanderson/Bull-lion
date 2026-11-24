@@ -158,6 +158,8 @@ export function createReelEngine(options: {
   getCount: () => number;
   onIndex: (index: number) => void;
   onMotion: (moving: boolean) => void;
+  /** Motion from a finger, fling, or pull. A guard jump does not count. */
+  onGestureMotion?: (moving: boolean) => void;
   isReduced: () => boolean;
   isEnabled: (index: number) => boolean;
   getStretch: () => StretchConfig | null;
@@ -229,8 +231,18 @@ export function createReelEngine(options: {
   }
 
   const motion = createReelMotion((moving) => options.onMotion(moving));
+  let jumping = false;
+  let gestureAnnounced = false;
+
+  function emitGesture(moving: boolean) {
+    if (gestureAnnounced === moving) return;
+    gestureAnnounced = moving;
+    options.onGestureMotion?.(moving);
+  }
 
   function setPhase(next: Phase) {
+    if (next === "idle") jumping = false;
+    emitGesture(next !== "idle" && !jumping);
     const changed = motion.set(phase, next);
     if (!changed) return;
     phase = next;
@@ -891,6 +903,7 @@ export function createReelEngine(options: {
       }
     },
     jump(index) {
+      jumping = true;
       pullSpin = false;
       landingWatch = clearLandingWatch();
       guest = null;
@@ -950,6 +963,7 @@ export function Reel({
   bendDegrees = 0,
   onIndex,
   onMotion,
+  onGestureMotion,
   onPieces,
   stretch = null,
   centerPieces = null,
@@ -966,6 +980,7 @@ export function Reel({
   bendDegrees?: number;
   onIndex: (index: number) => void;
   onMotion: (moving: boolean) => void;
+  onGestureMotion?: (moving: boolean) => void;
   onPieces?: (pieces: number) => void;
   stretch?: StretchConfig | null;
   centerPieces?: number | null;
@@ -984,6 +999,7 @@ export function Reel({
   const listenerRef = useRef({
     onIndex,
     onMotion,
+    onGestureMotion,
     onPieces,
     onStretchFrame: (_frame: StretchFrame | null) => {},
     onGuest: (_guest: GuestCount | null) => {},
@@ -1007,8 +1023,9 @@ export function Reel({
   useEffect(() => {
     listenerRef.current.onIndex = onIndex;
     listenerRef.current.onMotion = onMotion;
+    listenerRef.current.onGestureMotion = onGestureMotion;
     listenerRef.current.onPieces = onPieces;
-  }, [onIndex, onMotion, onPieces]);
+  }, [onIndex, onMotion, onGestureMotion, onPieces]);
 
   useEffect(() => {
     const engine = createReelEngine({
@@ -1021,6 +1038,7 @@ export function Reel({
       getCount: () => countRef.current,
       onIndex: (index) => listenerRef.current.onIndex(index),
       onMotion: (moving) => listenerRef.current.onMotion(moving),
+      onGestureMotion: (moving) => listenerRef.current.onGestureMotion?.(moving),
       isReduced: () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       isEnabled: (index) => {
         const list = itemsRef.current;

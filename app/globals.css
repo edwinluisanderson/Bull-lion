@@ -424,7 +424,10 @@ button,
   right: 0;
 }
 
-.reel-grid[data-outer-left="bright"]::before,
+.reel-grid[data-outer-left="bright"]::before {
+  opacity: 1;
+}
+
 .reel-grid[data-outer-right="bright"]::after {
   opacity: 1;
 }
