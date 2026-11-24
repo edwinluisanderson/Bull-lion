@@ -48,7 +48,13 @@ import {
   originFor,
   pressHitsCenter,
   projectGuest,
+  guestWindow,
+  originFromWindow,
+  alignDevicePixel,
+  canonicalNotch,
+  releaseNotch,
   releasePlacement,
+  rollGuestWindow,
   sequenceFrom,
   STRETCH_SNAP_MS,
   stretchLandingGate,
@@ -146,7 +152,7 @@ function mod(value: number, count: number): number {
   return ((value % count) + count) % count;
 }
 
-function createEngine(options: {
+export function createReelEngine(options: {
   initialIndex: number;
   setKinetics: (position: number, velocity: number) => void;
   getCount: () => number;
@@ -179,11 +185,13 @@ function createEngine(options: {
     samples: { t: number; y: number }[];
   } | null = null;
   let gesture: GestureMode = "drag";
-  let holdTimer = 0;
+  let holdTimer: ReturnType<typeof setTimeout> | undefined;
   let anchorIndex = options.initialIndex;
   let stretchOrigin: StretchOrigin | null = null;
   let slideDirection: StretchDirection | null = null;
   let stretchTravel = 0;
+  /** This drag began as a stretch that ran out of in-between faces. */
+  let handedOff = false;
   let guest: GuestCount | null = null;
   let popDirection: StretchDirection | null = null;
   let popsPlayed = 0;
@@ -232,12 +240,49 @@ function createEngine(options: {
     }
   }
 
+  function reelCount(): number {
+    if (guest?.run?.length) return options.getCount() + guest.run.length;
+    return options.getCount();
+  }
+
+  /** A stretch-made face is a real stop. Permanent faces keep their enabled flag. */
+  function enabledExpanded(index: number): boolean {
+    const count = reelCount();
+    const at = mod(index, count);
+    if (guest?.run?.length && guest.insertAfter != null) {
+      const first = guest.insertAfter + 1;
+      const last = first + guest.run.length - 1;
+      if (at >= first && at <= last) return true;
+      const permanent = at > last ? at - guest.run.length : at;
+      return options.isEnabled(mod(permanent, options.getCount()));
+    }
+    return options.isEnabled(mod(at, options.getCount()));
+  }
+
   function enabledIndex(index: number): boolean {
-    return options.isEnabled(mod(index, options.getCount()));
+    return enabledExpanded(index);
   }
 
   function nearestEnabledSlot(from: number): number {
-    return nearestEnabledNotch(from, options.getCount(), options.isEnabled);
+    return nearestEnabledNotch(from, reelCount(), enabledExpanded);
+  }
+
+  function publishCommitted(index: number) {
+    if (guest?.run?.length && guest.insertAfter != null) {
+      const count = reelCount();
+      const at = mod(index, count);
+      const first = guest.insertAfter + 1;
+      const last = first + guest.run.length - 1;
+      if (at >= first && at <= last) {
+        const value = guest.run[at - first];
+        if (value !== undefined) options.onPieces(value);
+        return;
+      }
+      const permanent = at > last ? at - guest.run.length : at;
+      options.onIndex(mod(permanent, options.getCount()));
+      return;
+    }
+    options.onIndex(index);
   }
 
   function setPos(next: number) {
@@ -245,30 +290,16 @@ function createEngine(options: {
     position = next;
     options.setKinetics(next, velocity);
     const stops = options.getStretch()?.stops;
-    if (guest?.run?.length && guest.insertAfter != null) {
+    if (phase === "snap" && guest?.run?.length && guest.insertAfter != null) {
       const first = guest.insertAfter + 1;
-      const last = guest.insertAfter + guest.run.length;
-      let near = false;
-      for (let index = first; index <= last; index += 1) {
-        if (Math.abs(index - next) < 2.6) near = true;
+      const centered = Math.round(next);
+      if (centered >= first && centered < first + guest.run.length) {
+        const value = guest.run[centered - first];
+        if (value !== undefined) options.onPieces(value);
       }
-      if (!near) {
-        let folded = next;
-        if (folded > guest.insertAfter) folded -= guest.run.length;
-        guest = null;
-        options.onGuest(null);
-        position = mod(Math.round(folded), options.getCount());
-        options.setKinetics(position, velocity);
-      } else {
-        const centered = Math.round(next);
-        if (centered >= first && centered <= last) {
-          const value = guest.run[centered - first];
-          if (value !== undefined) options.onPieces(value);
-        }
-        return;
-      }
+      return;
     }
-    if (guest && stops) {
+    if (guest && stops && !guest.run?.length) {
       if (!guestStillVisible(position, stops, guest)) {
         guest = null;
         options.onGuest(null);
@@ -288,13 +319,23 @@ function createEngine(options: {
     for (const stop of stopsCrossed(previous, next)) {
       if (!enabledIndex(stop)) playReelClick(audioSpin, true);
     }
-    const index = commitIndex(next, options.getCount(), options.isEnabled);
-    if (index === null || index === committed) return;
-    const count = options.getCount();
+    const count = reelCount();
+    const index = commitIndex(position, count, enabledExpanded);
     const landingNotch =
       camNotch !== null &&
+      index !== null &&
       Math.abs(position - camNotch) < 0.5 &&
       index === mod(Math.round(camNotch), count);
+    if (index === null || index === committed) {
+      if (landingNotch && landingWatch.owed && !landingWatch.played) {
+        const noted = commitReelStop(landingWatch, true);
+        landingWatch = noted.watch;
+        setAudioSpin(false);
+        pullSpin = false;
+        if (noted.playLanding) playSettledLanding();
+      }
+      return;
+    }
     const noted = commitReelStop(landingWatch, landingNotch);
     landingWatch = noted.watch;
     const detent = detentForStop({
@@ -309,12 +350,12 @@ function createEngine(options: {
       setAudioSpin(false);
       pullSpin = false;
       committed = index;
-      options.onIndex(index);
+      publishCommitted(index);
       if (noted.playLanding) playSettledLanding();
       return;
     }
     committed = index;
-    options.onIndex(index);
+    publishCommitted(index);
     if (detent.haptic) hapticClick(false);
     if (detent.sound) playReelClick(audioSpin, false, false, false);
   }
@@ -347,10 +388,27 @@ function createEngine(options: {
       return;
     }
     velocity = 0;
+    parkSettledPosition();
     options.setKinetics(position, 0);
     setAudioSpin(false);
     setPhase("idle");
     settleLanding();
+  }
+
+  /**
+   * A wrap leaves the index outside the main list (10 is the same face as 2).
+   * Park on that main index once the snap has arrived, without scrolling the
+   * extra revolutions that separate the two numbers.
+   */
+  function parkSettledPosition() {
+    const count = reelCount();
+    if (!(count > 0)) return;
+    const rounded = Math.round(position);
+    if (Math.abs(position - rounded) > 1e-4) return;
+    const parked = canonicalNotch(rounded, count);
+    if (parked === position) return;
+    position = parked;
+    options.setKinetics(parked, 0);
   }
 
   function animateTo(target: number, duration: number) {
@@ -363,6 +421,7 @@ function createEngine(options: {
         camNotch = null;
         setPos(notch);
       }
+      parkSettledPosition();
       setPhase("idle");
       settleLanding();
       return;
@@ -382,6 +441,7 @@ function createEngine(options: {
       velocity = 0;
       setPos(notch);
       camNotch = null;
+      parkSettledPosition();
       setPhase("idle");
       settleLanding();
       return;
@@ -396,6 +456,7 @@ function createEngine(options: {
       velocity = 0;
       position = target;
       options.setKinetics(target, 0);
+      parkSettledPosition();
       setPhase("idle");
       return;
     }
@@ -428,15 +489,14 @@ function createEngine(options: {
     }
 
     if (phase === "coast") {
-      const count = options.getCount();
-      const incoming = velocity;
+      const count = reelCount();
       const decel = pullSpin ? pullDecel(pullOrder) : brakeDecel();
       const glide = grayGlidePlan({
         position,
         velocity,
         decel,
         count,
-        isEnabled: options.isEnabled,
+        isEnabled: enabledExpanded,
         locked: glideTarget,
       });
       glideTarget = glide.fallback ? null : glide.target;
@@ -444,8 +504,7 @@ function createEngine(options: {
       velocity = step.velocity;
       setPos(step.position);
       if (Math.abs(velocity) < COAST_SETTLE_SPEED) {
-        const direction = velocity !== 0 ? velocity : incoming;
-        camToNotch(glideSettleNotch(position, direction, count, options.isEnabled), 180);
+        camToNotch(nearestEnabledSlot(position), 180);
         return;
       }
     }
@@ -477,8 +536,22 @@ function createEngine(options: {
   }
 
   function clearHold() {
-    if (holdTimer) window.clearTimeout(holdTimer);
-    holdTimer = 0;
+    if (holdTimer !== undefined) clearTimeout(holdTimer);
+    holdTimer = undefined;
+  }
+
+  /** Stretch is over. The next drag or fling is an ordinary reel gesture. */
+  function handBack() {
+    handedOff = false;
+    gesture = "drag";
+    slideDirection = null;
+    stretchTravel = 0;
+    stretchOrigin = null;
+    drag = null;
+    camNotch = null;
+    glideTarget = null;
+    clearHold();
+    publishStretch(null);
   }
 
   function publishStretch(frame: StretchFrame | null) {
@@ -535,6 +608,20 @@ function createEngine(options: {
       anchorIndex = mod(Math.round(position), stops.length);
       stretchOrigin = originNow(stops, stops[anchorIndex] ?? anchorIndex);
       setPos(anchorIndex);
+    } else if (guest) {
+      const [above, center, below] = guestWindow(stops, position, guest);
+      const insertAfter = guest.insertAfter ?? Math.floor(guest.slot);
+      stretchOrigin =
+        center === centeredGuest
+          ? originFromWindow({
+              above,
+              center,
+              below,
+              insertAfter,
+              upperIndex: insertAfter + 1,
+            })
+          : originNow(stops, centeredGuest);
+      anchorIndex = stretchOrigin.lowerIndex;
     } else {
       stretchOrigin = originNow(stops, centeredGuest);
       anchorIndex = stretchOrigin.lowerIndex;
@@ -571,6 +658,27 @@ function createEngine(options: {
       return;
     }
     const sequence = sequenceNow(stretchOrigin, slideDirection);
+    if (sequence.length === 0 && guest?.run?.length) {
+      const rolled = rollGuestWindow({
+        position,
+        guest,
+        direction: slideDirection,
+        travel: layout.remainderPx,
+        itemHeight: REEL_ITEM_HEIGHT,
+      });
+      guest = rolled.guest;
+      const nextPos = rolled.position;
+      handedOff = true;
+      gesture = "drag";
+      slideDirection = null;
+      stretchTravel = 0;
+      publishStretch(null);
+      current.originY = y;
+      current.originPos = nextPos;
+      current.samples = [{ t: time, y }];
+      setPos(nextPos);
+      return;
+    }
     const placed = handoffPlacement({
       direction: slideDirection,
       anchorIndex,
@@ -585,6 +693,10 @@ function createEngine(options: {
       options.onGuest(placed.guest);
     }
     const nextPos = placed.position;
+    // The finger is still in the stretch gesture, including a wrap whose
+    // sequence is empty (100 → 1, or 1 → 100). Release snaps to the face
+    // on screen instead of coasting on the stretch speed.
+    handedOff = true;
     gesture = "drag";
     slideDirection = null;
     stretchTravel = 0;
@@ -602,19 +714,15 @@ function createEngine(options: {
     const origin = stretchOrigin;
     const anchor = origin?.anchor ?? stops[anchorIndex] ?? anchorIndex;
     const direction = slideDirection ?? "down";
-    const layout = layoutNow(direction, stretchTravel);
+    const travel = stretchTravel;
+    const layout = layoutNow(direction, travel);
     const centered = layout?.centered ?? anchor;
     const enabled = config?.isValueEnabled ?? (() => true);
-    drag = null;
-    gesture = "drag";
-    slideDirection = null;
     if (!enabled(centered)) {
       const fallback = valueAfterRelease(anchor, centered, stops, enabled);
       const index = stops.indexOf(fallback);
       guest = null;
       options.onGuest(null);
-      publishStretch(null);
-      stretchOrigin = null;
       if (index >= 0) {
         committed = index;
         position = index;
@@ -623,34 +731,34 @@ function createEngine(options: {
         options.onPieces(fallback);
         options.onIndex(index);
       }
+      handBack();
       setPhase("idle");
       return;
     }
     const sequence = origin ? sequenceNow(origin, direction) : [];
-    const between = sequence.includes(centered);
-    if (!between) {
-      publishStretch(null);
-      stretchOrigin = null;
-      velocity = 0;
-      if (typeof anchor === "number" && stops.includes(anchor)) {
-        guest = null;
-        options.onGuest(null);
-      }
-      options.onPieces(anchor);
-      setPhase("idle");
-      return;
-    }
     const placed =
       origin && layout
         ? releasePlacement({
             direction,
             origin,
             sequence,
-            travel: stretchTravel,
+            stops,
+            travel,
             itemHeight: REEL_ITEM_HEIGHT,
             centered,
           })
         : null;
+    if (!placed && !sequence.includes(centered)) {
+      velocity = 0;
+      if (typeof anchor === "number" && stops.includes(anchor)) {
+        guest = null;
+        options.onGuest(null);
+      }
+      options.onPieces(anchor);
+      handBack();
+      setPhase("idle");
+      return;
+    }
     if (placed) {
       guest = placed.guest;
       position = placed.position;
@@ -665,12 +773,12 @@ function createEngine(options: {
     options.setKinetics(position, 0);
     options.onPieces(centered);
     options.onGuest(guest);
-    publishStretch(null);
-    stretchOrigin = null;
+    const snapTo = placed ? placed.center : null;
+    handBack();
     const cue = stretchLandingGate({ played: false });
     if (cue.play) playSettledLanding();
-    if (placed) {
-      animateSnap(placed.center);
+    if (snapTo != null) {
+      animateSnap(snapTo);
       return;
     }
     setPhase("idle");
@@ -680,7 +788,10 @@ function createEngine(options: {
     pointerDown(y, time, localY = 0, height = 0) {
       pullSpin = false;
       landingWatch = clearLandingWatch();
+      camNotch = null;
+      glideTarget = null;
       stop();
+      handedOff = false;
       clearHold();
       velocity = 0;
       setPhase("drag");
@@ -695,7 +806,7 @@ function createEngine(options: {
       const stretch = options.getStretch();
       if (stretch && pressHitsCenter(localY, height)) {
         gesture = "pending";
-        holdTimer = window.setTimeout(() => {
+        holdTimer = setTimeout(() => {
           if (!drag || gesture !== "pending") return;
           engageStretch();
         }, STRETCH_HOLD_MS);
@@ -735,17 +846,23 @@ function createEngine(options: {
         releaseStretch();
         return;
       }
+      if (handedOff && phase === "drag" && drag) {
+        const notch = releaseNotch(position);
+        handBack();
+        const cue = stretchLandingGate({ played: false });
+        if (cue.play) playSettledLanding();
+        animateSnap(notch);
+        return;
+      }
+      handedOff = false;
       if (phase !== "drag" || !drag) return;
       const samples = drag.samples;
       drag = null;
       hapticClick();
       const speed = options.isReduced() ? 0 : velocityFrom(samples);
-      const count = options.getCount();
+      const count = reelCount();
       if (options.isReduced() || Math.abs(speed) < FLICK_COAST_SPEED) {
-        const notch =
-          Math.abs(speed) > 0 && !enabledIndex(Math.round(position))
-            ? glideSettleNotch(position, speed, count, options.isEnabled)
-            : nearestEnabledSlot(position);
+        const notch = nearestEnabledSlot(position);
         if (flickOwesLanding({ speed, position, notch, committed, count })) {
           landingWatch = armLandingWatch();
         }
@@ -763,12 +880,7 @@ function createEngine(options: {
       pullSpin = false;
       landingWatch = clearLandingWatch();
       hapticClick();
-      if (guest) {
-        const target = direction > 0 ? Math.ceil(guest.slot) : Math.floor(guest.slot);
-        animateTo(target, options.isReduced() ? 0 : 180);
-        return;
-      }
-      const count = options.getCount();
+      const count = reelCount();
       const start = Math.round(position);
       for (let delta = 1; delta <= count; delta += 1) {
         const candidate = start + direction * delta;
@@ -899,7 +1011,7 @@ export function Reel({
   }, [onIndex, onMotion, onPieces]);
 
   useEffect(() => {
-    const engine = createEngine({
+    const engine = createReelEngine({
       initialIndex,
       setKinetics: (next, speed) => {
         setKinetics({ position: next, velocity: speed });
@@ -1007,6 +1119,24 @@ export function Reel({
           viewport.focus({ preventScroll: true });
           const bounds = viewport.getBoundingClientRect();
           const pointerId = event.pointerId;
+          let closed = false;
+          const endGesture = () => {
+            if (closed) return;
+            closed = true;
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", onUp);
+            window.removeEventListener("pointercancel", onUp);
+            window.removeEventListener("lostpointercapture", onUp);
+            if (viewport.hasPointerCapture?.(pointerId)) {
+              try {
+                viewport.releasePointerCapture(pointerId);
+              } catch {
+                /* The pointer is already gone. */
+              }
+            }
+            engineRef.current?.pointerUp();
+            viewport.blur();
+          };
           const onMove = (moveEvent: PointerEvent) => {
             if (moveEvent.pointerId !== pointerId) return;
             if (moveEvent.cancelable) moveEvent.preventDefault();
@@ -1014,15 +1144,17 @@ export function Reel({
           };
           const onUp = (upEvent: PointerEvent) => {
             if (upEvent.pointerId !== pointerId) return;
-            window.removeEventListener("pointermove", onMove);
-            window.removeEventListener("pointerup", onUp);
-            window.removeEventListener("pointercancel", onUp);
-            engineRef.current?.pointerUp();
-            viewport.blur();
+            endGesture();
           };
           window.addEventListener("pointermove", onMove);
           window.addEventListener("pointerup", onUp);
           window.addEventListener("pointercancel", onUp);
+          window.addEventListener("lostpointercapture", onUp);
+          try {
+            viewport.setPointerCapture(pointerId);
+          } catch {
+            /* Capture is optional. The window listeners still follow the finger. */
+          }
           engineRef.current?.pointerDown(
             event.clientY,
             event.timeStamp,
@@ -1103,7 +1235,10 @@ export function Reel({
           const symbol = viewItems[index];
           if (!symbol) return null;
           const pose = cylinderPose(offset - fraction);
-          const y = REEL_ITEM_HEIGHT * 1.5 + pose.shift * REEL_ITEM_HEIGHT - REEL_ITEM_HEIGHT / 2;
+          const y = alignDevicePixel(
+            REEL_ITEM_HEIGHT * 1.5 + pose.shift * REEL_ITEM_HEIGHT - REEL_ITEM_HEIGHT / 2,
+            typeof window === "undefined" ? 1 : window.devicePixelRatio || 1,
+          );
           const isActive = index === facing;
           const override = !drawingGuest && centerPieces != null && offset === 0;
           const customFace = override ? (stretch?.label?.(centerPieces) ?? countFace(centerPieces)) : null;

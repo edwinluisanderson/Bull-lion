@@ -5,6 +5,9 @@ import { COUNTS } from "@/lib/metals";
 import {
   STRETCH_HOLD_MS,
   STRETCH_SLOP_PX,
+  alignDevicePixel,
+  canonicalNotch,
+  centerFaceOffset,
   countRows,
   faceTop,
   guestStillVisible,
@@ -12,11 +15,15 @@ import {
   handoffShift,
   nextGestureMode,
   originFor,
+  originFromWindow,
+  rollGuestWindow,
+  visibleStretchFaces,
   pressHitsCenter,
   projectGuest,
   sequenceFrom,
   settledPlateStyle,
   guestWindow,
+  releaseNotch,
   releasePlacement,
   snapEase,
   STRETCH_SNAP_MS,
@@ -396,6 +403,7 @@ test("releasing a stretch from 20 keeps 18 centered and 19 beside it", () => {
     direction: "down",
     origin,
     sequence,
+    stops: COUNTS,
     travel,
     itemHeight: HEIGHT,
     centered: layout.centered,
@@ -424,6 +432,7 @@ test("a stretch face that has left the window is not kept on release", () => {
     direction: "down",
     origin,
     sequence,
+    stops: COUNTS,
     travel,
     itemHeight: HEIGHT,
     centered: layout.centered,
@@ -451,6 +460,7 @@ test("releasing an upward stretch keeps the in-between that is still beside cent
     direction: "up",
     origin,
     sequence,
+    stops: COUNTS,
     travel,
     itemHeight: HEIGHT,
     centered: layout.centered,
@@ -458,6 +468,97 @@ test("releasing an upward stretch keeps the in-between that is still beside cent
   assert.ok(placed);
   assert.deepEqual(placed.guest.run, [21, 22]);
   assert.deepEqual(guestWindow(COUNTS, placed.position, placed.guest), [21, 22, 25]);
+});
+
+test("releasing 50 stretched to 49 keeps 25 above it", () => {
+  const origin = originFor(COUNTS, 50);
+  const sequence = sequenceFrom(origin, "down");
+  for (const travel of [HEIGHT, HEIGHT * 1.2, HEIGHT * 1.5]) {
+    const layout = stretchLayout({
+      direction: "down",
+      anchor: 50,
+      pin: origin.lower,
+      pushed: origin.upper,
+      sequence,
+      travel,
+      itemHeight: HEIGHT,
+    });
+    assert.equal(layout.centered, 49, `centered at ${travel}`);
+    const placed = releasePlacement({
+      direction: "down",
+      origin,
+      sequence,
+      stops: COUNTS,
+      travel,
+      itemHeight: HEIGHT,
+      centered: layout.centered,
+    });
+    assert.ok(placed);
+    const window = guestWindow(COUNTS, placed.center, placed.guest);
+    assert.deepEqual(window, [25, 49, 50]);
+    assert.equal(window.includes(48), false);
+  }
+});
+
+test("releasing 50 stretched up to 51 keeps 100 below it", () => {
+  const origin = originFor(COUNTS, 50);
+  const sequence = sequenceFrom(origin, "up");
+  for (const travel of [HEIGHT, HEIGHT * 1.2, HEIGHT * 1.45]) {
+    const layout = stretchLayout({
+      direction: "up",
+      anchor: 50,
+      pin: origin.upper,
+      pushed: origin.lower,
+      sequence,
+      travel,
+      itemHeight: HEIGHT,
+    });
+    assert.equal(layout.centered, 51, `centered at ${travel}`);
+    const placed = releasePlacement({
+      direction: "up",
+      origin,
+      sequence,
+      stops: COUNTS,
+      travel,
+      itemHeight: HEIGHT,
+      centered: layout.centered,
+    });
+    assert.ok(placed);
+    const window = guestWindow(COUNTS, placed.center, placed.guest);
+    assert.deepEqual(window, [50, 51, 100]);
+    assert.equal(window.includes(52), false);
+  }
+});
+
+test("one step from 20 to 21 does not invent 22 beside it", () => {
+  const origin = originFor(COUNTS, 20);
+  const sequence = sequenceFrom(origin, "up");
+  for (const travel of [HEIGHT, HEIGHT * 1.05, HEIGHT * 1.2]) {
+    const layout = stretchLayout({
+      direction: "up",
+      anchor: 20,
+      pin: origin.upper,
+      pushed: origin.lower,
+      sequence,
+      travel,
+      itemHeight: HEIGHT,
+    });
+    assert.equal(layout.centered, 21);
+    const placed = releasePlacement({
+      direction: "up",
+      origin,
+      sequence,
+      stops: COUNTS,
+      travel,
+      itemHeight: HEIGHT,
+      centered: layout.centered,
+    });
+    assert.ok(placed);
+    assert.equal(placed.guest.run?.includes(22), false);
+    const window = guestWindow(COUNTS, placed.center, placed.guest);
+    assert.equal(window.includes(22), false);
+    assert.deepEqual(window, [20, 21, 25]);
+  }
 });
 
 test("a release snap eases past center and settles on it", () => {
@@ -484,6 +585,7 @@ test("a release snap eases past center and settles on it", () => {
     direction: "down",
     origin,
     sequence,
+    stops: COUNTS,
     travel,
     itemHeight: HEIGHT,
     centered: layout.centered,
@@ -521,6 +623,7 @@ test("twenty stretch releases each knock once and finish centered", () => {
       direction: "down",
       origin,
       sequence,
+      stops: COUNTS,
       travel,
       itemHeight: HEIGHT,
       centered: layout.centered,
@@ -538,6 +641,198 @@ test("twenty stretch releases each knock once and finish centered", () => {
     );
   }
   assert.equal(knocks, 20);
+});
+
+test("a re-press keeps the released neighbor, and three cycles do not restore the main stop", () => {
+  const first = originFor(COUNTS, 20);
+  const sequence = sequenceFrom(first, "down");
+  const opened = stretchLayout({
+    direction: "down",
+    anchor: 20,
+    pin: first.lower,
+    pushed: first.upper,
+    sequence,
+    travel: 2 * HEIGHT,
+    itemHeight: HEIGHT,
+  });
+  const released = releasePlacement({
+    direction: "down",
+    origin: first,
+    sequence,
+    stops: COUNTS,
+    travel: 2 * HEIGHT,
+    itemHeight: HEIGHT,
+    centered: opened.centered,
+  });
+  assert.ok(released);
+  let faces = guestWindow(COUNTS, released.center, released.guest);
+  assert.deepEqual(faces, [10, 18, 19]);
+
+  for (let cycle = 0; cycle < 3; cycle += 1) {
+    const origin = originFromWindow({
+      above: faces[0],
+      center: faces[1],
+      below: faces[2],
+      insertAfter: released.guest.insertAfter ?? 0,
+      upperIndex: (released.guest.insertAfter ?? 0) + 1,
+    });
+    const held = visibleStretchFaces({
+      direction: "down",
+      origin,
+      sequence: sequenceFrom(origin, "down"),
+      travel: 0,
+      itemHeight: HEIGHT,
+    });
+    assert.deepEqual(held.slice(0, 3), faces);
+    const again = releasePlacement({
+      direction: "down",
+      origin,
+      sequence: sequenceFrom(origin, "down"),
+      stops: COUNTS,
+      travel: 0,
+      itemHeight: HEIGHT,
+      centered: faces[1],
+    });
+    assert.ok(again);
+    assert.deepEqual(guestWindow(COUNTS, again.center, again.guest), faces);
+    const stepped = stretchLayout({
+      direction: "down",
+      anchor: origin.anchor,
+      pin: origin.lower,
+      pushed: origin.upper,
+      sequence: sequenceFrom(origin, "down"),
+      travel: HEIGHT,
+      itemHeight: HEIGHT,
+    });
+    const moved = releasePlacement({
+      direction: "down",
+      origin,
+      sequence: sequenceFrom(origin, "down"),
+      stops: COUNTS,
+      travel: HEIGHT,
+      itemHeight: HEIGHT,
+      centered: stepped.centered,
+    });
+    assert.ok(moved);
+    const next = guestWindow(COUNTS, moved.center, moved.guest);
+    assert.equal(next[1], stepped.centered);
+    assert.ok(next.includes(faces[1]) || next[2] !== faces[2] || faces[2] === next[2]);
+    faces = next;
+  }
+  assert.notDeepEqual(faces, [10, 18, 20]);
+});
+
+test("consecutive faces roll off-screen instead of jumping to the main stops", () => {
+  const insertAfter = COUNTS.indexOf(10);
+  const guest = { value: 18, slot: insertAfter + 0.5, run: [17, 18, 19], insertAfter };
+  const position = insertAfter + 2;
+  assert.deepEqual(guestWindow(COUNTS, position, guest), [17, 18, 19]);
+  const origin = originFromWindow({
+    above: 17,
+    center: 18,
+    below: 19,
+    insertAfter,
+    upperIndex: insertAfter + 1,
+  });
+  assert.deepEqual(sequenceFrom(origin, "down"), []);
+  assert.deepEqual(sequenceFrom(origin, "up"), []);
+
+  const down = rollGuestWindow({ position, guest, direction: "down", travel: HEIGHT, itemHeight: HEIGHT });
+  assert.deepEqual(guestWindow(COUNTS, Math.round(down.position), down.guest), [10, 17, 18]);
+  const up = rollGuestWindow({ position, guest, direction: "up", travel: HEIGHT, itemHeight: HEIGHT });
+  assert.deepEqual(guestWindow(COUNTS, Math.round(up.position), up.guest), [18, 19, 20]);
+
+  const nudge = rollGuestWindow({ position, guest, direction: "down", travel: 12, itemHeight: HEIGHT });
+  assert.equal(guestWindow(COUNTS, Math.round(nudge.position), nudge.guest)[1], 18);
+  assert.notDeepEqual(guestWindow(COUNTS, Math.round(nudge.position), nudge.guest), [2, 5, 10]);
+
+  let cursor = position;
+  const windows: number[][] = [];
+  for (let step = 0; step < 3; step += 1) {
+    const rolled = rollGuestWindow({
+      position: cursor,
+      guest,
+      direction: "down",
+      travel: HEIGHT,
+      itemHeight: HEIGHT,
+    });
+    cursor = rolled.position;
+    windows.push(guestWindow(COUNTS, Math.round(cursor), guest));
+  }
+  assert.deepEqual(windows, [
+    [10, 17, 18],
+    [5, 10, 17],
+    [2, 5, 10],
+  ]);
+
+  cursor = position;
+  const upward: number[][] = [];
+  for (let step = 0; step < 3; step += 1) {
+    const rolled = rollGuestWindow({
+      position: cursor,
+      guest,
+      direction: "up",
+      travel: HEIGHT,
+      itemHeight: HEIGHT,
+    });
+    cursor = rolled.position;
+    upward.push(guestWindow(COUNTS, Math.round(cursor), guest));
+  }
+  assert.deepEqual(upward[0], [18, 19, 20]);
+  assert.deepEqual(upward[1], [19, 20, 25]);
+  assert.ok(upward[2].includes(20));
+});
+
+test("a dead-stop release after one face keeps that window, and a moving release does not step again", () => {
+  const insertAfter = COUNTS.indexOf(10);
+  const guest = { value: 18, slot: insertAfter + 0.5, run: [17, 18, 19], insertAfter };
+  const rest = insertAfter + 2;
+  assert.deepEqual(guestWindow(COUNTS, rest, guest), [17, 18, 19]);
+
+  const down = rollGuestWindow({ position: rest, guest, direction: "down", travel: HEIGHT, itemHeight: HEIGHT });
+  assert.deepEqual(guestWindow(COUNTS, down.position, down.guest), [10, 17, 18]);
+  assert.equal(releaseNotch(down.position), down.position);
+  assert.deepEqual(guestWindow(COUNTS, releaseNotch(down.position), down.guest), [10, 17, 18]);
+  assert.equal(releaseNotch(down.position - 0.4), down.position);
+  assert.notEqual(releaseNotch(down.position - 0.4), down.position - 1);
+
+  const up = rollGuestWindow({ position: rest, guest, direction: "up", travel: HEIGHT, itemHeight: HEIGHT });
+  assert.deepEqual(guestWindow(COUNTS, up.position, up.guest), [18, 19, 20]);
+  assert.equal(releaseNotch(up.position), up.position);
+  assert.deepEqual(guestWindow(COUNTS, releaseNotch(up.position), up.guest), [18, 19, 20]);
+  assert.equal(releaseNotch(up.position + 0.4), up.position);
+});
+
+test("crossing 100 does not swap a face in the middle of the window", () => {
+  const insertAfter = COUNTS.indexOf(50);
+  const guest = { value: 100, slot: insertAfter + 0.5, run: [100], insertAfter };
+  const at100 = insertAfter + 1;
+  assert.equal(guestWindow(COUNTS, at100, guest)[1], 100);
+  assert.equal(releaseNotch(at100 + 0.2), at100);
+  const held = guestWindow(COUNTS, releaseNotch(at100 + 0.2), guest);
+  assert.equal(held[1], 100);
+  assert.ok(!held.includes(2));
+  const edge = guestWindow(COUNTS, at100 + 1, guest);
+  assert.equal(edge[0], 100);
+  assert.notEqual(edge[1], 2);
+});
+
+test("a wrap index folds onto the main face and an exact notch has no offset", () => {
+  assert.equal(canonicalNotch(10, COUNTS.length), COUNTS.indexOf(5));
+  assert.equal(canonicalNotch(9, COUNTS.length), COUNTS.indexOf(2));
+  assert.equal(canonicalNotch(8, COUNTS.length), COUNTS.indexOf(1));
+  assert.equal(canonicalNotch(-1, COUNTS.length), COUNTS.indexOf(100));
+  assert.equal(canonicalNotch(-3, COUNTS.length), COUNTS.indexOf(25));
+  assert.equal(canonicalNotch(10, COUNTS.length), 2);
+  assert.notEqual(canonicalNotch(10, COUNTS.length), COUNTS.indexOf(20));
+  assert.ok(Math.abs(centerFaceOffset(canonicalNotch(10, COUNTS.length))) < 1e-9);
+  assert.ok(Math.abs(centerFaceOffset(8)) < 1e-9);
+  assert.ok(Math.abs(centerFaceOffset(8.006)) > 0.3);
+  assert.equal(alignDevicePixel(86, 1), 86);
+  assert.equal(alignDevicePixel(86.34, 1), 86);
+  assert.equal(alignDevicePixel(86.77, 1), 87);
+  assert.equal(alignDevicePixel(86.34, 2), 86.5);
+  assert.equal(alignDevicePixel(faceTop(0) + 0.34, 2), faceTop(0) + 0.5);
 });
 
 test("the ends of the count list have no invented numbers", () => {

@@ -157,6 +157,19 @@ export function faceTop(offset: number, itemHeight = REEL_ITEM_HEIGHT): number {
   return itemHeight * 1.5 + pose.shift * itemHeight - itemHeight / 2;
 }
 
+/** Pixels the center face sits off the payline. An exact notch is 0. */
+export function centerFaceOffset(position: number, itemHeight = REEL_ITEM_HEIGHT): number {
+  if (!Number.isFinite(position) || !(itemHeight > 0)) return 0;
+  const fraction = position - Math.floor(position);
+  return faceTop(-fraction, itemHeight) + itemHeight / 2 - itemHeight * 1.5;
+}
+
+/** Snap a painted offset onto the device-pixel grid so a notch cannot sit a fraction off the bar. */
+export function alignDevicePixel(value: number, devicePixelRatio = 1): number {
+  const ratio = Number.isFinite(devicePixelRatio) && devicePixelRatio > 0 ? devicePixelRatio : 1;
+  return Math.round(value * ratio) / ratio;
+}
+
 /**
  * Settled faces use the shared reel plate.
  * Stretch fills and clips belong only to the stretch overlay.
@@ -251,7 +264,10 @@ function emergedScreenTop(
   return anchorTop - sign * (index + 1) * itemHeight;
 }
 
-/** An in-between face that still paints inside the reel window, even if partly clipped. */
+/**
+ * An in-between face is on screen when at least half its row is outside the pin.
+ * A few pixels peeking past the pin is not a face the release should keep.
+ */
 export function betweenFaceVisible(
   screenTop: number,
   itemHeight: number,
@@ -260,7 +276,66 @@ export function betweenFaceVisible(
   if (!(itemHeight > 0)) return false;
   if (screenTop >= itemHeight * 3 || screenTop + itemHeight <= 0) return false;
   const clip = stretchRowClip(screenTop, itemHeight, direction, "between");
-  return clip.clipTop < itemHeight && clip.clipBottom < itemHeight;
+  const visible = itemHeight - clip.clipTop - clip.clipBottom;
+  return visible >= itemHeight / 2;
+}
+
+function rowOnScreen(screenTop: number, itemHeight: number): boolean {
+  return screenTop < itemHeight * 3 && screenTop + itemHeight > 0;
+}
+
+/**
+ * Faces the stretch is painting, top to bottom.
+ * A neighbor that has left the window is absent.
+ */
+export function visibleStretchFaces(input: {
+  direction: StretchDirection;
+  origin: StretchOrigin;
+  sequence: readonly number[];
+  travel: number;
+  itemHeight: number;
+}): number[] {
+  const { direction, origin, sequence, travel, itemHeight } = input;
+  if (!(itemHeight > 0)) return [];
+  const sign = direction === "down" ? 1 : -1;
+  const anchorTop = itemHeight + sign * travel;
+  const pushedTop = direction === "down" ? itemHeight * 2 + travel : -travel;
+  const pushed = direction === "down" ? origin.upper : origin.lower;
+  const painted: { value: number; top: number }[] = [];
+  const pinTop = direction === "down" ? 0 : itemHeight * 2;
+  if (rowOnScreen(pinTop, itemHeight)) painted.push({ value: direction === "down" ? origin.lower : origin.upper, top: pinTop });
+  sequence.forEach((value, index) => {
+    if (travel <= index * itemHeight) return;
+    const top = emergedScreenTop(direction, index, travel, itemHeight);
+    if (!betweenFaceVisible(top, itemHeight, direction)) return;
+    painted.push({ value, top });
+  });
+  if (rowOnScreen(anchorTop, itemHeight)) painted.push({ value: origin.anchor, top: anchorTop });
+  if (pushed !== origin.anchor && rowOnScreen(pushedTop, itemHeight)) painted.push({ value: pushed, top: pushedTop });
+  painted.sort((a, b) => a.top - b.top || a.value - b.value);
+  return painted.map((row) => row.value);
+}
+
+/**
+ * Resting stretch whose pin, center, and pushed face are the ones already on screen.
+ * Further travel still reveals the integers hidden behind the pin.
+ */
+export function originFromWindow(input: {
+  above: number;
+  center: number;
+  below: number;
+  insertAfter: number;
+  upperIndex: number;
+}): StretchOrigin {
+  return {
+    anchor: input.center,
+    anchorIndex: null,
+    lower: input.above,
+    upper: input.below,
+    lowerIndex: input.insertAfter,
+    upperIndex: input.upperIndex,
+    slot: null,
+  };
 }
 
 /**
@@ -272,26 +347,43 @@ export function releasePlacement(input: {
   direction: StretchDirection;
   origin: StretchOrigin;
   sequence: readonly number[];
+  stops: readonly number[];
   travel: number;
   itemHeight: number;
   centered: number;
 }): { position: number; center: number; guest: GuestCount } | null {
-  const { direction, origin, sequence, travel, itemHeight, centered } = input;
-  if (!(itemHeight > 0) || sequence.length === 0) return null;
-  const visible: number[] = [];
-  let centeredTop = 0;
-  sequence.forEach((value, index) => {
-    if (travel <= index * itemHeight) return;
-    const screenTop = emergedScreenTop(direction, index, travel, itemHeight);
-    if (!betweenFaceVisible(screenTop, itemHeight, direction)) return;
-    if (value === centered) centeredTop = screenTop;
-    visible.push(value);
+  const { direction, origin, sequence, stops, travel, itemHeight, centered } = input;
+  if (!(itemHeight > 0)) return null;
+  const sign = direction === "down" ? 1 : -1;
+  const anchorTop = itemHeight + sign * travel;
+  const painted = visibleStretchFaces({ direction, origin, sequence, travel, itemHeight });
+  const permanent = (value: number) => stops.includes(value);
+  const pushedValue = direction === "down" ? origin.upper : origin.lower;
+  const pushedTop = direction === "down" ? itemHeight * 2 + travel : -travel;
+  const pinValue = direction === "down" ? origin.lower : origin.upper;
+  const pinTop = direction === "down" ? 0 : itemHeight * 2;
+  const topOf = (value: number): number | null => {
+    if (value === origin.anchor) return anchorTop;
+    if (value === pushedValue) return pushedTop;
+    if (value === pinValue) return pinTop;
+    const index = sequence.indexOf(value);
+    if (index >= 0) return emergedScreenTop(direction, index, travel, itemHeight);
+    return null;
+  };
+  const centeredTop = topOf(centered) ?? anchorTop;
+  // The pin stays the outer face. A number still coming out behind it is not
+  // the neighbor yet, so release must not swap the pin for that next face.
+  const run = painted.filter((value) => {
+    if (permanent(value)) return false;
+    if (value === centered) return true;
+    const top = topOf(value);
+    if (top == null) return false;
+    return direction === "down" ? top >= centeredTop - 0.5 : top <= centeredTop + 0.5;
   });
-  if (!visible.includes(centered)) return null;
-  const insertAfter = direction === "down" ? origin.lowerIndex : (origin.anchorIndex ?? origin.lowerIndex);
-  const run = direction === "down" ? [...visible].reverse() : [...visible];
   const at = run.indexOf(centered);
-  if (at < 0 || insertAfter == null) return null;
+  if (at < 0 || run.length === 0) return null;
+  const insertAfter = direction === "down" ? origin.lowerIndex : (origin.anchorIndex ?? origin.lowerIndex);
+  if (insertAfter == null) return null;
   const payline = itemHeight * 1.5;
   const delta = (centeredTop + itemHeight / 2 - payline) / itemHeight;
   const center = insertAfter + 1 + at;
@@ -318,6 +410,45 @@ export function guestWindow(stops: readonly number[], position: number, guest: G
     const index = center + delta;
     return items[((index % items.length) + items.length) % items.length] ?? items[0];
   });
+}
+
+/**
+ * Nearest index of the faces on screen. Release snaps here and does not
+ * step onward in the drag direction, and it does not wrap the index.
+ */
+export function releaseNotch(position: number): number {
+  if (!Number.isFinite(position)) return 0;
+  return Math.round(position);
+}
+
+/**
+ * Main-list index of an unwrapped position.
+ * A stretch that crosses 100 → 1 (or 1 → 100) keeps counting past the seam,
+ * so three steps up from ×100 sit at index 10. That is the same face as
+ * index 2. Folding whole revolutions maps it back; adding the seam again
+ * would land two stops further on.
+ */
+export function canonicalNotch(position: number, count: number): number {
+  if (!(count > 0) || !Number.isFinite(position)) return 0;
+  const rounded = Math.round(position);
+  return ((rounded % count) + count) % count;
+}
+
+/**
+ * Slide a resting run when the visible faces are already consecutive.
+ * The run stays; travel only changes which face is centered.
+ */
+export function rollGuestWindow(input: {
+  position: number;
+  guest: GuestCount;
+  direction: StretchDirection;
+  travel: number;
+  itemHeight: number;
+}): { position: number; guest: GuestCount } {
+  return {
+    position: input.position + handoffShift(input.direction, input.travel, input.itemHeight),
+    guest: input.guest,
+  };
 }
 
 /** Extra travel once the in-betweens are done. Down moves the reel toward lower indexes. */

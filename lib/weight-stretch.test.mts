@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { COUNTS, WEIGHTS } from "@/lib/metals";
-import { stretchSequence } from "@/lib/stretch";
+import { COUNTS, REEL_ITEM_HEIGHT, WEIGHTS } from "@/lib/metals";
+import { guestWindow, releasePlacement, stretchLayout, stretchSequence } from "@/lib/stretch";
 import { TROY_OUNCE_GRAMS } from "@/lib/value";
 import { formatWeightPhrase } from "@/lib/weight-label";
 import {
@@ -113,6 +113,65 @@ test("a temporary weight remembers the real stops on either side", () => {
   const twoKg = weightStretchOrigin(stops, 2000);
   assert.equal(twoKg.lower, 1000);
   assert.ok(Math.abs(twoKg.upper - grams("1/10")) < 1e-8);
+});
+
+test("releasing 1/10 stretched to 1/20 keeps 1 kg above it", () => {
+  const origin = weightStretchOrigin(stops, grams("1/10"));
+  const sequence = weightStretchBetween(origin.anchor, origin.lower, "down");
+  for (const travel of [REEL_ITEM_HEIGHT, REEL_ITEM_HEIGHT * 1.2, REEL_ITEM_HEIGHT * 1.5]) {
+    const layout = stretchLayout({
+      direction: "down",
+      anchor: origin.anchor,
+      pin: origin.lower,
+      pushed: origin.upper,
+      sequence,
+      travel,
+      itemHeight: REEL_ITEM_HEIGHT,
+    });
+    assert.equal(weightStretchLabel(layout.centered).mark, "1/20 oz", `centered at ${travel}`);
+    const placed = releasePlacement({
+      direction: "down",
+      origin,
+      sequence,
+      stops,
+      travel,
+      itemHeight: REEL_ITEM_HEIGHT,
+      centered: layout.centered,
+    });
+    assert.ok(placed);
+    const window = guestWindow(stops, placed.center, placed.guest).map((value) => weightStretchLabel(value).mark);
+    assert.deepEqual(window, ["1 kg", "1/20 oz", "1/10 oz"]);
+    assert.equal(window.includes("1/25 oz"), false);
+  }
+});
+
+test("releasing 1/10 stretched up to 1/5 keeps 1/4 below it", () => {
+  const origin = weightStretchOrigin(stops, grams("1/10"));
+  const sequence = weightStretchBetween(origin.anchor, origin.upper, "up");
+  for (const travel of [REEL_ITEM_HEIGHT, REEL_ITEM_HEIGHT * 1.2, REEL_ITEM_HEIGHT * 1.5]) {
+    const layout = stretchLayout({
+      direction: "up",
+      anchor: origin.anchor,
+      pin: origin.upper,
+      pushed: origin.lower,
+      sequence,
+      travel,
+      itemHeight: REEL_ITEM_HEIGHT,
+    });
+    assert.equal(weightStretchLabel(layout.centered).mark, "1/5 oz", `centered at ${travel}`);
+    const placed = releasePlacement({
+      direction: "up",
+      origin,
+      sequence,
+      stops,
+      travel,
+      itemHeight: REEL_ITEM_HEIGHT,
+      centered: layout.centered,
+    });
+    assert.ok(placed);
+    const window = guestWindow(stops, placed.center, placed.guest).map((value) => weightStretchLabel(value).mark);
+    assert.deepEqual(window, ["1/10 oz", "1/5 oz", "1/4 oz"]);
+  }
 });
 
 test("regular weight stops are not grayed, so temporary ones are not either", () => {
