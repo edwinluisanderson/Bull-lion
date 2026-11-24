@@ -208,6 +208,10 @@ export function createReelEngine(options: {
   let pullClock = false;
   let pullSettled = false;
   let pullRestNotified = false;
+  const publishKinetics = options.setKinetics;
+  options.setKinetics = (next, speed) => {
+    publishKinetics(next, pullSettled ? 0 : speed);
+  };
   let alternated = 0;
   let landingWatch: LandingWatch = clearLandingWatch();
   let glideTarget: number | null = null;
@@ -488,11 +492,12 @@ export function createReelEngine(options: {
   }
 
   /** The pull has reached its scheduled stop. Velocity is 0 and the landing fires once. */
-  function finishPull(notch: number) {
+  function finishPull(notch: number, now = 0) {
     const count = reelCount();
     const parked = canonicalNotch(Math.round(notch), count);
     pullSettled = true;
     pullSpin = false;
+    stop();
     velocity = 0;
     position = parked;
     glideTarget = null;
@@ -514,6 +519,10 @@ export function createReelEngine(options: {
   function tick(now: number) {
     raf = 0;
     try {
+    if (pullSettled) {
+      options.setKinetics(position, 0);
+      return;
+    }
     if (pullClock && !pullSettled && pullStarted > 0 && now >= pullStarted + pullStopSeconds(pullOrder) * 1000) {
       const frame = pullFrame({
         origin: pullOrigin,
@@ -523,7 +532,7 @@ export function createReelEngine(options: {
         isEnabled: enabledExpanded,
         locked: glideTarget,
       });
-      finishPull(frame.position);
+      finishPull(frame.position, now);
       return;
     }
     if (pullClock && !pullSettled && phase !== "coast") phase = "coast";
@@ -548,7 +557,14 @@ export function createReelEngine(options: {
     if (phase === "coast") {
       const count = reelCount();
       if (pullClock && !pullSettled) {
-        if (pullStarted === 0) pullStarted = now;
+        if (pullStarted === 0) {
+          // The frame that only schedules the spin is not t = 0. A slow
+          // device spends ~45ms there, and counting it made every reel
+          // look that much early. The schedule starts on the next paint.
+          pullStarted = -1;
+          return;
+        }
+        if (pullStarted < 0) pullStarted = now;
         const elapsed = Math.max(0, (now - pullStarted) / 1000);
         const frame = pullFrame({
           origin: pullOrigin,
@@ -560,7 +576,7 @@ export function createReelEngine(options: {
         });
         glideTarget = frame.locked;
         if (frame.resting) {
-          finishPull(frame.position);
+          finishPull(frame.position, now);
           return;
         }
         velocity = frame.velocity;

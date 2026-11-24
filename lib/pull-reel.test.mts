@@ -136,6 +136,31 @@ test("three reels rest together on a pull, including the last-reel guard", () =>
   assertPull([55, 80, 120, 180, 262], 6);
 });
 
+test("a 135ms frame spanning the stop leaves every reel at rest with velocity 0", () => {
+  for (const order of [0, 1, 2] as const) {
+    const stop = PULL_LIGHT_STOP_S[order] * 1000;
+    const frames = [16];
+    let cursor = 16;
+    while (cursor < stop - 24) {
+      frames.push(16);
+      cursor += 16;
+    }
+    frames.push(135, 16, 16, 16, 16);
+    const { samples, rests } = pullAll(frames, null);
+    const started = samples.findIndex((sample) => sample.velocity[order] !== 0);
+    assert.ok(started >= 0);
+    const origin = samples[started].t;
+    const resting = samples.find((sample) => sample.t > origin + 500 && sample.velocity[order] === 0);
+    assert.ok(resting, `reel ${order} never rested`);
+    const elapsed = resting.t - origin;
+    assert.ok(elapsed + 1 >= stop, `reel ${order} rested early at ${elapsed}`);
+    assert.ok(elapsed - stop <= 135 + 20, `reel ${order} rested late at ${elapsed}`);
+    assert.ok(samples.filter((sample) => sample.t >= resting.t).every((sample) => sample.velocity[order] === 0));
+    assert.equal(rests[order], 1);
+    assert.equal(resting.velocity[order], 0);
+  }
+});
+
 test("a jump during the pull does not take the count reel", () => {
   const queued: FrameRequestCallback[] = [];
   const realFrame = globalThis.requestAnimationFrame;
