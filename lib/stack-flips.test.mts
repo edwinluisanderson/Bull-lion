@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { TOTAL_BOARD_ID, TOTAL_WORD_ID, priceCascade, seedCascade, syncCascadeLines } from "@/lib/stack-cascade";
-import { boardsThatFlip, type FlapBoard } from "@/lib/stack-flips";
+import { boardsThatFlip, freshCardSnaps, type FlapBoard } from "@/lib/stack-flips";
 import { STACK_EMPTY_MESSAGE, TOTAL_WORD, totalBoardCopy } from "@/lib/stack-total";
 
 const table = readFileSync(new URL("../components/stack-table.tsx", import.meta.url), "utf8");
@@ -58,6 +58,21 @@ test("the last delete flips the total to the empty message and nothing else", ()
   assert.equal(empty.top.includes("LET"), true);
   assert.equal(STACK_EMPTY_MESSAGE.includes("stacking"), true);
   assert.equal(after.some((board) => board.id === "only"), false);
+});
+
+test("a visible new card flips from blank and an off-screen one snaps", () => {
+  const view = { width: 320, height: 800 };
+  const onScreen = { top: 420, left: 12, bottom: 508, right: 300, width: 288, height: 88 };
+  const below = { top: 900, left: 12, bottom: 988, right: 300, width: 288, height: 88 };
+  const above = { top: -120, left: 12, bottom: -20, right: 300, width: 288, height: 100 };
+  assert.equal(freshCardSnaps(null, view), false);
+  assert.equal(freshCardSnaps(null, null), false);
+  assert.equal(freshCardSnaps({ top: 0, left: 0, bottom: 0, right: 0, width: 0, height: 0 }, view), false);
+  assert.equal(freshCardSnaps(onScreen, view), false);
+  assert.equal(freshCardSnaps(below, view), true);
+  assert.equal(freshCardSnaps(above, view), true);
+  assert.match(table, /freshCardSnaps\(/);
+  assert.match(table, /introFlip/);
 });
 
 test("adding a card flips only the new card", () => {

@@ -55,6 +55,7 @@ import {
   type CascadeSlot,
 } from "@/lib/stack-cascade";
 import { abbreviateMelt } from "@/lib/melt-abbrev";
+import { freshCardSnaps } from "@/lib/stack-flips";
 import { stackCsvFilename, stackToCsv } from "@/lib/stack-csv";
 import { formatTotalAmount, totalBoardCopy } from "@/lib/stack-total";
 
@@ -132,6 +133,10 @@ export function StackTable({
   const linesSeen = useRef<string | null>(null);
   const beginRef = useRef<(id: string) => void>(() => {});
   const [cascadeSlots, setCascadeSlots] = useState<CascadeSlot[] | null>(null);
+  const decidedCards = useRef(new Set<string>());
+  const introFlip = useRef(new Set<string>());
+  const snapFresh = useRef(new Set<string>());
+  const [introVersion, setIntroVersion] = useState(0);
   const slackMark = useRef<string | null>(null);
   const queuedDelete = useRef<string | null>(null);
   const queueFrame = useRef(0);
@@ -239,6 +244,29 @@ export function StackTable({
       timers.clear();
     };
   }, []);
+
+  useLayoutEffect(() => {
+    if (!ready) return;
+    let changed = false;
+    for (const line of linesRef.current) {
+      if (decidedCards.current.has(line.id)) continue;
+      decidedCards.current.add(line.id);
+      const node = cardNodes.current.get(line.id) ?? null;
+      const view = node?.ownerDocument?.defaultView ?? null;
+      const snaps = freshCardSnaps(
+        node ? node.getBoundingClientRect() : null,
+        view ? { width: view.innerWidth, height: view.innerHeight } : null,
+      );
+      if (snaps) snapFresh.current.add(line.id);
+      else introFlip.current.add(line.id);
+      changed = true;
+    }
+    if (changed) setIntroVersion((version) => version + 1);
+  }, [ready, lineKey]);
+
+  useEffect(() => {
+    snapFresh.current.clear();
+  }, [introVersion]);
 
   useLayoutEffect(() => {
     if (!ready) return;
@@ -569,7 +597,14 @@ export function StackTable({
           const qtyLabel = blank ? "" : String(line.qty);
           const descriptionText = blank ? "" : line.description;
           const meltFace = blank || !line ? null : faceFor(line.id, abbreviateMelt(melt, FLAP_MELT));
-          const boardInstant = meltFace?.instant ?? false;
+          const boardInstant = line
+            ? snapFresh.current.has(line.id)
+              ? true
+              : introFlip.current.has(line.id)
+                ? false
+                : (meltFace?.instant ?? false)
+            : false;
+          void introVersion;
           const weightStart = FLAP_METAL + 1;
           const qtyStart = weightStart + FLAP_WEIGHT;
           const meltStart = qtyStart + FLAP_QTY;
@@ -698,7 +733,14 @@ export function StackTable({
                   text={meltFace ? meltFace.text : ""}
                   width={FLAP_MELT}
                   instant={boardInstant}
-                  onSettled={line ? () => settleBoard(line.id) : undefined}
+                  onSettled={
+                    line
+                      ? () => {
+                          introFlip.current.delete(line.id);
+                          settleBoard(line.id);
+                        }
+                      : undefined
+                  }
                 />
               </span>
               {remove}
