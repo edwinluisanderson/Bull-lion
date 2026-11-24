@@ -77,6 +77,13 @@ test("outer lights match the inner seams and follow only the adjacent reel", () 
   assert.match(machine, /className="reel-outer-light"/);
   assert.match(machine, /data-edge="left"/);
   assert.match(machine, /data-edge="right"/);
+  const stage = machine.slice(machine.indexOf('className="reel-stage"'), machine.indexOf('className="reel-outer-light"'));
+  assert.match(stage, /className="payline"/);
+  assert.match(stage, /className="glass"/);
+  assert.match(payline, /left:\s*2px/);
+  assert.match(payline, /right:\s*2px/);
+  assert.match(payline, /top:\s*calc\(var\(--reel-name\) \+ \(var\(--reel-window\) \/ 2\)\)/);
+  assert.equal(payline.includes("plate-pad"), false);
 });
 
 test("all four divider lights rise softly and ease out longer", () => {

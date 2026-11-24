@@ -420,6 +420,8 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   onGestureMotion={onCountHandled}
                 />
                 </div>
+                <div className="payline" aria-hidden="true" />
+                <div className="glass" aria-hidden="true" />
               </div>
               <span
                 className="reel-outer-light"
@@ -433,8 +435,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                 data-lit={outers.right === DIVIDER_BRIGHT ? "bright" : "dim"}
                 aria-hidden="true"
               />
-              <div className="payline" aria-hidden="true" />
-              <div className="glass" aria-hidden="true" />
             </div>
             <PullBall onCommit={pull} onBend={setBendDegrees} />
           </div>
