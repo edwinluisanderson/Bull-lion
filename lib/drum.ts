@@ -144,24 +144,12 @@ export function stopsPerSecond(fraction: number, hz: number): number {
   return fraction * hz;
 }
 
-/** Constant deceleration, stops per second squared. Same brake on every reel and every stop. */
-export const BRAKE_PRESETS = { light: 8, medium: 16, heavy: 32 } as const;
-export type BrakePreset = keyof typeof BRAKE_PRESETS;
+/** Flick brake, stops per second squared. Locked to the light preset. */
+export const BRAKE_PRESETS = { light: 8 } as const;
 export const COAST_SETTLE_SPEED = 0.5;
 
-let brakePreset: BrakePreset = "light";
-
-export function brakeDecel(preset: BrakePreset = brakePreset): number {
-  return BRAKE_PRESETS[preset];
-}
-
-export function getBrakePreset(): BrakePreset {
-  return brakePreset;
-}
-
-export function setBrakePreset(next: BrakePreset): void {
-  if (next !== "light" && next !== "medium" && next !== "heavy") return;
-  brakePreset = next;
+export function brakeDecel(): number {
+  return BRAKE_PRESETS.light;
 }
 
 /** The integer stop whose half-stop basin contains `position`. */

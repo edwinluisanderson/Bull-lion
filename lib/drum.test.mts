@@ -5,6 +5,7 @@ import { armLandingWatch, commitReelStop, settleReelLanding } from "@/lib/reel-l
 
 import {
   basinIndex,
+  brakeDecel,
   camPastNotch,
   BRAKE_PRESETS,
   coastAdvance,
@@ -12,7 +13,6 @@ import {
   cylinderPose,
   flingVelocity,
   flywheelAdvance,
-  getBrakePreset,
   glideSettleNotch,
   grayGlidePlan,
   COAST_SETTLE_SPEED,
@@ -95,7 +95,7 @@ test("a count flick keeps spinning across gray stops and only a new guard token 
 test("gray stops take the same brake as lit stops", () => {
   const count = 8;
   const grayBefore = (index: number) => modStop(index, count) >= 6;
-  const decel = BRAKE_PRESETS.medium;
+  const decel = 16;
   const acrossGray = coastAdvance(1.1, 7, 0.08, grayBefore, count, decel);
   const acrossLit = coastAdvance(1.1, 7, 0.08, () => true, count, decel);
   assert.equal(acrossGray.velocity, acrossLit.velocity);
@@ -188,8 +188,9 @@ test("a late frame cannot jump half a stop", () => {
   assert.ok(Math.abs(step.position) > 0);
 });
 
-test("the light brake is the one the reels start on", () => {
-  assert.equal(getBrakePreset(), "light");
+test("the flick brake is locked to the light preset", () => {
+  assert.equal(brakeDecel(), BRAKE_PRESETS.light);
+  assert.equal(brakeDecel(), 8);
 });
 
 test("a gray landing retargets the brake onto the nearest lit face ahead", () => {

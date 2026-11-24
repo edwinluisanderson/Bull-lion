@@ -2771,42 +2771,6 @@ html[data-compact="3"][data-plate] .window-frame {
   filter: url(#melt-fil-core);
 }
 
-.brake-switch {
-  position: fixed;
-  z-index: 6;
-  left: 324px;
-  bottom: 14px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
-  margin: 0;
-  color: #c4a574;
-  font-family: var(--font-readout), ui-monospace, monospace;
-  font-size: 9px;
-  line-height: 1;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.brake-switch button {
-  padding: 1px 0.08em 1px 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  letter-spacing: inherit;
-  line-height: inherit;
-  text-transform: inherit;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.brake-switch button[data-on="true"] {
-  color: #f0d78c;
-}
-
 /* Below the 390px machine, keep the price, the long metal name, the reel
    label, and the brass arch between the gauges inside the row. At 390 and
    412 the min() stays on the existing sizes. */
@@ -2831,12 +2795,5 @@ html[data-compact="3"][data-plate] .window-frame {
 @container gauges (min-width: 0px) {
   html[data-compact="3"] .gauge.weight-dial {
     --gauge-b: min(75px, calc((100cqi - 72px) / 3));
-  }
-}
-
-@media (max-width: 389px) {
-  .brake-switch {
-    left: auto;
-    right: 10px;
   }
 }

@@ -1,10 +1,4 @@
-import {
-  BRAKE_PRESETS,
-  REEL_SPEED_CAP,
-  REEL_SPEED_CAPS,
-  type BrakePreset,
-  getBrakePreset,
-} from "@/lib/drum";
+import { REEL_SPEED_CAP, REEL_SPEED_CAPS } from "@/lib/drum";
 
 /** Time between reel stops, left to right, on the light brake. */
 export const PULL_STAGGER_S = 0.4;
@@ -49,18 +43,18 @@ export function pullLaunchVelocity(input?: { order?: number; caps?: readonly num
   return -speeds[order];
 }
 
-/** Light-brake stop time scaled by the preset. Heavier brakes divide every time by the same factor. */
-export function pullStopSeconds(order: number, preset: BrakePreset = "light"): number {
+/** Stop time for this reel. Locked to the light brake. */
+export function pullStopSeconds(order: number): number {
   const index = Math.min(2, Math.max(0, Math.floor(order)));
-  return PULL_LIGHT_STOP_S[index] * (BRAKE_PRESETS.light / BRAKE_PRESETS[preset]);
+  return PULL_LIGHT_STOP_S[index];
 }
 
 /** This reel's pull brake. The left reel is the strongest so it stops first. */
-export function pullDecel(order: number, preset: BrakePreset = getBrakePreset()): number {
-  return REEL_SPEED_CAP / pullStopSeconds(order, preset);
+export function pullDecel(order: number): number {
+  return REEL_SPEED_CAP / pullStopSeconds(order);
 }
 
-/** Nominal stop time for a reel on the light brake, unless a preset is named. */
-export function stillAtMs(order: number, preset: BrakePreset = "light"): number {
-  return Math.round(pullStopSeconds(order, preset) * 1000);
+/** Nominal stop time for a reel on the light brake. */
+export function stillAtMs(order: number): number {
+  return Math.round(pullStopSeconds(order) * 1000);
 }
