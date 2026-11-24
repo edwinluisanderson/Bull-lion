@@ -54,6 +54,7 @@ import {
   type CascadeEffect,
   type CascadeSlot,
 } from "@/lib/stack-cascade";
+import { abbreviateMelt } from "@/lib/melt-abbrev";
 import { stackCsvFilename, stackToCsv } from "@/lib/stack-csv";
 import { formatTotalAmount, totalBoardCopy } from "@/lib/stack-total";
 
@@ -164,7 +165,7 @@ export function StackTable({
     const priced = quotesRef.current;
     const next: CascadeBoard[] = rows.map((line) => ({
       id: line.id,
-      live: flapMoney(rowMelt(priceFor(priced, line.symbol), line.grams, line.qty)),
+      live: abbreviateMelt(rowMelt(priceFor(priced, line.symbol), line.grams, line.qty), FLAP_MELT),
       visible: measureVisible(line.id),
     }));
     const sum = rows.reduce((total, line) => {
@@ -567,7 +568,7 @@ export function StackTable({
           const weightLabel = blank ? "" : line.weightLabel;
           const qtyLabel = blank ? "" : String(line.qty);
           const descriptionText = blank ? "" : line.description;
-          const meltFace = blank || !line ? null : faceFor(line.id, flapMoney(melt));
+          const meltFace = blank || !line ? null : faceFor(line.id, abbreviateMelt(melt, FLAP_MELT));
           const boardInstant = meltFace?.instant ?? false;
           const weightStart = FLAP_METAL + 1;
           const qtyStart = weightStart + FLAP_WEIGHT;

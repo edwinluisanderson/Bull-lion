@@ -58,6 +58,48 @@ export function matchedFlapGain(
 
 export const FLAP_SAMPLE_GAIN = matchedFlapGain();
 
+/**
+ * Hidden level check. `?flapvol=0.5` multiplies the flap tick only.
+ * Remove this block, and the two `flapTickGain` calls below, to drop it.
+ */
+export const FLAP_VOL_PARAM = "flapvol";
+export const FLAP_VOL_MIN = 0;
+export const FLAP_VOL_MAX = 2;
+
+/** A finite multiplier clamped to 0..2. Anything else is ignored. */
+export function parseFlapVolume(raw: string | null | undefined): number | null {
+  if (raw == null) return null;
+  const text = raw.trim();
+  if (!text) return null;
+  const value = Number(text);
+  if (!Number.isFinite(value)) return null;
+  return Math.min(FLAP_VOL_MAX, Math.max(FLAP_VOL_MIN, value));
+}
+
+export function flapVolumeFromSearch(search: string): number {
+  const query = search.startsWith("?") ? search.slice(1) : search;
+  return parseFlapVolume(new URLSearchParams(query).get(FLAP_VOL_PARAM)) ?? 1;
+}
+
+let flapVolume: number | null = null;
+let flapVolumeRead = false;
+
+function flapVolumeMultiplier(): number {
+  if (flapVolumeRead) return flapVolume ?? 1;
+  flapVolumeRead = true;
+  try {
+    flapVolume = flapVolumeFromSearch(globalThis.window?.location?.search ?? "");
+  } catch {
+    flapVolume = 1;
+  }
+  return flapVolume ?? 1;
+}
+
+/** Current flap gain, times `?flapvol=` when that param is present. */
+export function flapTickGain(base: number, multiplier = flapVolumeMultiplier()): number {
+  return base * multiplier;
+}
+
 /** Pick a clip index, never the same one twice in a row when there is a choice. */
 export function pickFlapClip(count: number, previous: number | null, random: () => number = Math.random): number {
   if (count <= 1) return 0;
@@ -425,7 +467,7 @@ export function playFlapSound(now = typeof performance !== "undefined" ? perform
       source.buffer = buffer;
       source.playbackRate.value = flapPlaybackRate();
       const gain = ctx.createGain();
-      gain.gain.value = FLAP_SAMPLE_GAIN;
+      gain.gain.value = flapTickGain(FLAP_SAMPLE_GAIN);
       source.connect(gain);
       gain.connect(flapSum(ctx));
       armFlapSource(source);
@@ -441,7 +483,7 @@ export function playFlapSound(now = typeof performance !== "undefined" ? perform
     filter.frequency.value = 1400;
     filter.Q.value = 0.7;
     const gain = ctx.createGain();
-    gain.gain.value = FLAP_GAIN;
+    gain.gain.value = flapTickGain(FLAP_GAIN);
     source.connect(filter);
     filter.connect(gain);
     gain.connect(flapSum(ctx));
@@ -467,4 +509,6 @@ export function resetFlapSoundForTests(): void {
   clips = FLAP_CLIP_URLS.map(() => null);
   clipLoading = null;
   lastClip = null;
+  flapVolume = null;
+  flapVolumeRead = false;
 }
