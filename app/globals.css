@@ -394,8 +394,39 @@ button,
 }
 
 .reel-grid {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Outside edges of the first and last drums. Same line as the inner seams. */
+.reel-grid::before,
+.reel-grid::after {
+  content: "";
+  position: absolute;
+  z-index: 5;
+  top: calc(var(--reel-name) + 15px);
+  width: 1px;
+  height: calc(var(--reel-window) - 30px);
+  pointer-events: none;
+  background: #f0d78c;
+  opacity: 0.6;
+  -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.38) 3%, rgba(0,0,0,0.56) 7%, rgba(0,0,0,0.75) 11%, rgba(0,0,0,0.90) 15%, #000 20%, #000 75%, rgba(0,0,0,0.91) 80%, rgba(0,0,0,0.74) 84%, rgba(0,0,0,0.53) 88%, rgba(0,0,0,0.33) 92%, rgba(0,0,0,0.20) 96%, rgba(0,0,0,0.15) 100%);
+  mask-image: linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.38) 3%, rgba(0,0,0,0.56) 7%, rgba(0,0,0,0.75) 11%, rgba(0,0,0,0.90) 15%, #000 20%, #000 75%, rgba(0,0,0,0.91) 80%, rgba(0,0,0,0.74) 84%, rgba(0,0,0,0.53) 88%, rgba(0,0,0,0.33) 92%, rgba(0,0,0,0.20) 96%, rgba(0,0,0,0.15) 100%);
+  transition: opacity 280ms ease;
+}
+
+.reel-grid::before {
+  left: 0;
+}
+
+.reel-grid::after {
+  right: 0;
+}
+
+.reel-grid[data-outer-left="bright"]::before,
+.reel-grid[data-outer-right="bright"]::after {
+  opacity: 1;
 }
 
 .reel-column {

@@ -34,7 +34,7 @@ import { pullStartsSpin } from "@/lib/pull-stack";
 import { installAppAudioUnlock, preloadAppSounds } from "@/lib/sound-preload";
 import { playSpinOverlay, spinOverlayFor } from "@/lib/spin-overlay";
 import { getBrakePreset, setBrakePreset, type BrakePreset } from "@/lib/drum";
-import { DIVIDER_BRIGHT, dividerLevels } from "@/lib/reel-dividers";
+import { DIVIDER_BRIGHT, dividerLevels, outerDividerLevels } from "@/lib/reel-dividers";
 import { CLEAR_STACK_EVENT, TEMP_CLEAR_ALL } from "@/lib/stack-board";
 import { meltValue } from "@/lib/value";
 import { LAMP_FULL, LAMP_LOW, LAMP_MEDIUM, LAMP_OFF } from "@/lib/steampunk-light";
@@ -107,6 +107,7 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
   const pieces = customPieces ?? COUNTS[countIndex] ?? COUNTS[0];
   const spinning = motion.some(Boolean);
   const dividers = dividerLevels(motion);
+  const outers = outerDividerLevels(motion);
 
   const metalItems = useMemo<ReelSymbol[]>(
     () =>
@@ -315,6 +316,8 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   className="reel-grid"
                   data-divider-left={dividers.left === DIVIDER_BRIGHT ? "bright" : "dim"}
                   data-divider-right={dividers.right === DIVIDER_BRIGHT ? "bright" : "dim"}
+                  data-outer-left={outers.left === DIVIDER_BRIGHT ? "bright" : "dim"}
+                  data-outer-right={outers.right === DIVIDER_BRIGHT ? "bright" : "dim"}
                 >
                 <Reel
                   lampIndex={0}

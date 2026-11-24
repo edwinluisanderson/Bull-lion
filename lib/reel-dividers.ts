@@ -18,3 +18,13 @@ export function dividerLevels(moving: readonly boolean[]): DividerLevels {
     right: middle || right ? DIVIDER_BRIGHT : DIVIDER_DIM,
   };
 }
+
+/** Outside edges. The first reel lights the left one, and the last reel lights the right one. */
+export function outerDividerLevels(moving: readonly boolean[]): DividerLevels {
+  const first = Boolean(moving[0]);
+  const last = moving.length > 0 ? Boolean(moving[moving.length - 1]) : false;
+  return {
+    left: first ? DIVIDER_BRIGHT : DIVIDER_DIM,
+    right: last ? DIVIDER_BRIGHT : DIVIDER_DIM,
+  };
+}
