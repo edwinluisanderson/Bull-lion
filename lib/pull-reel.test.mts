@@ -106,9 +106,13 @@ function pullAll(
 }
 
 function assertPull(frames: number[], guardIndex: number | null) {
-  const { samples, rests, releasedAt } = pullAll(frames, guardIndex);
+  const { samples, rests } = pullAll(frames, guardIndex);
   assert.ok(samples.length > 3);
-  const origin = releasedAt;
+  const origin = samples[0].t;
+  for (const order of [0, 1, 2] as const) {
+    assert.equal(samples[0].velocity[order], -REEL_SPEED_CAP);
+    assert.equal(samples[0].position[order], 0);
+  }
   for (const sample of samples) {
     for (const speed of sample.velocity) {
       assert.ok(Math.abs(speed) <= REEL_SPEED_CAP + 1e-6, `velocity spike ${speed}`);
@@ -150,8 +154,8 @@ test("a 135ms frame spanning the stop leaves every reel at rest with velocity 0"
       cursor += 16;
     }
     frames.push(135, 16, 16, 16, 16);
-    const { samples, rests, releasedAt } = pullAll(frames, null);
-    const origin = releasedAt;
+    const { samples, rests } = pullAll(frames, null);
+    const origin = samples[0].t;
     const resting = samples.find((sample) => sample.t > origin + 500 && sample.velocity[order] === 0);
     assert.ok(resting, `reel ${order} never rested`);
     const elapsed = resting.t - origin;
@@ -170,66 +174,48 @@ test("a 135ms frame spanning the stop leaves every reel at rest with velocity 0"
   }
 });
 
-test("a late first paint still lands on the lever clock", () => {
-  const queued: { callback: FrameRequestCallback; id: number }[] = [];
-  let nextId = 1;
-  const realFrame = globalThis.requestAnimationFrame;
-  const realCancel = globalThis.cancelAnimationFrame;
-  const realNow = performance.now.bind(performance);
-  let clock = 8_000;
-  Object.defineProperty(performance, "now", { configurable: true, value: () => clock });
-  globalThis.requestAnimationFrame = (callback: FrameRequestCallback) => {
-    const id = nextId;
-    nextId += 1;
-    queued.push({ callback, id });
-    return id;
-  };
-  globalThis.cancelAnimationFrame = (id: number) => {
-    const index = queued.findIndex((entry) => entry.id === id);
-    if (index >= 0) queued.splice(index, 1);
-  };
-    let velocity = 99;
-    let position = 99;
-    let restedAt = 0;
-    try {
-    const engine = createReelEngine({
-      initialIndex: 0,
-      setKinetics(next, speed) {
-        position = next;
-        velocity = speed;
-      },
-      getCount: () => 5,
-      onIndex() {},
-      onMotion() {},
-      isReduced: () => false,
-      isEnabled: () => true,
-      getStretch: () => null,
-      onPieces() {},
-      onStretchFrame() {},
-      onGuest() {},
-      alternatePullStops: () => false,
-      speedCap: REEL_SPEED_CAP,
-    });
-    engine.lever(0);
-    clock += 180;
-    const batch = queued.splice(0, queued.length);
-    for (const entry of batch) entry.callback(clock);
-    assert.ok(Math.abs(position - -REEL_SPEED_CAP * 0.18) < 0.05, `first paint ignored the 180ms gap, position ${position}`);
-    assert.equal(velocity, -REEL_SPEED_CAP);
-    while (queued.length > 0 && clock < 8_000 + 2_600) {
-      clock += 50;
-      const step = queued.splice(0, queued.length);
-      for (const entry of step) entry.callback(clock);
-      if (!restedAt && velocity === 0) restedAt = clock;
+test("a commit lag does not start the clock before the first moving paint", () => {
+  for (const lag of [54, 96, 193]) {
+    const frames = [lag, ...Array.from({ length: 400 }, () => 16.7)];
+    const { samples } = pullAll(frames, null);
+    const anchor = samples[0].t;
+    for (const order of [0, 1, 2] as const) {
+      assert.equal(samples[0].position[order], 0, `lag ${lag} jumped reel ${order}`);
+      assert.equal(samples[0].velocity[order], -REEL_SPEED_CAP);
+      const stop = PULL_LIGHT_STOP_S[order] * 1000;
+      const resting = samples.find((sample) => sample.t > anchor + 500 && sample.velocity[order] === 0);
+      assert.ok(resting, `reel ${order} never rested after a ${lag}ms lag`);
+      const elapsed = resting.t - anchor;
+      assert.ok(elapsed + 1 >= stop, `reel ${order} rested early at ${elapsed} after a ${lag}ms lag`);
+      assert.ok(elapsed - stop <= 16.7 + 1, `reel ${order} rested late at ${elapsed} after a ${lag}ms lag`);
+      const face = Math.round(pullPose(0, order, PULL_LIGHT_STOP_S[order]).position);
+      for (const sample of samples.filter((item) => item.t >= resting.t)) {
+        assert.equal(sample.position[order], face);
+        assert.equal(sample.velocity[order], 0);
+      }
     }
-    assert.equal(velocity, 0);
-    assert.equal(position, Math.round(pullPose(0, 0, PULL_LIGHT_STOP_S[0]).position));
-    assert.ok(restedAt - 8_000 - PULL_LIGHT_STOP_S[0] * 1000 <= 50);
-    assert.ok(restedAt - 8_000 >= PULL_LIGHT_STOP_S[0] * 1000 - 1);
-  } finally {
-    globalThis.requestAnimationFrame = realFrame;
-    globalThis.cancelAnimationFrame = realCancel;
-    Object.defineProperty(performance, "now", { configurable: true, value: realNow });
+  }
+});
+
+test("throttled frames land within one frame of the first moving paint", () => {
+  const frames = [55, 80, 120, 180, 262];
+  const { samples } = pullAll(frames, null);
+  const anchor = samples[0].t;
+  const slack = Math.max(...frames);
+  for (const order of [0, 1, 2] as const) {
+    assert.equal(samples[0].position[order], 0);
+    assert.equal(samples[0].velocity[order], -REEL_SPEED_CAP);
+    const stop = PULL_LIGHT_STOP_S[order] * 1000;
+    const resting = samples.find((sample) => sample.t > anchor + 500 && sample.velocity[order] === 0);
+    assert.ok(resting, `reel ${order} never rested`);
+    const elapsed = resting.t - anchor;
+    assert.ok(elapsed + 1 >= stop, `reel ${order} rested early at ${elapsed}`);
+    assert.ok(elapsed - stop <= slack + 1, `reel ${order} rested late at ${elapsed}`);
+    const face = Math.round(pullPose(0, order, PULL_LIGHT_STOP_S[order]).position);
+    for (const sample of samples.filter((item) => item.t >= resting.t)) {
+      assert.equal(sample.position[order], face);
+      assert.equal(sample.velocity[order], 0);
+    }
   }
 });
 

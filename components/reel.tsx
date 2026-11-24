@@ -143,7 +143,7 @@ type Engine = {
   jump: (index: number) => void;
   /** Put the reel on `index` with no animation and no velocity. A pull already at rest stays still. */
   settleGuard: (index: number) => void;
-  lever: (order: number, releasedAt?: number) => void;
+  lever: (order: number) => void;
   destroy: () => void;
 };
 
@@ -203,9 +203,8 @@ export function createReelEngine(options: {
   let pullSpin = false;
   let pullOrder = 0;
   let pullOrigin = 0;
-  /** Wall-clock start of the pull. The earlier of the lever release and the first frame. */
+  /** Timestamp of the first paint that moves the reel. That paint is elapsed 0. */
   let pullStarted = 0;
-  let pullReleasedAt = 0;
   let pullClock = false;
   let pullSettled = false;
   let pullRestNotified = false;
@@ -573,13 +572,7 @@ export function createReelEngine(options: {
     if (phase === "coast") {
       const count = reelCount();
       if (pullClock && !pullSettled) {
-        if (pullStarted === 0) {
-          const released = pullReleasedAt;
-          // The lever release is t = 0 when this frame is still that pull.
-          // A fake test clock far from performance.now() keeps its own anchor.
-          if (released > 0 && now >= released && now - released <= 2000) pullStarted = released;
-          else pullStarted = now;
-        }
+        if (pullStarted === 0) pullStarted = now;
         const elapsed = Math.max(0, (now - pullStarted) / 1000);
         const frame = pullFrame({
           origin: pullOrigin,
@@ -1041,7 +1034,7 @@ export function createReelEngine(options: {
       if (delta < -count / 2) delta += count;
       animateTo(position + delta, options.isReduced() ? 0 : 320);
     },
-    lever(order, releasedAt = 0) {
+    lever(order) {
       guest = null;
       options.onGuest(null);
       hapticClick();
@@ -1052,8 +1045,6 @@ export function createReelEngine(options: {
       pullSettled = false;
       pullRestNotified = false;
       pullEcho = 0;
-      const stamped = releasedAt > 0 ? releasedAt : typeof performance !== "undefined" ? performance.now() : 0;
-      pullReleasedAt = stamped;
       pullStarted = 0;
       alternated = 0;
       setAudioSpin(true);
@@ -1087,7 +1078,6 @@ export function Reel({
   items,
   initialIndex,
   spinToken,
-  spinReleasedAt = 0,
   spinOrder,
   guardToken = 0,
   guardIndex = 0,
@@ -1105,8 +1095,6 @@ export function Reel({
   items: ReelSymbol[];
   initialIndex: number;
   spinToken: number;
-  /** performance.now() of the lever release that started this pull. */
-  spinReleasedAt?: number;
   spinOrder: number;
   guardToken?: number;
   guardIndex?: number;
@@ -1195,8 +1183,8 @@ export function Reel({
 
   useEffect(() => {
     if (spinToken === 0) return;
-    engineRef.current?.lever(spinOrder, spinReleasedAt);
-  }, [spinToken, spinOrder, spinReleasedAt]);
+    engineRef.current?.lever(spinOrder);
+  }, [spinToken, spinOrder]);
 
   useEffect(() => {
     if (!shouldApplyGuard(guardToken, appliedGuard.current)) return;

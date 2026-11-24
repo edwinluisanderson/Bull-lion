@@ -310,7 +310,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   items={metalItems}
                   initialIndex={DEFAULT_METAL_INDEX}
                   spinToken={spinToken}
-                  spinReleasedAt={lastPull.current}
                   spinOrder={0}
                   bendDegrees={bendDegrees}
                   onIndex={(index) => {
@@ -326,7 +325,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   items={weightItems}
                   initialIndex={DEFAULT_WEIGHT_INDEX}
                   spinToken={spinToken}
-                  spinReleasedAt={lastPull.current}
                   spinOrder={1}
                   bendDegrees={bendDegrees}
                   centerPieces={customGrams}
@@ -361,7 +359,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
                   items={countItems}
                   initialIndex={DEFAULT_COUNT_INDEX}
                   spinToken={spinToken}
-                  spinReleasedAt={lastPull.current}
                   spinOrder={2}
                   bendDegrees={bendDegrees}
                   guardToken={countGuard}
