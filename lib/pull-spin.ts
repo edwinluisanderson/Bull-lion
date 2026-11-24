@@ -1,4 +1,4 @@
-import { REEL_SPEED_CAP, REEL_SPEED_CAPS } from "@/lib/drum";
+import { grayGlidePlan, REEL_SPEED_CAP, REEL_SPEED_CAPS } from "@/lib/drum";
 
 /** Time between reel stops, left to right, on the light brake. */
 export const PULL_STAGGER_S = 0.4;
@@ -71,6 +71,86 @@ export function pullDecel(order: number): number {
 /** True while a pull is still in its free spin. Decel is zero until this ends. */
 export function pullFreeSpinning(elapsedS: number): boolean {
   return elapsedS < PULL_FREE_SPIN_S;
+}
+
+export type PullSample = { position: number; velocity: number };
+
+/**
+ * Where a pull is after `elapsedS` seconds of wall-clock time.
+ * Free spin at the cap, then the constant brake. Frame spacing does not change it.
+ */
+export function pullPose(origin: number, order: number, elapsedS: number): PullSample {
+  const speed = Math.abs(pullLaunchVelocity({ order }));
+  const direction = -1;
+  const elapsed = Math.max(0, elapsedS);
+  const free = PULL_FREE_SPIN_S;
+  const decel = pullDecel(order);
+  const coasted = speed * Math.min(elapsed, free);
+  if (elapsed <= free || !(decel > 0)) {
+    return { position: origin + direction * coasted, velocity: direction * speed };
+  }
+  const brakeSpan = pullBrakeSeconds(order);
+  const brakeT = Math.min(elapsed - free, brakeSpan);
+  const done = brakeT >= brakeSpan - 1e-12;
+  const traveled = done ? (speed * speed) / (2 * decel) : speed * brakeT - 0.5 * decel * brakeT * brakeT;
+  const remaining = done ? 0 : speed - decel * brakeT;
+  return {
+    position: origin + direction * (coasted + traveled),
+    velocity: direction * remaining,
+  };
+}
+
+/** Constant brake from a known handoff, measured in wall-clock seconds. */
+export function brakePose(
+  handoff: PullSample,
+  decel: number,
+  brakeS: number,
+): PullSample {
+  const speed = Math.abs(handoff.velocity);
+  const direction = Math.sign(handoff.velocity) || -1;
+  const t = Math.max(0, brakeS);
+  if (!(speed > 0)) return { position: handoff.position, velocity: 0 };
+  if (!(decel > 0)) return { position: handoff.position + direction * speed * t, velocity: handoff.velocity };
+  const span = speed / decel;
+  if (t >= span) {
+    return { position: handoff.position + direction * ((speed * speed) / (2 * decel)), velocity: 0 };
+  }
+  return {
+    position: handoff.position + direction * (speed * t - 0.5 * decel * t * t),
+    velocity: direction * (speed - decel * t),
+  };
+}
+
+/**
+ * One displayed sample of a lever pull. The pose is the closed form at `elapsedS`,
+ * so a 25ms or 90ms frame cannot leave the reel behind. A gray landing retargets
+ * once, from the free-spin handoff, and then follows that constant brake.
+ */
+export function pullFrame(input: {
+  origin: number;
+  order: number;
+  elapsedS: number;
+  count: number;
+  isEnabled: (index: number) => boolean;
+  locked: number | null;
+}): PullSample & { locked: number | null } {
+  const { origin, order, elapsedS, count, isEnabled } = input;
+  if (pullFreeSpinning(elapsedS)) {
+    return { ...pullPose(origin, order, elapsedS), locked: null };
+  }
+  const handoff = pullPose(origin, order, PULL_FREE_SPIN_S);
+  const decel = pullDecel(order);
+  const glide = grayGlidePlan({
+    position: handoff.position,
+    velocity: handoff.velocity,
+    decel,
+    count,
+    isEnabled,
+    locked: input.locked,
+  });
+  const locked = glide.fallback ? null : glide.target;
+  if (locked === null) return { ...pullPose(origin, order, elapsedS), locked: null };
+  return { ...brakePose(handoff, glide.decel, elapsedS - PULL_FREE_SPIN_S), locked };
 }
 
 /** Nominal stop time for a reel on the light brake. */

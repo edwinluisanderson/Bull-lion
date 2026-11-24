@@ -18,9 +18,11 @@ import {
   fitLaunchSpeeds,
   pullBrakeSeconds,
   pullDecel,
+  pullFrame,
   pullFreeSpinning,
   pullLaunchSpeeds,
   pullLaunchVelocity,
+  pullPose,
   pullStopSeconds,
   stillAtMs,
 } from "@/lib/pull-spin";
@@ -60,8 +62,11 @@ test("pulls and flicks stay on the light brake", () => {
   assert.equal(machine.includes("BrakeSwitch"), false);
   assert.equal(machine.includes('get("brake")'), false);
   assert.equal(css.includes("brake-switch"), false);
-  assert.equal(reel.includes("pullFreeSpinning"), true);
-  assert.equal(reel.includes("freeSpin ? 0 : pullSpin ? pullDecel(pullOrder) : brakeDecel()"), true);
+  assert.equal(reel.includes("pullFrame("), true);
+  assert.equal(reel.includes("pullOrigin = position"), true);
+  assert.equal(reel.includes("freeSpin ? 0 : pullSpin ? pullDecel(pullOrder) : brakeDecel()"), false);
+  assert.equal(reel.includes("const decel = brakeDecel();"), true);
+  assert.equal(reel.includes("flywheelAdvance("), true);
 });
 
 /** Where a full-speed free spin plus the pull brake comes to rest. */
@@ -158,7 +163,83 @@ test("a gray pull still lands on the lit face inside the brake, without passing 
     assert.equal(land, target);
     assert.ok(Math.abs(run.position - land) < 0.5);
     assert.equal(run.velocity, 0);
+
+    let elapsed = 0;
+    let cursor = 0;
+    let locked: number | null = null;
+    const frames = [16.7, 25, 90, 22];
+    let pose = { position: 0, velocity: pullLaunchVelocity({ order }) };
+    while (elapsed < 4 && pose.velocity !== 0) {
+      elapsed += frames[cursor % frames.length] / 1000;
+      cursor += 1;
+      const frame = pullFrame({ origin: 0, order, elapsedS: elapsed, count, isEnabled: enabled, locked });
+      locked = frame.locked;
+      assert.ok(frame.velocity === 0 || frame.velocity < 0);
+      if (locked !== null) assert.ok((locked - frame.position) * Math.sign(pullLaunchVelocity({ order })) >= -1e-6);
+      pose = frame;
+    }
+    assert.ok(locked !== null);
+    const timed = nearestEnabledNotch(pose.position, count, enabled);
+    assert.equal(timed, locked);
+    assert.ok(Math.abs(pose.position - timed) < 0.5);
   }
+});
+
+test("uneven frames still stop a pull at 2.0, 2.4, and 2.8", () => {
+  const frames = [16.7, 25, 16.7, 90, 25, 22, 16.7, 25];
+  for (const order of [0, 1, 2] as const) {
+    let elapsed = 0;
+    let cursor = 0;
+    let locked: number | null = null;
+    let stoppedAt = -1;
+    let previousSpeed = REEL_SPEED_CAP;
+    let crossedHandoff = false;
+    while (elapsed < 4) {
+      const dt = frames[cursor % frames.length] / 1000;
+      cursor += 1;
+      const before = elapsed;
+      elapsed += dt;
+      const frame = pullFrame({
+        origin: 0,
+        order,
+        elapsedS: elapsed,
+        count: 120,
+        isEnabled: () => true,
+        locked,
+      });
+      locked = frame.locked;
+      const pose = pullPose(0, order, elapsed);
+      assert.ok(Math.abs(frame.position - pose.position) < 1e-9);
+      assert.ok(Math.abs(frame.velocity - pose.velocity) < 1e-9);
+      if (pullFreeSpinning(elapsed)) {
+        assert.ok(Math.abs(Math.abs(frame.velocity) - REEL_SPEED_CAP) < 1e-9);
+        assert.ok(Math.abs(frame.position - -REEL_SPEED_CAP * elapsed) < 1e-9);
+      }
+      if (!pullFreeSpinning(elapsed) && pullFreeSpinning(before)) {
+        const intoBrake = elapsed - PULL_FREE_SPIN_S;
+        const expected = Math.max(0, REEL_SPEED_CAP - pullDecel(order) * intoBrake);
+        assert.ok(Math.abs(Math.abs(frame.velocity) - expected) < 1e-6);
+        crossedHandoff = true;
+      }
+      assert.ok(frame.velocity === 0 || frame.velocity < 0);
+      assert.ok(Math.abs(frame.velocity) <= previousSpeed + 1e-6);
+      previousSpeed = Math.abs(frame.velocity);
+      if (frame.velocity === 0) {
+        stoppedAt = elapsed;
+        break;
+      }
+    }
+    assert.equal(crossedHandoff, true);
+    assert.ok(
+      Math.abs(stoppedAt - PULL_LIGHT_STOP_S[order]) <= 0.05,
+      `reel ${order} stopped at ${stoppedAt}`,
+    );
+    assert.ok(Math.abs(pullPose(0, order, PULL_LIGHT_STOP_S[order]).velocity) < 1e-9);
+    assert.ok(Math.abs(pullPose(0, order, stoppedAt).position - pullRest(order)) < 1e-6);
+  }
+  const hitch = pullPose(0, 0, 0.09);
+  assert.ok(Math.abs(hitch.position - -REEL_SPEED_CAP * 0.09) < 1e-9);
+  assert.ok(Math.abs(hitch.position) > REEL_SPEED_CAP / 60 + 0.5);
 });
 
 test("an over-cap launch lowers every reel by the same overshoot", () => {

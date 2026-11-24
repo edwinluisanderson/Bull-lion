@@ -183,8 +183,9 @@ export function coastAdvance(
 }
 
 /**
- * Brake from the speed the reel already has. A flick and a pull both start
- * at that speed. One step never covers more than a 60Hz frame.
+ * Brake from the speed a flick already has.
+ * One step never covers more than a 60Hz frame, so a slow paint cannot alias.
+ * A lever pull does not come through here. Its pose is taken from wall-clock time.
  */
 export function flywheelAdvance(
   position: number,

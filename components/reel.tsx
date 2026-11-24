@@ -32,7 +32,7 @@ import {
   type LandingWatch,
 } from "@/lib/reel-landing";
 import { detentForStop } from "@/lib/spin-gate";
-import { pullDecel, pullFreeSpinning, pullLaunchVelocity } from "@/lib/pull-spin";
+import { pullFrame, pullLaunchVelocity } from "@/lib/pull-spin";
 import { createReelMotion } from "@/lib/reel-motion";
 import { setWheelLampSpeed } from "@/lib/wheel-lamp";
 import { playStretchPop, unlockStretchPops } from "@/lib/stretch-pop";
@@ -200,6 +200,7 @@ export function createReelEngine(options: {
   let audioSpin = false;
   let pullSpin = false;
   let pullOrder = 0;
+  let pullOrigin = 0;
   let pullStarted = 0;
   let alternated = 0;
   let landingWatch: LandingWatch = clearLandingWatch();
@@ -502,23 +503,41 @@ export function createReelEngine(options: {
 
     if (phase === "coast") {
       const count = reelCount();
-      const freeSpin = pullSpin && pullFreeSpinning((now - pullStarted) / 1000);
-      const decel = freeSpin ? 0 : pullSpin ? pullDecel(pullOrder) : brakeDecel();
-      const glide = grayGlidePlan({
-        position,
-        velocity,
-        decel,
-        count,
-        isEnabled: enabledExpanded,
-        locked: glideTarget,
-      });
-      glideTarget = glide.fallback ? null : glide.target;
-      const step = flywheelAdvance(position, velocity, dt, glide.fallback ? decel : glide.decel, options.speedCap);
-      velocity = step.velocity;
-      setPos(step.position);
-      if (Math.abs(velocity) < COAST_SETTLE_SPEED) {
-        camToNotch(nearestEnabledSlot(position), 180);
-        return;
+      if (pullSpin) {
+        const elapsed = Math.max(0, (now - pullStarted) / 1000);
+        const frame = pullFrame({
+          origin: pullOrigin,
+          order: pullOrder,
+          elapsedS: elapsed,
+          count,
+          isEnabled: enabledExpanded,
+          locked: glideTarget,
+        });
+        glideTarget = frame.locked;
+        velocity = frame.velocity;
+        setPos(frame.position);
+        if (Math.abs(velocity) < COAST_SETTLE_SPEED) {
+          camToNotch(nearestEnabledSlot(position), 180);
+          return;
+        }
+      } else {
+        const decel = brakeDecel();
+        const glide = grayGlidePlan({
+          position,
+          velocity,
+          decel,
+          count,
+          isEnabled: enabledExpanded,
+          locked: glideTarget,
+        });
+        glideTarget = glide.fallback ? null : glide.target;
+        const step = flywheelAdvance(position, velocity, dt, glide.fallback ? decel : glide.decel, options.speedCap);
+        velocity = step.velocity;
+        setPos(step.position);
+        if (Math.abs(velocity) < COAST_SETTLE_SPEED) {
+          camToNotch(nearestEnabledSlot(position), 180);
+          return;
+        }
       }
     }
 
@@ -937,6 +956,7 @@ export function createReelEngine(options: {
       }
       stop();
       pullOrder = order;
+      pullOrigin = position;
       velocity = pullLaunchVelocity({ order });
       setPhase("coast");
       schedule();
