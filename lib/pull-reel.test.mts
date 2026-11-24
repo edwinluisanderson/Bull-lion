@@ -19,7 +19,10 @@ type Sample = { t: number; velocity: number[]; position: number[] };
  * Three reels, one lever pull, and the last-reel landing callback.
  * `guardIndex` is the copper correction the count reel receives once every reel is idle.
  */
-function pullAll(frames: number[], guardIndex: number | null): { samples: Sample[]; rests: number[] } {
+function pullAll(
+  frames: number[],
+  guardIndex: number | null,
+): { samples: Sample[]; rests: number[]; releasedAt: number } {
   const queued: { callback: FrameRequestCallback; id: number }[] = [];
   let nextId = 1;
   const realFrame = globalThis.requestAnimationFrame;
@@ -70,6 +73,8 @@ function pullAll(frames: number[], guardIndex: number | null): { samples: Sample
   const samples: Sample[] = [];
   const rests: number[] = [0, 0, 0];
   let now = 5_000;
+  const realNow = performance.now.bind(performance);
+  Object.defineProperty(performance, "now", { configurable: true, value: () => now });
   try {
     engines.forEach((engine, order) => engine.lever(order));
     for (let step = 0; step < 800 && queued.length > 0; step += 1) {
@@ -95,16 +100,15 @@ function pullAll(frames: number[], guardIndex: number | null): { samples: Sample
   } finally {
     globalThis.requestAnimationFrame = realFrame;
     globalThis.cancelAnimationFrame = realCancel;
+    Object.defineProperty(performance, "now", { configurable: true, value: realNow });
   }
-  return { samples, rests };
+  return { samples, rests, releasedAt: 5_000 };
 }
 
 function assertPull(frames: number[], guardIndex: number | null) {
-  const { samples, rests } = pullAll(frames, guardIndex);
+  const { samples, rests, releasedAt } = pullAll(frames, guardIndex);
   assert.ok(samples.length > 3);
-  const started = samples.findIndex((sample) => sample.velocity.some((speed) => speed !== 0));
-  assert.ok(started >= 0);
-  const origin = samples[started].t;
+  const origin = releasedAt;
   for (const sample of samples) {
     for (const speed of sample.velocity) {
       assert.ok(Math.abs(speed) <= REEL_SPEED_CAP + 1e-6, `velocity spike ${speed}`);
@@ -146,10 +150,8 @@ test("a 135ms frame spanning the stop leaves every reel at rest with velocity 0"
       cursor += 16;
     }
     frames.push(135, 16, 16, 16, 16);
-    const { samples, rests } = pullAll(frames, null);
-    const started = samples.findIndex((sample) => sample.velocity[order] !== 0);
-    assert.ok(started >= 0);
-    const origin = samples[started].t;
+    const { samples, rests, releasedAt } = pullAll(frames, null);
+    const origin = releasedAt;
     const resting = samples.find((sample) => sample.t > origin + 500 && sample.velocity[order] === 0);
     assert.ok(resting, `reel ${order} never rested`);
     const elapsed = resting.t - origin;
@@ -158,6 +160,76 @@ test("a 135ms frame spanning the stop leaves every reel at rest with velocity 0"
     assert.ok(samples.filter((sample) => sample.t >= resting.t).every((sample) => sample.velocity[order] === 0));
     assert.equal(rests[order], 1);
     assert.equal(resting.velocity[order], 0);
+    const face = Math.round(pullPose(0, order, PULL_LIGHT_STOP_S[order]).position);
+    const after = samples.filter((sample) => sample.t >= resting.t);
+    assert.ok(after.length >= 4);
+    for (const sample of after) {
+      assert.equal(sample.position[order], face);
+      assert.equal(sample.velocity[order], 0);
+    }
+  }
+});
+
+test("a late first paint still lands on the lever clock", () => {
+  const queued: { callback: FrameRequestCallback; id: number }[] = [];
+  let nextId = 1;
+  const realFrame = globalThis.requestAnimationFrame;
+  const realCancel = globalThis.cancelAnimationFrame;
+  const realNow = performance.now.bind(performance);
+  let clock = 8_000;
+  Object.defineProperty(performance, "now", { configurable: true, value: () => clock });
+  globalThis.requestAnimationFrame = (callback: FrameRequestCallback) => {
+    const id = nextId;
+    nextId += 1;
+    queued.push({ callback, id });
+    return id;
+  };
+  globalThis.cancelAnimationFrame = (id: number) => {
+    const index = queued.findIndex((entry) => entry.id === id);
+    if (index >= 0) queued.splice(index, 1);
+  };
+    let velocity = 99;
+    let position = 99;
+    let restedAt = 0;
+    try {
+    const engine = createReelEngine({
+      initialIndex: 0,
+      setKinetics(next, speed) {
+        position = next;
+        velocity = speed;
+      },
+      getCount: () => 5,
+      onIndex() {},
+      onMotion() {},
+      isReduced: () => false,
+      isEnabled: () => true,
+      getStretch: () => null,
+      onPieces() {},
+      onStretchFrame() {},
+      onGuest() {},
+      alternatePullStops: () => false,
+      speedCap: REEL_SPEED_CAP,
+    });
+    engine.lever(0);
+    clock += 180;
+    const batch = queued.splice(0, queued.length);
+    for (const entry of batch) entry.callback(clock);
+    assert.ok(Math.abs(position - -REEL_SPEED_CAP * 0.18) < 0.05, `first paint ignored the 180ms gap, position ${position}`);
+    assert.equal(velocity, -REEL_SPEED_CAP);
+    while (queued.length > 0 && clock < 8_000 + 2_600) {
+      clock += 50;
+      const step = queued.splice(0, queued.length);
+      for (const entry of step) entry.callback(clock);
+      if (!restedAt && velocity === 0) restedAt = clock;
+    }
+    assert.equal(velocity, 0);
+    assert.equal(position, Math.round(pullPose(0, 0, PULL_LIGHT_STOP_S[0]).position));
+    assert.ok(restedAt - 8_000 - PULL_LIGHT_STOP_S[0] * 1000 <= 50);
+    assert.ok(restedAt - 8_000 >= PULL_LIGHT_STOP_S[0] * 1000 - 1);
+  } finally {
+    globalThis.requestAnimationFrame = realFrame;
+    globalThis.cancelAnimationFrame = realCancel;
+    Object.defineProperty(performance, "now", { configurable: true, value: realNow });
   }
 });
 
@@ -174,6 +246,9 @@ test("a jump during the pull does not take the count reel", () => {
   };
   let velocity = 0;
   let position = 0;
+  let now = 1_000;
+  const realNow = performance.now.bind(performance);
+  Object.defineProperty(performance, "now", { configurable: true, value: () => now });
   try {
     const engine = createReelEngine({
       initialIndex: 0,
@@ -193,7 +268,6 @@ test("a jump during the pull does not take the count reel", () => {
       alternatePullStops: () => false,
       speedCap: REEL_SPEED_CAP,
     });
-    let now = 1_000;
     engine.lever(2);
     engine.pointerDown(10, now, 40, 200);
     for (let step = 0; step < 40; step += 1) {
@@ -207,5 +281,6 @@ test("a jump during the pull does not take the count reel", () => {
   } finally {
     globalThis.requestAnimationFrame = realFrame;
     globalThis.cancelAnimationFrame = realCancel;
+    Object.defineProperty(performance, "now", { configurable: true, value: realNow });
   }
 });

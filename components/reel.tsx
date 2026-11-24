@@ -143,7 +143,7 @@ type Engine = {
   jump: (index: number) => void;
   /** Put the reel on `index` with no animation and no velocity. A pull already at rest stays still. */
   settleGuard: (index: number) => void;
-  lever: (order: number) => void;
+  lever: (order: number, releasedAt?: number) => void;
   destroy: () => void;
 };
 
@@ -203,14 +203,24 @@ export function createReelEngine(options: {
   let pullSpin = false;
   let pullOrder = 0;
   let pullOrigin = 0;
-  /** Wall-clock start of the pull, on the animation-frame clock. */
+  /** Wall-clock start of the pull. The earlier of the lever release and the first frame. */
   let pullStarted = 0;
+  let pullReleasedAt = 0;
   let pullClock = false;
   let pullSettled = false;
   let pullRestNotified = false;
+  let pullFace = 0;
+  let pullEcho = 0;
   const publishKinetics = options.setKinetics;
   options.setKinetics = (next, speed) => {
-    publishKinetics(next, pullSettled ? 0 : speed);
+    if (pullSettled) {
+      const exact = Math.abs(next - Math.round(next)) < 1e-6 ? Math.round(next) : pullFace;
+      pullFace = exact;
+      position = exact;
+      publishKinetics(exact, 0);
+      return;
+    }
+    publishKinetics(next, speed);
   };
   let alternated = 0;
   let landingWatch: LandingWatch = clearLandingWatch();
@@ -492,21 +502,21 @@ export function createReelEngine(options: {
   }
 
   /** The pull has reached its scheduled stop. Velocity is 0 and the landing fires once. */
-  function finishPull(notch: number, now = 0) {
-    const count = reelCount();
-    const parked = canonicalNotch(Math.round(notch), count);
+  function finishPull(notch: number, _now = 0) {
+    const face = Math.round(notch);
+    pullFace = face;
     pullSettled = true;
     pullSpin = false;
     stop();
     velocity = 0;
-    position = parked;
+    position = face;
     glideTarget = null;
-    camNotch = parked;
-    setPos(parked);
+    camNotch = face;
+    setPos(face);
     camNotch = null;
     velocity = 0;
-    position = parked;
-    options.setKinetics(parked, 0);
+    position = face;
+    options.setKinetics(face, 0);
     setAudioSpin(false);
     pullClock = false;
     setPhase("idle");
@@ -514,6 +524,8 @@ export function createReelEngine(options: {
       pullRestNotified = true;
       settleLanding();
     }
+    pullEcho = 0;
+    raf = requestAnimationFrame(tick);
   }
 
   function tick(now: number) {
@@ -521,6 +533,10 @@ export function createReelEngine(options: {
     try {
     if (pullSettled) {
       options.setKinetics(position, 0);
+      if (pullEcho < 3) {
+        pullEcho += 1;
+        raf = requestAnimationFrame(tick);
+      }
       return;
     }
     if (pullClock && !pullSettled && pullStarted > 0 && now >= pullStarted + pullStopSeconds(pullOrder) * 1000) {
@@ -558,13 +574,12 @@ export function createReelEngine(options: {
       const count = reelCount();
       if (pullClock && !pullSettled) {
         if (pullStarted === 0) {
-          // The frame that only schedules the spin is not t = 0. A slow
-          // device spends ~45ms there, and counting it made every reel
-          // look that much early. The schedule starts on the next paint.
-          pullStarted = -1;
-          return;
+          const released = pullReleasedAt;
+          // The lever release is t = 0 when this frame is still that pull.
+          // A fake test clock far from performance.now() keeps its own anchor.
+          if (released > 0 && now >= released && now - released <= 2000) pullStarted = released;
+          else pullStarted = now;
         }
-        if (pullStarted < 0) pullStarted = now;
         const elapsed = Math.max(0, (now - pullStarted) / 1000);
         const frame = pullFrame({
           origin: pullOrigin,
@@ -1026,7 +1041,7 @@ export function createReelEngine(options: {
       if (delta < -count / 2) delta += count;
       animateTo(position + delta, options.isReduced() ? 0 : 320);
     },
-    lever(order) {
+    lever(order, releasedAt = 0) {
       guest = null;
       options.onGuest(null);
       hapticClick();
@@ -1036,6 +1051,9 @@ export function createReelEngine(options: {
       pullClock = true;
       pullSettled = false;
       pullRestNotified = false;
+      pullEcho = 0;
+      const stamped = releasedAt > 0 ? releasedAt : typeof performance !== "undefined" ? performance.now() : 0;
+      pullReleasedAt = stamped;
       pullStarted = 0;
       alternated = 0;
       setAudioSpin(true);
@@ -1069,6 +1087,7 @@ export function Reel({
   items,
   initialIndex,
   spinToken,
+  spinReleasedAt = 0,
   spinOrder,
   guardToken = 0,
   guardIndex = 0,
@@ -1086,6 +1105,8 @@ export function Reel({
   items: ReelSymbol[];
   initialIndex: number;
   spinToken: number;
+  /** performance.now() of the lever release that started this pull. */
+  spinReleasedAt?: number;
   spinOrder: number;
   guardToken?: number;
   guardIndex?: number;
@@ -1174,8 +1195,8 @@ export function Reel({
 
   useEffect(() => {
     if (spinToken === 0) return;
-    engineRef.current?.lever(spinOrder);
-  }, [spinToken, spinOrder]);
+    engineRef.current?.lever(spinOrder, spinReleasedAt);
+  }, [spinToken, spinOrder, spinReleasedAt]);
 
   useEffect(() => {
     if (!shouldApplyGuard(guardToken, appliedGuard.current)) return;
