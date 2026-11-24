@@ -19,7 +19,7 @@ type Sample = { t: number; velocity: number[]; position: number[] };
  * Three reels, one lever pull, and the last-reel landing callback.
  * `guardIndex` is the copper correction the count reel receives once every reel is idle.
  */
-function pullAll(frames: number[], guardIndex: number | null): Sample[] {
+function pullAll(frames: number[], guardIndex: number | null): { samples: Sample[]; rests: number[] } {
   const queued: { callback: FrameRequestCallback; id: number }[] = [];
   let nextId = 1;
   const realFrame = globalThis.requestAnimationFrame;
@@ -53,6 +53,7 @@ function pullAll(frames: number[], guardIndex: number | null): Sample[] {
         settleReels(previous, motion);
         const step = holdAfterMotion(hold, motion);
         hold = step.hold;
+        if (!moving && previous[reel]) rests[reel] += 1;
         if (step.released) releaseGuard = true;
       },
       isReduced: () => false,
@@ -67,6 +68,7 @@ function pullAll(frames: number[], guardIndex: number | null): Sample[] {
   );
 
   const samples: Sample[] = [];
+  const rests: number[] = [0, 0, 0];
   let now = 5_000;
   try {
     engines.forEach((engine, order) => engine.lever(order));
@@ -94,11 +96,11 @@ function pullAll(frames: number[], guardIndex: number | null): Sample[] {
     globalThis.requestAnimationFrame = realFrame;
     globalThis.cancelAnimationFrame = realCancel;
   }
-  return samples;
+  return { samples, rests };
 }
 
 function assertPull(frames: number[], guardIndex: number | null) {
-  const samples = pullAll(frames, guardIndex);
+  const { samples, rests } = pullAll(frames, guardIndex);
   assert.ok(samples.length > 3);
   const started = samples.findIndex((sample) => sample.velocity.some((speed) => speed !== 0));
   assert.ok(started >= 0);
@@ -120,6 +122,8 @@ function assertPull(frames: number[], guardIndex: number | null) {
     assert.ok(elapsed - PULL_LIGHT_STOP_S[order] * 1000 <= slack + 1, `reel ${order} rested late at ${elapsed}`);
     const face = mod(Math.round(pullPose(0, order, PULL_LIGHT_STOP_S[order]).position), FACES[order]);
     const expected = order === 2 && guardIndex !== null ? mod(guardIndex, FACES[2]) : face;
+    assert.equal(rests[order], 1);
+    assert.equal(rest.velocity[order], 0);
     const settled = samples.filter((sample) => sample.t >= rest.t);
     assert.ok(settled.every((sample) => sample.velocity[order] === 0));
     assert.equal(mod(settled.at(-1)!.position[order], FACES[order]), expected);
@@ -166,6 +170,7 @@ test("a jump during the pull does not take the count reel", () => {
     });
     let now = 1_000;
     engine.lever(2);
+    engine.pointerDown(10, now, 40, 200);
     for (let step = 0; step < 40; step += 1) {
       const batch = queued.splice(0, queued.length);
       now += 50;

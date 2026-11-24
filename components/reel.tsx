@@ -32,7 +32,7 @@ import {
   type LandingWatch,
 } from "@/lib/reel-landing";
 import { detentForStop } from "@/lib/spin-gate";
-import { pullFrame, pullLaunchVelocity } from "@/lib/pull-spin";
+import { pullFrame, pullLaunchVelocity, pullStopSeconds } from "@/lib/pull-spin";
 import { createReelMotion } from "@/lib/reel-motion";
 import { setWheelLampSpeed } from "@/lib/wheel-lamp";
 import { playStretchPop, unlockStretchPops } from "@/lib/stretch-pop";
@@ -203,9 +203,11 @@ export function createReelEngine(options: {
   let pullSpin = false;
   let pullOrder = 0;
   let pullOrigin = 0;
-  /** Wall-clock start of the pull. Set from the first frame so a late paint is not lost time. */
+  /** Wall-clock start of the pull, on the animation-frame clock. */
   let pullStarted = 0;
   let pullClock = false;
+  let pullSettled = false;
+  let pullRestNotified = false;
   let alternated = 0;
   let landingWatch: LandingWatch = clearLandingWatch();
   let glideTarget: number | null = null;
@@ -363,7 +365,7 @@ export function createReelEngine(options: {
       alternated,
     });
     alternated = detent.alternated;
-    if (landingNotch) {
+    if (landingNotch && !(pullClock && !pullSettled)) {
       setAudioSpin(false);
       pullSpin = false;
       committed = index;
@@ -485,8 +487,46 @@ export function createReelEngine(options: {
     schedule();
   }
 
+  /** The pull has reached its scheduled stop. Velocity is 0 and the landing fires once. */
+  function finishPull(notch: number) {
+    const count = reelCount();
+    const parked = canonicalNotch(Math.round(notch), count);
+    pullSettled = true;
+    pullSpin = false;
+    velocity = 0;
+    position = parked;
+    glideTarget = null;
+    camNotch = parked;
+    setPos(parked);
+    camNotch = null;
+    velocity = 0;
+    position = parked;
+    options.setKinetics(parked, 0);
+    setAudioSpin(false);
+    pullClock = false;
+    setPhase("idle");
+    if (!pullRestNotified) {
+      pullRestNotified = true;
+      settleLanding();
+    }
+  }
+
   function tick(now: number) {
     raf = 0;
+    try {
+    if (pullClock && !pullSettled && pullStarted > 0 && now >= pullStarted + pullStopSeconds(pullOrder) * 1000) {
+      const frame = pullFrame({
+        origin: pullOrigin,
+        order: pullOrder,
+        elapsedS: (now - pullStarted) / 1000,
+        count: reelCount(),
+        isEnabled: enabledExpanded,
+        locked: glideTarget,
+      });
+      finishPull(frame.position);
+      return;
+    }
+    if (pullClock && !pullSettled && phase !== "coast") phase = "coast";
     if (phase === "idle" || phase === "drag") return;
     const dt = Math.min(REEL_MAX_FRAME_DT, Math.max(0, (now - last) / 1000));
     last = now;
@@ -507,11 +547,8 @@ export function createReelEngine(options: {
 
     if (phase === "coast") {
       const count = reelCount();
-      if (pullSpin) {
-        if (!pullClock) {
-          pullClock = true;
-          pullStarted = now;
-        }
+      if (pullClock && !pullSettled) {
+        if (pullStarted === 0) pullStarted = now;
         const elapsed = Math.max(0, (now - pullStarted) / 1000);
         const frame = pullFrame({
           origin: pullOrigin,
@@ -522,17 +559,13 @@ export function createReelEngine(options: {
           locked: glideTarget,
         });
         glideTarget = frame.locked;
-        velocity = frame.velocity;
-        if (frame.resting) camNotch = Math.round(frame.position);
-        setPos(frame.position);
         if (frame.resting) {
-          camNotch = null;
-          parkSettledPosition();
-          setAudioSpin(false);
-          setPhase("idle");
-          settleLanding();
+          finishPull(frame.position);
           return;
         }
+        velocity = frame.velocity;
+        pullSpin = true;
+        setPos(frame.position);
       } else {
         const decel = brakeDecel();
         const glide = grayGlidePlan({
@@ -576,6 +609,9 @@ export function createReelEngine(options: {
 
     if (phase === "coast" || phase === "snap" || phase === "script") {
       raf = requestAnimationFrame(tick);
+    }
+    } finally {
+      if (pullClock && !pullSettled && raf === 0) raf = requestAnimationFrame(tick);
     }
   }
 
@@ -834,6 +870,7 @@ export function createReelEngine(options: {
 
   return {
     pointerDown(y, time, localY = 0, height = 0) {
+      if (pullClock && !pullSettled) return;
       pullSpin = false;
       landingWatch = clearLandingWatch();
       camNotch = null;
@@ -980,7 +1017,9 @@ export function createReelEngine(options: {
       landingWatch = armLandingWatch();
       glideTarget = null;
       pullSpin = true;
-      pullClock = false;
+      pullClock = true;
+      pullSettled = false;
+      pullRestNotified = false;
       pullStarted = 0;
       alternated = 0;
       setAudioSpin(true);
