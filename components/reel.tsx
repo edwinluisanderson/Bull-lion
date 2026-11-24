@@ -141,6 +141,8 @@ type Engine = {
   pointerUp: () => void;
   step: (direction: number) => void;
   jump: (index: number) => void;
+  /** Put the reel on `index` with no animation and no velocity. A pull already at rest stays still. */
+  settleGuard: (index: number) => void;
   lever: (order: number) => void;
   destroy: () => void;
 };
@@ -201,7 +203,9 @@ export function createReelEngine(options: {
   let pullSpin = false;
   let pullOrder = 0;
   let pullOrigin = 0;
+  /** Wall-clock start of the pull. Set from the first frame so a late paint is not lost time. */
   let pullStarted = 0;
+  let pullClock = false;
   let alternated = 0;
   let landingWatch: LandingWatch = clearLandingWatch();
   let glideTarget: number | null = null;
@@ -504,6 +508,10 @@ export function createReelEngine(options: {
     if (phase === "coast") {
       const count = reelCount();
       if (pullSpin) {
+        if (!pullClock) {
+          pullClock = true;
+          pullStarted = now;
+        }
         const elapsed = Math.max(0, (now - pullStarted) / 1000);
         const frame = pullFrame({
           origin: pullOrigin,
@@ -555,7 +563,10 @@ export function createReelEngine(options: {
           : phase === "snap"
             ? stretchSnap(animFrom, animTo, progress)
             : animFrom + (animTo - animFrom) * (1 - (1 - progress) ** power);
-      velocity = (next - position) / Math.max(dt, 0.001);
+      const frameDt = dt > 0 ? dt : REEL_MAX_FRAME_DT;
+      const stepSpeed = (next - position) / frameDt;
+      const cap = options.speedCap;
+      velocity = Math.max(-cap, Math.min(cap, stepSpeed));
       setPos(next);
       if (progress >= 1) {
         finishScript();
@@ -927,7 +938,26 @@ export function createReelEngine(options: {
         }
       }
     },
+    settleGuard(index) {
+      if (pullSpin) return;
+      const count = options.getCount();
+      if (!(count > 0)) return;
+      const picked = enabledIndex(index) ? index : nearestEnabledSlot(index);
+      const target = mod(picked, count);
+      stop();
+      velocity = 0;
+      position = target;
+      committed = target;
+      camNotch = null;
+      glideTarget = null;
+      pullSpin = false;
+      pullClock = false;
+      options.setKinetics(target, 0);
+      if (options.onIndex) options.onIndex(target);
+      setPhase("idle");
+    },
     jump(index) {
+      if (pullSpin) return;
       jumping = true;
       pullSpin = false;
       landingWatch = clearLandingWatch();
@@ -950,7 +980,8 @@ export function createReelEngine(options: {
       landingWatch = armLandingWatch();
       glideTarget = null;
       pullSpin = true;
-      pullStarted = performance.now();
+      pullClock = false;
+      pullStarted = 0;
       alternated = 0;
       setAudioSpin(true);
       const count = options.getCount();
@@ -1094,7 +1125,7 @@ export function Reel({
   useEffect(() => {
     if (!shouldApplyGuard(guardToken, appliedGuard.current)) return;
     appliedGuard.current = guardToken;
-    engineRef.current?.jump(guardIndex);
+    engineRef.current?.settleGuard(guardIndex);
   }, [guardToken, guardIndex]);
 
   const drawingGuest = Boolean(guestDraw) && !stretchFrame && stretch;
