@@ -23,6 +23,7 @@ function Tile({ char, index, cursor }: { char: string; index: number; cursor: bo
       <span className="flap-leaf">
         <span>{shown}</span>
       </span>
+      <span className="flap-stack" aria-hidden="true" />
     </span>
   );
 }

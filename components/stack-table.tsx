@@ -863,13 +863,19 @@ export function StackTable({
                   event.stopPropagation();
                 }}
               >
-                {blank || dropping ? "" : line.mark.toUpperCase()}
+                <span className="stack-face-top" aria-hidden="true" />
+                <span className="stack-face-bottom" aria-hidden="true" />
+                <span className="stack-face-label">{blank || dropping ? "" : line.mark.toUpperCase()}</span>
+                <span className="flap-stack" aria-hidden="true" />
               </span>
               <span className="stack-span" style={{ gridColumn: "3 / -1", gridRow: 1 }}>
                 {description}
               </span>
               <span className="stack-qty" style={{ gridColumn: "1 / span 2", gridRow: 2 }}>
-                {blank || dropping ? "" : "QTY"}
+                <span className="stack-face-top" aria-hidden="true" />
+                <span className="stack-face-bottom" aria-hidden="true" />
+                <span className="stack-face-label">{blank || dropping ? "" : "QTY"}</span>
+                <span className="flap-stack" aria-hidden="true" />
               </span>
               <span className="stack-span" style={{ gridColumn: "3 / -1", gridRow: 2 }}>
                 <SplitFlap

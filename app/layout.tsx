@@ -28,7 +28,7 @@ const readout = IBM_Plex_Mono({
 
 const flap = Inter({
   subsets: ["latin"],
-  weight: ["700"],
+  axes: ["opsz"],
   variable: "--font-flap",
   display: "swap",
 });
