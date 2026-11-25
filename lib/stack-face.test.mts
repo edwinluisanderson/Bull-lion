@@ -151,11 +151,32 @@ test("the plates hang from the twist-in links and the background rail is gone", 
   assert.match(css, /\.split-stack \{[^}]*clip-path:\s*inset\(0 -200vw -120px -200vw\)/);
   assert.match(css, /\.mock-link\.is-left \{[^}]*--link14-bR/);
   assert.match(css, /\.mock-link\.is-right \{[^}]*--link14-bL/);
-  assert.match(css, /\.split-stack\.is-arriving \.split-stack-head > \.mock-link/);
+  assert.equal(css.includes(".split-stack.is-arriving .split-stack-head > .mock-link"), false);
+  assert.match(css, /\.stack-swipe\.is-rising\.is-reel-card \{[^}]*z-index:\s*0/);
   assert.match(css, /\.stack-swipe\.is-reeled \.mock-link \{[^}]*translateY\(calc\(-1 \* var\(--lift/);
   assert.match(css, /\.split-total \{[^}]*position:\s*relative/);
   assert.match(css, /animation:\s*stack-lower 250ms ease-out both/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\.split-stack\.is-arriving \.split-rows[\s\S]*?animation:\s*none/);
+});
+
+test("the name plate is at least a card tall and arriving rings stay under it", () => {
+  assert.match(css, /\.split-stack-head \{[^}]*min-height:\s*calc\(100cqw \* 58\.25 \/ 292\.8 \+ 8px\)/);
+  assert.match(css, /\.split-stack-head \{[^}]*border-radius:\s*14px/);
+  assert.match(css, /\.split-stack-head \{[^}]*background:\s*var\(--brass-plate\)/);
+  assert.match(css, /\.split-stack-head \{[^}]*z-index:\s*5/);
+  assert.match(css, /\.split-stack \{[^}]*clip-path:\s*inset\(0 -200vw -120px -200vw\)/);
+  assert.equal(css.includes(".split-stack.is-arriving .split-stack-head > .mock-link"), false);
+  assert.match(css, /\.split-stack\.is-arriving \.split-rows,\s*\.split-stack\.is-arriving \.split-total \{[^}]*z-index:\s*2/);
+  assert.match(table, /hanging=\{true\}/);
+  assert.match(table, /lines\.length === 0/);
+  assert.match(css, /\.split-total > \.mock-plate::before \{[^}]*content:\s*none/);
+  assert.match(css, /\.split-total > \.mock-link \{[^}]*top:\s*calc\(-13px - var\(--pw\)\)/);
+  const board = css.slice(css.indexOf(".stack-card {\n  position: relative"), css.indexOf(".stack-kicker-next"));
+  assert.match(board, /linear-gradient\(#0f0f0f, #0f0f0f\) content-box/);
+  assert.equal(board.includes("padding-box"), false);
+  assert.match(css, /\.stack-swipe\.is-raised \.stack-card \{[^}]*box-shadow:\s*none/);
+  assert.match(css, /\.stack-swipe-face \{[^}]*clip-path:\s*inset\(8px round 3px\)/);
+  assert.match(css, /\.stack-edit\.is-locked \{[^}]*pointer-events:\s*none/);
 });
 
 test("the stack column stays a centered 480px band and the phone card still hugs", () => {

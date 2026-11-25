@@ -10,8 +10,6 @@ import {
   COVER_SLIDE_MS,
   advanceDeleteCover,
   beginDeleteCover,
-  STACK_ROW_GAP_PX,
-  collapseInset,
   deleteRowLocked,
   queuedCoverId,
   type DeleteCover,
@@ -123,7 +121,6 @@ export function StackTable({
   const draftRef = useRef<{ id: string; text: string; cursor: number; cap: number } | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [cover, setCover] = useState<DeleteCover | null>(null);
-  const [coverLive, setCoverLive] = useState(false);
   const [shift, setShift] = useState<StackFace[][] | null>(null);
   const [shiftStep, setShiftStep] = useState(0);
   const finalRef = useRef<StackLine[] | null>(null);
@@ -334,7 +331,6 @@ export function StackTable({
       draftRef.current = null;
       setEditing(null);
       setCover(null);
-      setCoverLive(false);
       setShift(null);
       setShiftStep(0);
       setLines(clearAllLines());
@@ -373,8 +369,9 @@ export function StackTable({
     if (index < 0) return;
     const { rowHeight, totalHeight } = measureRow(lineId);
     setOpenId((current) => (current === lineId ? null : current));
-    setCoverLive(false);
-    setCover(beginDeleteCover(lineId, index, rows.length, rowHeight, totalHeight));
+    const started = advanceDeleteCover(beginDeleteCover(lineId, index, rows.length, rowHeight, totalHeight));
+    if (started === "remove") return;
+    setCover(started);
   }
 
   function requestDelete(lineId: string) {
@@ -408,7 +405,6 @@ export function StackTable({
       }, DELETE_SHOOT_MS);
       return () => window.clearTimeout(timer);
     }
-    const frame = window.requestAnimationFrame(() => setCoverLive(true));
     const timer = window.setTimeout(() => {
       const id = cover.id;
       if (advanceDeleteCover(cover) !== "remove") return;
@@ -417,7 +413,6 @@ export function StackTable({
       queuedDelete.current = null;
       phaseRef.current = { ...phaseRef.current, lines: kept };
       setCover(null);
-      setCoverLive(false);
       setLines(kept);
       if (!queued || !kept.some((line) => line.id === queued)) return;
       const nextId = queued;
@@ -434,10 +429,7 @@ export function StackTable({
         armCover(nextId, linesRef.current);
       });
     }, COVER_SLIDE_MS + COVER_FRAME_MS);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      window.clearTimeout(timer);
-    };
+    return () => window.clearTimeout(timer);
   }, [cover]);
 
   useEffect(() => {
@@ -632,8 +624,12 @@ export function StackTable({
       <div className="split-stack-head">
         <span className="mock-hole is-bottom is-left" aria-hidden="true" />
         <span className="mock-hole is-bottom is-right" aria-hidden="true" />
-        <span className="mock-link is-left" aria-hidden="true" />
-        <span className="mock-link is-right" aria-hidden="true" />
+        {lines.length === 0 ? (
+          <>
+            <span className="mock-link is-left" aria-hidden="true" />
+            <span className="mock-link is-right" aria-hidden="true" />
+          </>
+        ) : null}
         <span className="rivet" data-corner="tl" />
         <span className="rivet" data-corner="tr" />
         <span className="rivet" data-corner="bl" />
@@ -775,17 +771,9 @@ export function StackTable({
               {lockFlap(layout.purity, layout.puritySpan, "purity")}
             </>
           );
-          const reeling = cover != null && line != null && line.id === cover.id && cover.phase === "slide";
+          const rising = cover != null && cover.phase === "slide" && index >= cover.index;
           const above = cover != null && cover.phase === "slide" && index === cover.index - 1;
           const coverRole = above ? "front" : "row";
-          const shell = reeling
-            ? {
-                height: coverLive ? 0 : cover.rowHeight,
-                marginTop: coverLive ? -collapseInset(cover.tail, cover.index) : 0,
-                marginBottom: coverLive && !cover.tail ? -STACK_ROW_GAP_PX : 0,
-                lift: coverLive ? cover.rowHeight : 0,
-              }
-            : null;
           const remove = blank ? null : (
             <button
               type="button"
@@ -808,10 +796,10 @@ export function StackTable({
               winch={cover?.phase === "slide" && index === cover.index - 1}
               paying={false}
               lowering={false}
-              hanging={index > 0}
+              hanging={true}
+              rising={rising}
+              reelCard={rising && line != null && line.id === cover?.id}
               cover={coverRole}
-              coverShift={reeling ? cover.distance : 0}
-              shell={shell}
               onOpen={() => {
                 if (line) setOpenId(line.id);
               }}
@@ -900,7 +888,7 @@ export function StackTable({
       </ul>
       <div
         ref={totalNode}
-        className={`split-total${cover?.phase === "slide" && !cover.tail ? " is-cover-front" : ""}${cover?.phase === "slide" && cover.tail ? " is-rise" : ""}`}
+        className={`split-total${cover?.phase === "slide" ? " is-rising" : ""}${cover?.phase === "slide" && !cover.tail ? " is-cover-front" : ""}${cover?.phase === "slide" && cover.tail ? " is-rise" : ""}`}
       >
         {lines.length > 0 ? (
           <>

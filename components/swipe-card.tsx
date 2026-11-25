@@ -45,6 +45,8 @@ export function SwipeCard({
   paying = false,
   lowering = false,
   hanging = false,
+  rising = false,
+  reelCard = false,
   onOpen,
   onClose,
   onDelete,
@@ -68,8 +70,11 @@ export function SwipeCard({
   paying?: boolean;
   /** The stack is easing down to make room for this card. */
   lowering?: boolean;
-  /** This row hangs below another row, so it owns the link threaded into the row above. */
+  /** This row hangs from the plate above, so it owns the link threaded into that plate. */
   hanging?: boolean;
+  /** This row is sliding up with a delete. The deleted row is the reel card. */
+  rising?: boolean;
+  reelCard?: boolean;
   onOpen: () => void;
   onClose: () => void;
   onDelete: () => void;
@@ -246,7 +251,7 @@ export function SwipeCard({
 
   return (
     <li
-      className={`stack-swipe${shown > 0 || leaving ? " is-raised" : ""}${leaving ? " is-departing" : ""}${paying ? " is-paying" : ""}${lowering ? " is-lowering" : ""}${cover === "arm" || cover === "over" || shell ? " is-remnant" : ""}${cover === "arm" || cover === "over" ? " is-cover-ready" : ""}${cover === "over" ? " is-covering" : ""}${cover === "front" ? " is-cover-front" : ""}${shell ? " is-collapsing is-reeled" : ""}`}
+      className={`stack-swipe${shown > 0 || leaving ? " is-raised" : ""}${paying ? " is-paying" : ""}${lowering ? " is-lowering" : ""}${cover === "arm" || cover === "over" || shell ? " is-remnant" : ""}${cover === "arm" || cover === "over" ? " is-cover-ready" : ""}${cover === "over" ? " is-covering" : ""}${cover === "front" ? " is-cover-front" : ""}${shell ? " is-collapsing is-reeled" : ""}${rising ? " is-rising" : ""}${reelCard ? " is-reel-card" : ""}`}
       data-swipe-id={id}
       data-open={open ? "true" : "false"}
       data-alarm={alarm}

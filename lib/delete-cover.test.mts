@@ -63,12 +63,20 @@ test("the last card has no row below it, so the slot collapses from the bottom",
   assert.equal(collapseInset(false, 2), 0);
 });
 
-test("the face still shoots off and the button is not faded away", () => {
+test("the deleted plate slides up with the stack and does not fade", () => {
   assert.equal(card.includes("DELETE_LINGER_MS"), false);
   assert.match(card, /onDepart\(\)/);
   assert.equal(card.includes("setDeparting"), false);
-  assert.match(card, /leaving \? " is-departing"/);
-  assert.match(css, /\.stack-swipe\.is-departing \.stack-swipe-face \{[^}]*translateX\(120vw\)/);
+  assert.equal(card.includes("is-departing"), false);
+  assert.match(card, /is-rising/);
+  assert.match(card, /is-reel-card/);
+  const raise = css.slice(css.indexOf("@keyframes stack-raise"), css.indexOf("}", css.indexOf("to {", css.indexOf("@keyframes stack-raise"))) + 1);
+  assert.match(raise, /translateY\(calc\(-1 \* var\(--pay-drop\)\)\)/);
+  assert.equal(raise.includes("opacity"), false);
+  assert.match(css, /animation:\s*stack-raise 250ms ease-out both/);
+  assert.equal(COVER_SLIDE_MS, 250);
+  assert.match(table, /advanceDeleteCover\(beginDeleteCover/);
+  assert.match(table, /is-rising/);
   assert.match(css, new RegExp(`transition: transform ${DELETE_SHOOT_MS}ms`));
   assert.equal(css.includes("delete-linger"), false);
   assert.match(css, /\.stack-swipe\.is-raised\.is-remnant \{[^}]*z-index:\s*0/);
@@ -118,7 +126,9 @@ test("chains stay behind the plates and a deleted plate reels up behind the one 
   assert.match(css, /\.stack-swipe\.is-reeled \{[^}]*z-index:\s*0/);
   assert.match(css, /\.stack-swipe\.is-reeled \.stack-empty-plate \{[^}]*translateY\(calc\(-1 \* var\(--lift/);
   assert.match(card, /stack-empty-plate/);
-  assert.match(table, /lift: coverLive \? cover\.rowHeight : 0/);
+  assert.match(table, /index >= cover\.index/);
+  assert.match(table, /reelCard=\{rising && line != null && line\.id === cover\?\.id\}/);
+  assert.match(css, /\.stack-swipe\.is-rising\.is-reel-card \{[^}]*z-index:\s*0/);
   assert.match(card, /is-reeled/);
 });
 

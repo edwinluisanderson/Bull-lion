@@ -1,5 +1,5 @@
-/** How long the rows take to slide up over a deleted slot. */
-export const COVER_SLIDE_MS = 520;
+/** The deleted plate slides up for the same 250ms ease as a new card arriving. */
+export const COVER_SLIDE_MS = 250;
 /**
  * The slide class is applied one frame after the transition is armed,
  * so the hold is a little longer than the CSS animation.

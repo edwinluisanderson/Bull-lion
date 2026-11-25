@@ -5,6 +5,14 @@ import { useEffect, useRef, type CSSProperties, type PointerEvent as ReactPointe
 import { SplitFlap } from "@/components/split-flap";
 import { cursorFromTap } from "@/lib/flap-edit";
 
+/**
+ * Slide-to-edit will turn this back on.
+ * While it is off, nothing on the card may focus an input or open the keyboard.
+ */
+export function descriptionEditingEnabled(): boolean {
+  return false;
+}
+
 function flapTapIndex(event: ReactPointerEvent<HTMLDivElement>, cap: number): number {
   const tile = event.target instanceof Element ? event.target.closest("[data-flap-index]") : null;
   const raw = tile instanceof HTMLElement ? Number(tile.dataset.flapIndex) : Number.NaN;
@@ -69,6 +77,14 @@ export function DescriptionFlaps({
       return;
     }
     onActivate(index);
+  }
+
+  if (!descriptionEditingEnabled()) {
+    return (
+      <div className="stack-edit is-locked" style={style} data-editing="false">
+        <SplitFlap text={text} width={cap} instant={instant} />
+      </div>
+    );
   }
 
   return (

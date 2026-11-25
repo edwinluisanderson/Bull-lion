@@ -62,6 +62,14 @@ test("tapping the metal, the weight, or the purity opens no editor", () => {
   assert.match(table, /<DescriptionFlaps/);
   assert.ok(table.indexOf("<DescriptionFlaps") > table.indexOf("layout.descriptionSpan"));
   assert.match(editor, /aria-label=\{active \? undefined : `Edit description/);
+  assert.match(editor, /export function descriptionEditingEnabled\(\): boolean \{\s*return false;/);
+  assert.match(editor, /Slide-to-edit will turn this back on/);
+  assert.match(editor, /if \(!descriptionEditingEnabled\(\)\)/);
+  const lockedAt = editor.indexOf('className="stack-edit is-locked"');
+  const locked = editor.slice(lockedAt, editor.indexOf("return (", lockedAt));
+  assert.match(locked, /<\/div>/);
+  assert.equal(locked.includes("onPointerDown"), false);
+  assert.equal(locked.includes("focus("), false);
   assert.equal(editor.includes("<button"), false);
   assert.equal(table.includes('className="stack-name"'), false);
 });
