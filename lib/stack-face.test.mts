@@ -177,6 +177,8 @@ test("the name plate is at least a card tall and arriving rings stay under it", 
   assert.match(css, /\.stack-swipe\.is-raised \.stack-card \{[^}]*box-shadow:\s*none/);
   assert.match(css, /\.stack-swipe-face \{[^}]*clip-path:\s*inset\(var\(--open-y\) var\(--open-x\) round 3px\)/);
   assert.match(css, /\.split-total-word,\s*\.split-total-amount \{[^}]*background:\s*#0f0f0f/);
+  assert.match(css, /\.split-total::before \{[^}]*inset:\s*0/);
+  assert.match(css, /\.split-total::before \{[^}]*background:\s*#0f0f0f/);
   assert.match(css, /\.stack-edit\.is-locked \{[^}]*pointer-events:\s*none/);
 });
 

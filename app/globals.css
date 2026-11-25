@@ -2095,7 +2095,17 @@ html[data-ball="cobalt"] .pull-ball {
   box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.9);
 }
 
-/* The bronze plate paints above the Total fill, so each row needs its own opaque board. */
+/* One black board covers the padding box inside the 6px ring, including the padding and the row gap. */
+.split-total::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  border-radius: 2px;
+  background: #0f0f0f;
+  pointer-events: none;
+}
+
 .split-total-word,
 .split-total-amount {
   position: relative;
