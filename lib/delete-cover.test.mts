@@ -90,6 +90,16 @@ test("the face still shoots off and the button is not faded away", () => {
   assert.match(css, /\.split-rows \{[^}]*gap:\s*8px/);
 });
 
+test("the visible remove button uses the same reel as a swipe delete", () => {
+  const button = table.slice(table.indexOf('className="stack-remove"'), table.indexOf("</button>", table.indexOf('className="stack-remove"')));
+  assert.match(button, /onClick=\{\(\) => requestDelete\(line\.id\)\}/);
+  assert.equal(button.includes("removeLine"), false);
+  assert.equal(button.includes("setLines"), false);
+  assert.match(table, /function requestDelete\(lineId: string\)/);
+  assert.match(table, /prefers-reduced-motion: reduce/);
+  assert.match(table, /armCover\(lineId, rows\)/);
+});
+
 test("chains stay behind the plates and a deleted plate reels up behind the one above", () => {
   assert.equal(plateReelsBehind(0), "nameplate");
   assert.equal(plateReelsBehind(2), "card");

@@ -708,11 +708,7 @@ export function StackTable({
               className="stack-remove"
               aria-label={`Remove ${line.description}`}
               disabled={shift !== null || cover !== null}
-              onClick={() => {
-                const next = removeLine(lines, line.id);
-                phaseRef.current = { ...phaseRef.current, lines: next };
-                setLines(next);
-              }}
+              onClick={() => requestDelete(line.id)}
             >
               ×
             </button>
