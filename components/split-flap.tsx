@@ -5,10 +5,15 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { playFlapSound, trackFlippingFlap } from "@/lib/flap-sound";
 import { FLAP_STEP_MS, flapEm, flapFrames, padFlap } from "@/lib/split-flap";
 
-function Tile({ char }: { char: string }) {
+function Tile({ char, index, cursor }: { char: string; index: number; cursor: boolean }) {
   const shown = char === " " ? "" : char;
   return (
-    <span className="flap-tile" style={{ "--flap-em": flapEm(char) } as React.CSSProperties} aria-hidden="true">
+    <span
+      className={cursor ? "flap-tile is-cursor" : "flap-tile"}
+      data-flap-index={index}
+      style={{ "--flap-em": flapEm(char) } as React.CSSProperties}
+      aria-hidden="true"
+    >
       <span className="flap-top">
         <span>{shown}</span>
       </span>
@@ -36,12 +41,15 @@ export function SplitFlap({
   text,
   width,
   instant = false,
+  cursor = null,
   onSettled,
 }: {
   text: string;
   width: number;
   /** Jump to the text. No drum and no tick. */
   instant?: boolean;
+  /** Outline this one flap. Null leaves every flap plain. */
+  cursor?: number | null;
   /** Fires after a drum walk lands. Snaps do not call it. */
   onSettled?: () => void;
 }) {
@@ -137,7 +145,7 @@ export function SplitFlap({
   return (
     <span ref={rootRef} className={instant ? "split-flap is-instant" : "split-flap"} aria-hidden="true">
       {[...shown].map((char, index) => (
-        <Tile key={`${index}-${char}`} char={char} />
+        <Tile key={`${index}-${char}`} char={char} index={index} cursor={cursor === index} />
       ))}
     </span>
   );

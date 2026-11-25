@@ -6,6 +6,7 @@ import { blockEmptyEditorDelete, isDeleteIntent, swallowCardDelete } from "@/lib
 
 const card = readFileSync(new URL("../components/swipe-card.tsx", import.meta.url), "utf8");
 const table = readFileSync(new URL("../components/stack-table.tsx", import.meta.url), "utf8");
+const editor = readFileSync(new URL("../components/description-flaps.tsx", import.meta.url), "utf8");
 
 const input = { tagName: "INPUT" };
 const face = { tagName: "DIV" };
@@ -22,8 +23,9 @@ test("a desktop Backspace or Delete in the editor never deletes the card", () =>
   assert.match(card, /fromEditor\(document\.activeElement\)/);
   const keys = card.slice(card.indexOf("onKeyDown="), card.indexOf("onBeforeInput="));
   assert.equal(keys.includes("depart("), false);
-  assert.match(table, /event\.stopPropagation\(\)/);
-  assert.match(table, /blockEmptyEditorDelete/);
+  assert.match(editor, /event\.stopPropagation\(\)/);
+  assert.match(editor, /onBackspace\(\)/);
+  assert.equal(table.includes('className="stack-name"'), false);
 });
 
 test("an Android soft-keyboard delete stays in the editor", () => {
@@ -36,9 +38,12 @@ test("an Android soft-keyboard delete stays in the editor", () => {
   assert.equal(swallowCardDelete({ tagName: "TEXTAREA" }, { key: "Backspace" }), true);
   assert.equal(swallowCardDelete({ tagName: "DIV", isContentEditable: true }, { key: "Delete" }), true);
   assert.match(card, /deleteContentBackward/);
-  assert.match(table, /onBeforeInput/);
-  assert.match(table, /maxLength=\{layout\.descriptionCap\}/);
-  assert.match(table, /onPaste/);
+  assert.match(editor, /deleteContentBackward/);
+  assert.match(editor, /onBeforeInput/);
+  assert.match(editor, /onPaste/);
+  assert.match(editor, /keyCode === 229/);
+  assert.match(table, /descriptionCap/);
+  assert.match(table, /pasteDescription/);
 });
 
 test("tapping the metal, the weight, or the purity opens no editor", () => {
@@ -54,7 +59,9 @@ test("tapping the metal, the weight, or the purity opens no editor", () => {
   assert.equal(locks.includes("<button"), false);
   assert.equal(table.includes("editWeight"), false);
   assert.equal(table.includes("weight-edit"), false);
-  const edit = table.indexOf('className="stack-edit"');
-  assert.ok(edit > table.indexOf("layout.descriptionSpan"));
-  assert.match(table, /aria-label=\{`Edit description/);
+  assert.match(table, /<DescriptionFlaps/);
+  assert.ok(table.indexOf("<DescriptionFlaps") > table.indexOf("layout.descriptionSpan"));
+  assert.match(editor, /aria-label=\{active \? undefined : `Edit description/);
+  assert.equal(editor.includes("<button"), false);
+  assert.equal(table.includes('className="stack-name"'), false);
 });

@@ -18,6 +18,7 @@ import {
 } from "@/lib/delete-cover";
 import { playSwipeTone, unlockFlapSamples } from "@/lib/flap-sound";
 import { emptyPullAdd, finishPullCascade, notePullAdd, type PullAddResult } from "@/lib/pull-stack";
+import { DescriptionFlaps } from "@/components/description-flaps";
 import { SwipeCard } from "@/components/swipe-card";
 import { unlockReelClick } from "@/lib/reel-click";
 import {
@@ -55,8 +56,8 @@ import {
   type CascadeEffect,
   type CascadeSlot,
 } from "@/lib/stack-cascade";
-import { blockEmptyEditorDelete } from "@/lib/editor-keys";
-import { clampDescription, commitDescription, detailLayout, cardMoneyRow, metalTone, type FlapSpan } from "@/lib/stack-face";
+import { backspaceFlap, moveFlapCursor, openFlapCursor, pasteFlaps, typeFlapChar } from "@/lib/flap-edit";
+import { commitDescription, detailLayout, cardMoneyRow, metalTone, type FlapSpan } from "@/lib/stack-face";
 import { freshCardSnaps } from "@/lib/stack-flips";
 import { CHAIN_PAY_MS, STACK_LOWER_MS } from "@/lib/stack-motion";
 import { stackCsvFilename } from "@/lib/stack-csv";
@@ -118,6 +119,8 @@ export function StackTable({
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
+  const [editCursor, setEditCursor] = useState(0);
+  const draftRef = useRef<{ id: string; text: string; cursor: number; cap: number } | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [cover, setCover] = useState<DeleteCover | null>(null);
   const [coverLive, setCoverLive] = useState(false);
@@ -328,6 +331,7 @@ export function StackTable({
       playSwipeTone("clunk");
       phaseRef.current = { ...emptyPullAdd(), lines: clearAllLines() };
       setOpenId(null);
+      draftRef.current = null;
       setEditing(null);
       setCover(null);
       setCoverLive(false);
@@ -458,6 +462,76 @@ export function StackTable({
 
   function motionReduced(): boolean {
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function commitDescriptionDraft(id: string) {
+    const draft = draftRef.current;
+    if (!draft || draft.id !== id) return;
+    draftRef.current = null;
+    const line = linesRef.current.find((entry) => entry.id === id);
+    setEditing((current) => (current === id ? null : current));
+    if (!line) return;
+    const next = commitDescription(line.description, draft.text, draft.cap);
+    if (!next || next === flapText(line.description).trim()) return;
+    const renamed = renameLine(linesRef.current, line.id, next);
+    phaseRef.current = { ...phaseRef.current, lines: renamed };
+    setLines(renamed);
+  }
+
+  function cancelDescriptionDraft(id: string) {
+    if (draftRef.current?.id === id) draftRef.current = null;
+    setEditing((current) => (current === id ? null : current));
+  }
+
+  function activateDescription(id: string, shown: string, cap: number, index: number) {
+    const current = draftRef.current;
+    if (current && current.id !== id) commitDescriptionDraft(current.id);
+    if (!draftRef.current || draftRef.current.id !== id) {
+      const opened = openFlapCursor(shown, cap, index);
+      draftRef.current = { id, ...opened };
+      setEditing(id);
+      setEditDraft(opened.text);
+      setEditCursor(opened.cursor);
+      return;
+    }
+    const moved = moveFlapCursor(draftRef.current, index);
+    draftRef.current = { id, ...moved };
+    setEditCursor(moved.cursor);
+  }
+
+  function moveDescription(id: string, index: number) {
+    const draft = draftRef.current;
+    if (!draft || draft.id !== id) return;
+    const moved = moveFlapCursor(draft, index);
+    draftRef.current = { id, ...moved };
+    setEditCursor(moved.cursor);
+  }
+
+  function publishDescription(id: string, next: { text: string; cursor: number; cap: number }) {
+    draftRef.current = { id, ...next };
+    setEditDraft(next.text);
+    setEditCursor(next.cursor);
+  }
+
+  function typeDescription(id: string, raw: string) {
+    const draft = draftRef.current;
+    if (!draft || draft.id !== id) return;
+    const chars = [...flapText(raw)];
+    if (chars.length === 0) return;
+    const next = chars.length === 1 ? typeFlapChar(draft, chars[0] ?? "") : pasteFlaps(draft, raw);
+    publishDescription(id, next);
+  }
+
+  function backspaceDescription(id: string) {
+    const draft = draftRef.current;
+    if (!draft || draft.id !== id) return;
+    publishDescription(id, backspaceFlap(draft));
+  }
+
+  function pasteDescription(id: string, raw: string) {
+    const draft = draftRef.current;
+    if (!draft || draft.id !== id) return;
+    publishDescription(id, pasteFlaps(draft, raw));
   }
 
   function releaseQueue(id?: string) {
@@ -689,64 +763,22 @@ export function StackTable({
               {lockFlap(layout.weight, layout.weightSpan, "weight")}
               {lockFlap(" ", layout.leadGap, "gap")}
               {layout.descriptionSpan && line ? (
-                editing === line.id ? (
-                  <input
-                    className="stack-name"
-                    style={{ gridColumn: `${layout.descriptionSpan.start} / span ${layout.descriptionSpan.length}` }}
-                    aria-label={`Description for ${line.description}`}
-                    value={editDraft}
-                    maxLength={layout.descriptionCap}
-                    autoFocus
-                    onPointerDown={(event) => event.stopPropagation()}
-                    onPaste={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      const pasted = event.clipboardData.getData("text");
-                      const start = event.currentTarget.selectionStart ?? editDraft.length;
-                      const end = event.currentTarget.selectionEnd ?? start;
-                      const merged = editDraft.slice(0, start) + pasted + editDraft.slice(end);
-                      setEditDraft(clampDescription(merged, layout.descriptionCap));
-                    }}
-                    onChange={(event) => setEditDraft(clampDescription(event.target.value, layout.descriptionCap))}
-                    onBeforeInput={(event) => {
-                      event.stopPropagation();
-                      const inputType = (event.nativeEvent as InputEvent).inputType;
-                      if (blockEmptyEditorDelete(editDraft, { inputType })) event.preventDefault();
-                    }}
-                    onKeyDown={(event) => {
-                      event.stopPropagation();
-                      if (blockEmptyEditorDelete(editDraft, { key: event.key, keyCode: event.keyCode })) {
-                        event.preventDefault();
-                        return;
-                      }
-                      if (event.key === "Enter") event.currentTarget.blur();
-                      if (event.key === "Escape") setEditing(null);
-                    }}
-                    onBlur={() => {
-                      const next = commitDescription(line.description, editDraft, layout.descriptionCap);
-                      if (next && next !== flapText(line.description).trim()) {
-                        const renamed = renameLine(lines, line.id, next);
-                        phaseRef.current = { ...phaseRef.current, lines: renamed };
-                        setLines(renamed);
-                      }
-                      setEditing(null);
-                    }}
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    className="stack-edit"
-                    style={{ gridColumn: `${layout.descriptionSpan.start} / span ${layout.descriptionSpan.length}` }}
-                    aria-label={`Edit description, ${line.description}`}
-                    onPointerDown={(event) => event.stopPropagation()}
-                    onClick={() => {
-                      setEditDraft(layout.description);
-                      setEditing(line.id);
-                    }}
-                  >
-                    <SplitFlap text={layout.description} width={layout.descriptionCap} instant={boardInstant} />
-                  </button>
-                )
+                <DescriptionFlaps
+                  label={line.description}
+                  text={editing === line.id ? editDraft : layout.description}
+                  cap={layout.descriptionCap}
+                  active={editing === line.id}
+                  cursor={editCursor}
+                  instant={boardInstant}
+                  style={{ gridColumn: `${layout.descriptionSpan.start} / span ${layout.descriptionSpan.length}` }}
+                  onActivate={(index) => activateDescription(line.id, layout.description, layout.descriptionCap, index)}
+                  onMove={(index) => moveDescription(line.id, index)}
+                  onType={(raw) => typeDescription(line.id, raw)}
+                  onBackspace={() => backspaceDescription(line.id)}
+                  onPaste={(raw) => pasteDescription(line.id, raw)}
+                  onCommit={() => commitDescriptionDraft(line.id)}
+                  onCancel={() => cancelDescriptionDraft(line.id)}
+                />
               ) : null}
               {lockFlap(" ", layout.tailGap, "gap")}
               {lockFlap(layout.purity, layout.puritySpan, "purity")}

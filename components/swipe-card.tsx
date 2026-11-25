@@ -29,7 +29,7 @@ import {
 /** Keys and presses that belong to the description editor, not the card. */
 function fromEditor(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
-  return target.closest("input, textarea, [contenteditable='true'], .stack-name, .stack-edit, .stack-lock, .stack-metal") != null;
+  return target.closest("input, textarea, [contenteditable='true'], .stack-key, .stack-edit, .stack-lock, .stack-metal") != null;
 }
 
 export function SwipeCard({
