@@ -1322,6 +1322,12 @@ html[data-ball="cobalt"] .pull-ball {
   /* Nothing, including a reeling chain, may paint above the name plate. Side travel stays open for the swipe. */
   clip-path: inset(0 -200vw -120px -200vw);
   --stack-h: 3px;
+  --pw: 6px;
+  --smoke: url(/plate/smoke-soft.png);
+  --crystal: url(/plate/crystal.png);
+  --hole14: url(/plate/hole.svg);
+  --link14-bL: url(/plate/link14-bL.svg);
+  --link14-bR: url(/plate/link14-bR.svg);
 }
 
 .split-stack:has(.stack-swipe.is-raised) {
@@ -1487,19 +1493,16 @@ html[data-ball="cobalt"] .pull-ball {
   grid-template-columns: repeat(var(--flap-cols, 19), minmax(0, 1fr));
   column-gap: 1.5px;
   row-gap: 2px;
+  box-sizing: border-box;
   min-width: 0;
   min-height: var(--card-h);
-  padding: 8px;
+  border: var(--pw) solid transparent;
+  padding: calc(8px - var(--pw));
   border-radius: 8px;
   background:
     linear-gradient(#0f0f0f, #0f0f0f) content-box,
-    linear-gradient(165deg, rgba(90, 58, 32, 0.55), rgba(18, 10, 6, 0.72)) border-box,
-    #1c120c;
-  box-shadow:
-    inset 0 0 0 1px #2a160c,
-    inset 0 0 0 3px #c4963e,
-    inset 0 0 0 4px #3a2416,
-    0 2px 0 rgba(0, 0, 0, 0.35);
+    linear-gradient(180deg, #1d1612, #0c0907) padding-box;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.9);
 }
 
 .stack-kicker-next {
@@ -1757,9 +1760,8 @@ html[data-ball="cobalt"] .pull-ball {
   overflow: visible;
   border-radius: 10px;
   touch-action: pan-y;
-  background:
-    linear-gradient(180deg, #3a2416, #1a0e08);
-  box-shadow: inset 0 0 0 1px rgba(196, 150, 62, 0.35);
+  background: none;
+  box-shadow: none;
 }
 
 .stack-swipe-delete {
@@ -1944,7 +1946,10 @@ html[data-ball="cobalt"] .pull-ball {
   pointer-events: none;
 }
 
-.stack-swipe.is-reeled .chain-half {
+.stack-swipe.is-reeled .chain-half,
+.stack-swipe.is-reeled .mock-plate,
+.stack-swipe.is-reeled .mock-hole,
+.stack-swipe.is-reeled .mock-link {
   transform: translateY(calc(-1 * var(--lift, 0px)));
   transition: transform 520ms cubic-bezier(0.22, 0.8, 0.2, 1);
 }
@@ -2020,13 +2025,8 @@ html[data-ball="cobalt"] .pull-ball {
 }
 
 .stack-swipe.is-raised .stack-card {
-  background:
-    linear-gradient(#0f0f0f, #0f0f0f) content-box,
-    linear-gradient(165deg, #5c3a22, #24150e 58%, #140c08) border-box;
   box-shadow:
-    inset 0 0 0 1px #2a160c,
-    inset 0 0 0 3px #c4963e,
-    inset 0 0 0 4px #3a2416,
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.9),
     0 14px 24px rgba(0, 0, 0, 0.5);
 }
 
@@ -2062,17 +2062,13 @@ html[data-ball="cobalt"] .pull-ball {
   box-sizing: border-box;
   min-height: var(--card-h);
   margin: 8px 0 0;
-  padding: 8px;
+  border: var(--pw) solid transparent;
+  padding: calc(8px - var(--pw));
   border-radius: 8px;
   background:
     linear-gradient(#0f0f0f, #0f0f0f) content-box,
-    linear-gradient(165deg, rgba(90, 58, 32, 0.55), rgba(18, 10, 6, 0.72)) border-box,
-    #1c120c;
-  box-shadow:
-    inset 0 0 0 1px #2a160c,
-    inset 0 0 0 3px #c4963e,
-    inset 0 0 0 4px #3a2416,
-    0 2px 0 rgba(0, 0, 0, 0.35);
+    linear-gradient(180deg, #1d1612, #0c0907) padding-box;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.9);
 }
 
 .split-total-word,
@@ -2313,6 +2309,7 @@ html[data-ball="cobalt"] .pull-ball {
 }
 
 .chain-half {
+  display: none;
   position: absolute;
   z-index: 1;
   box-sizing: border-box;
@@ -2339,7 +2336,7 @@ html[data-ball="cobalt"] .pull-ball {
 
 .stack-rails {
   position: absolute;
-  z-index: 0;
+  z-index: -2;
   top: 0;
   right: 0;
   bottom: 0;
@@ -2348,17 +2345,144 @@ html[data-ball="cobalt"] .pull-ball {
   pointer-events: none;
 }
 
+.split-stack:not(.is-arriving) .stack-rails:not(.is-winch) {
+  opacity: 0;
+}
+
 .stack-rails span {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 12px;
-  /* Anchored to the Total, so a new card pays chain out from under the plate and a delete reels it back in. */
-  background: radial-gradient(ellipse at 50% 8px, transparent 0 4px, #c4963e 5px 6.5px, transparent 7.5px) center bottom / 12px 16px repeat-y;
+  width: 6px;
+  background: linear-gradient(90deg, #2e1404, #a5602a 35%, #f2c08a 45%, #7a3e14 75%, #2e1404);
 }
 
-.stack-rails span[data-side="left"] { left: 96px; }
-.stack-rails span[data-side="right"] { right: 96px; }
+.stack-rails span[data-side="left"] { left: 100px; }
+.stack-rails span[data-side="right"] { right: 100px; }
+
+/* Copper-bronze ring. Six pixels of glass plus two of board keep the flaps eight pixels in. */
+.mock-plate,
+.mock-slot,
+.mock-glow,
+.mock-hole,
+.mock-link {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
+.mock-plate {
+  inset: 0;
+  z-index: -1;
+  border-radius: 8px;
+  background:
+    var(--smoke) center / 100% 100% no-repeat,
+    linear-gradient(180deg, rgba(240, 156, 40, 0.56) 0%, rgba(206, 112, 16, 0.54) 45%, rgba(160, 70, 4, 0.70) 80%, rgba(104, 40, 0, 0.90) 100%),
+    linear-gradient(#140e0a, #140e0a);
+  box-shadow:
+    0 0.5px 1px rgba(0, 0, 0, 0.7),
+    0 3px 7px rgba(0, 0, 0, 0.45),
+    0 4px 12px rgba(214, 128, 28, 0.16);
+}
+
+.mock-plate::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background:
+    radial-gradient(ellipse 22% 2.6px at 24% 1.6px, rgba(255, 250, 236, 0.85), rgba(255, 240, 210, 0) 100%),
+    radial-gradient(ellipse 14% 2px at 78% 1.4px, rgba(255, 246, 226, 0.45), rgba(255, 240, 210, 0) 100%),
+    linear-gradient(180deg, rgba(255, 214, 140, 0.30) 0, rgba(255, 200, 110, 0.08) 1.6px, rgba(255, 200, 110, 0) 2.6px);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 238, 200, 0.85),
+    inset 0 0 0 0.6px rgba(96, 38, 0, 0.55),
+    inset 0 -0.8px 0 rgba(70, 24, 0, 0.6),
+    inset 0 -2.2px 1.2px -1px rgba(255, 176, 70, 0.40);
+}
+
+.mock-plate::before {
+  content: "";
+  position: absolute;
+  inset: calc(var(--pw) - 0.6px);
+  border-radius: 3px;
+  box-shadow:
+    0 0 0 0.45px rgba(255, 222, 150, 0.85),
+    0 0 2.2px 1px rgba(255, 168, 50, 0.55);
+}
+
+.split-total > .mock-plate { inset: calc(-1 * var(--pw)); }
+
+.mock-slot,
+.mock-glow { display: none; }
+
+.stack-swipe.mock-lifted { z-index: 6; }
+
+.stack-swipe.mock-lifted .mock-slot {
+  display: block;
+  inset: var(--pw);
+  z-index: -1;
+  border-radius: 3px;
+  background:
+    radial-gradient(ellipse 55% 120% at 50% 80%, rgba(240, 253, 255, 0.80), rgba(170, 230, 255, 0.15) 55%, transparent 80%),
+    var(--crystal) center / cover;
+  box-shadow:
+    inset 0 2px 3px rgba(0, 25, 50, 0.6),
+    inset 0 0 0 0.6px rgba(225, 250, 255, 0.9),
+    inset 0 0 5px 1px rgba(200, 245, 255, 0.5);
+}
+
+.stack-swipe.mock-lifted .mock-glow {
+  display: block;
+  inset: var(--pw);
+  z-index: -1;
+  border-radius: 3px;
+  mix-blend-mode: screen;
+  box-shadow: 0 0 3px 0.5px rgba(170, 230, 255, 0.55), 0 -4px 12px 2px rgba(110, 195, 255, 0.30);
+}
+
+.stack-swipe.mock-lifted .stack-swipe-window {
+  z-index: 4;
+  transform: translateY(-20px) scale(1.04);
+}
+
+.stack-swipe.mock-lifted .stack-card {
+  filter: drop-shadow(0 0 0.5px rgba(200, 240, 255, 0.7)) drop-shadow(0 3px 7px rgba(140, 215, 255, 0.45)) drop-shadow(0 -7px 9px rgba(0, 0, 0, 0.55));
+}
+
+.mock-hole {
+  z-index: 1;
+  width: 6px;
+  height: 4px;
+  background: var(--hole14) center / 100% 100% no-repeat;
+}
+
+.mock-hole.is-left { left: 100px; }
+.mock-hole.is-right { right: 100px; }
+.mock-hole.is-top { top: 1px; }
+.mock-hole.is-bottom { bottom: 1px; }
+
+.split-total > .mock-hole.is-top { top: calc(1px - var(--pw)); }
+.split-total > .mock-hole.is-left { left: calc(100px - var(--pw)); }
+.split-total > .mock-hole.is-right { right: calc(100px - var(--pw)); }
+.split-stack-head > .mock-hole { z-index: 4; }
+
+.mock-link {
+  z-index: 3;
+  top: -13px;
+  width: 10px;
+  height: 18px;
+  background: var(--link14-bL) center / 100% 100% no-repeat;
+}
+
+.mock-link.is-left { left: 98px; background-image: var(--link14-bR); }
+.mock-link.is-right { right: 98px; background-image: var(--link14-bL); }
+
+.split-total > .mock-link { top: calc(-13px - var(--pw)); z-index: 2; }
+.split-total > .mock-link.is-left { left: calc(98px - var(--pw)); }
+.split-total > .mock-link.is-right { right: calc(98px - var(--pw)); }
+.split-stack:has(.mock-lifted) .split-total > .mock-link { z-index: 9; }
+.split-stack-head > .mock-link { top: calc(100% - 5px); z-index: 6; }
 
 [data-winch="card"] .chain-half-bottom {
   animation: chain-reel 520ms linear both;
@@ -2383,7 +2507,7 @@ html[data-ball="cobalt"] .pull-ball {
 }
 
 .split-stack.is-arriving .stack-rails {
-  z-index: 0;
+  z-index: -2;
   animation: stack-lower 250ms ease-out both;
 }
 

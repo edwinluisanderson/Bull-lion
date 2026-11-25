@@ -636,6 +636,10 @@ export function StackTable({
         <span data-side="right" />
       </div>
       <div className="split-stack-head" data-winch={plateWinch ? "plate" : undefined}>
+        <span className="mock-hole is-bottom is-left" aria-hidden="true" />
+        <span className="mock-hole is-bottom is-right" aria-hidden="true" />
+        <span className="mock-link is-left" aria-hidden="true" />
+        <span className="mock-link is-right" aria-hidden="true" />
         <span className="rivet" data-corner="tl" />
         <span className="rivet" data-corner="tr" />
         <span className="rivet" data-corner="bl" />
@@ -810,6 +814,7 @@ export function StackTable({
               winch={cover?.phase === "slide" && index === cover.index - 1}
               paying={false}
               lowering={false}
+              hanging={index > 0}
               cover={coverRole}
               coverShift={reeling ? cover.distance : 0}
               shell={shell}
@@ -903,8 +908,17 @@ export function StackTable({
         ref={totalNode}
         className={`split-total${cover?.phase === "slide" && !cover.tail ? " is-cover-front" : ""}${cover?.phase === "slide" && cover.tail ? " is-rise" : ""}`}
       >
-        <span className="chain-half chain-half-top" aria-hidden="true" />
-        <span className="chain-half chain-half-top is-right" aria-hidden="true" />
+        {lines.length > 0 ? (
+          <>
+            <span className="mock-link is-left" aria-hidden="true" />
+            <span className="mock-link is-right" aria-hidden="true" />
+          </>
+        ) : null}
+        <span className="mock-plate" aria-hidden="true" />
+        <span className="mock-slot" aria-hidden="true" />
+        <span className="mock-glow" aria-hidden="true" />
+        <span className="mock-hole is-top is-left" aria-hidden="true" />
+        <span className="mock-hole is-top is-right" aria-hidden="true" />
         <span className="sr-only">
           {lines.length === 0 ? "Let's get stacking!" : `Total ${formatTotalAmount(stackSum)}`}
         </span>

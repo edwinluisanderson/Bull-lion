@@ -44,6 +44,7 @@ export function SwipeCard({
   winch = false,
   paying = false,
   lowering = false,
+  hanging = false,
   onOpen,
   onClose,
   onDelete,
@@ -67,6 +68,8 @@ export function SwipeCard({
   paying?: boolean;
   /** The stack is easing down to make room for this card. */
   lowering?: boolean;
+  /** This row hangs below another row, so it owns the link threaded into the row above. */
+  hanging?: boolean;
   onOpen: () => void;
   onClose: () => void;
   onDelete: () => void;
@@ -259,6 +262,19 @@ export function SwipeCard({
         marginBottom: shell?.marginBottom ? `${shell.marginBottom}px` : undefined,
       }}
     >
+      {hanging ? (
+        <>
+          <span className="mock-link is-left" aria-hidden="true" />
+          <span className="mock-link is-right" aria-hidden="true" />
+        </>
+      ) : null}
+      <span className="mock-plate" aria-hidden="true" />
+      <span className="mock-slot" aria-hidden="true" />
+      <span className="mock-glow" aria-hidden="true" />
+      <span className="mock-hole is-top is-left" aria-hidden="true" />
+      <span className="mock-hole is-top is-right" aria-hidden="true" />
+      <span className="mock-hole is-bottom is-left" aria-hidden="true" />
+      <span className="mock-hole is-bottom is-right" aria-hidden="true" />
       {alarm === "open" ? <div className="delete-alarm-glow" aria-hidden="true" /> : null}
       <span className="stack-empty-plate" aria-hidden="true" />
       <span className="chain-half chain-half-top" aria-hidden="true" />

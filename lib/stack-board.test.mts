@@ -258,7 +258,7 @@ test("the split-flap stack keeps its board and the flaps stay quiet when sound i
   assert.match(css, /\.split-stack-title \{[^}]*text-align:\s*center/);
   assert.match(css, /\.split-stack-head \{[^}]*justify-content:\s*center/);
   assert.match(css, /\.split-total \{[^}]*min-height:\s*var\(--card-h\)/);
-  assert.match(css, /\.split-total \{[^}]*padding:\s*8px/);
+  assert.match(css, /\.split-total \{[^}]*padding:\s*calc\(8px - var\(--pw\)\)/);
   assert.match(css, /\.split-total-word \{[^}]*justify-content:\s*center/);
   assert.match(css, /\.split-total-amount \{[^}]*repeat\(var\(--total-flaps, 13\)/);
   assert.equal(css.includes(".split-total-label"), false);
@@ -267,7 +267,7 @@ test("the split-flap stack keeps its board and the flaps stay quiet when sound i
   assert.match(css, /\.flap-bottom \{[^}]*background:\s*#000/);
   assert.match(css, /\.flap-bottom \{[^}]*border-top:\s*1px solid #1a1a1a/);
   assert.match(css, /\.flap-stack/);
-  assert.match(css, /\.stack-card \{[^}]*box-shadow:[^}]*#c4963e/);
+  assert.match(css, /\.mock-plate \{[^}]*border-radius:\s*8px/);
   assert.match(table, /data-rows=\{2\}/);
   assert.equal(table.includes("descriptionNeedsOwnRow"), false);
   assert.equal(table.includes("data-rows={3}"), false);

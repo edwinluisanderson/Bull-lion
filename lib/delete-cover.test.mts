@@ -108,7 +108,7 @@ test("chains stay behind the plates and a deleted plate reels up behind the one 
   assert.equal(plateHidden(60, 52), true);
   const chain = Number(css.match(/\.chain-half \{[^}]*z-index:\s*(\d+)/)?.[1]);
   const face = Number(css.match(/\.stack-swipe-face \{[^}]*z-index:\s*(\d+)/)?.[1]);
-  const rails = Number(css.match(/\.stack-rails \{[^}]*z-index:\s*(\d+)/)?.[1]);
+  const rails = Number(css.match(/\.stack-rails \{[^}]*z-index:\s*(-?\d+)/)?.[1]);
   const row = Number(css.match(/\.stack-swipe \{[^}]*z-index:\s*(\d+)/)?.[1]);
   assert.ok(chain < face);
   assert.ok(rails < row);

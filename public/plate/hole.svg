@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40" width="60" height="40"><defs>
+<linearGradient id="in" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#020100"/><stop offset="0.6" stop-color="#090402"/><stop offset="1" stop-color="#170b04"/></linearGradient>
+<linearGradient id="wall" x1="0" x2="0" y1="0" y2="1"><stop offset="0.55" stop-color="#8a5226" stop-opacity="0"/><stop offset="0.85" stop-color="#a86a36" stop-opacity="0.55"/><stop offset="1" stop-color="#d89a5e" stop-opacity="0.8"/></linearGradient>
+<linearGradient id="ch" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#1a0b03" stop-opacity="0.85"/><stop offset="0.5" stop-color="#1a0b03" stop-opacity="0.35"/><stop offset="0.8" stop-color="#f0c08a" stop-opacity="0.45"/><stop offset="1" stop-color="#ffd8a8" stop-opacity="0.75"/></linearGradient>
+<clipPath id="c"><ellipse cx="30" cy="20" rx="28.5" ry="18.5"/></clipPath></defs>
+<ellipse cx="30" cy="20" rx="29.6" ry="19.6" fill="none" stroke="url(#ch)" stroke-width="2"/>
+<ellipse cx="30" cy="20" rx="28.5" ry="18.5" fill="url(#in)"/>
+<g clip-path="url(#c)"><path fill-rule="evenodd" fill="url(#wall)" d="M1.5 20 A28.5 18.5 0 1 0 58.5 20 A28.5 18.5 0 1 0 1.5 20 Z M1.5 15 A28.5 18.5 0 1 0 58.5 15 A28.5 18.5 0 1 0 1.5 15 Z"/></g>
+<ellipse cx="30" cy="23" rx="27.5" ry="17.5" fill="none" stroke="#5a3214" stroke-width="0.9" stroke-opacity="0.55" clip-path="url(#c)"/>
+<path fill-rule="evenodd" fill="#000" fill-opacity="0.55" clip-path="url(#c)" d="M1.5 20 A28.5 18.5 0 1 0 58.5 20 A28.5 18.5 0 1 0 1.5 20 Z M1.5 25 A28.5 18.5 0 1 0 58.5 25 A28.5 18.5 0 1 0 1.5 25 Z"/>
+<ellipse cx="30" cy="20" rx="28.5" ry="18.5" fill="none" stroke="#120700" stroke-width="1.1"/>
+</svg>
