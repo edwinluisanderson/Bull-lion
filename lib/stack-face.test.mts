@@ -172,10 +172,11 @@ test("the name plate is at least a card tall and arriving rings stay under it", 
   assert.match(css, /\.split-total > \.mock-plate::before \{[^}]*content:\s*none/);
   assert.match(css, /\.split-total > \.mock-link \{[^}]*top:\s*calc\(-13px - var\(--pw\)\)/);
   const board = css.slice(css.indexOf(".stack-card {\n  position: relative"), css.indexOf(".stack-kicker-next"));
-  assert.match(board, /linear-gradient\(#0f0f0f, #0f0f0f\) content-box/);
-  assert.equal(board.includes("padding-box"), false);
+  assert.match(board, /linear-gradient\(#0f0f0f, #0f0f0f\) padding-box/);
+  assert.match(board, /padding:\s*4px calc\(8px - var\(--pw\)\) 0/);
   assert.match(css, /\.stack-swipe\.is-raised \.stack-card \{[^}]*box-shadow:\s*none/);
-  assert.match(css, /\.stack-swipe-face \{[^}]*clip-path:\s*inset\(8px round 3px\)/);
+  assert.match(css, /\.stack-swipe-face \{[^}]*clip-path:\s*inset\(var\(--open-y\) var\(--open-x\) round 3px\)/);
+  assert.match(css, /\.split-total-word,\s*\.split-total-amount \{[^}]*background:\s*#0f0f0f/);
   assert.match(css, /\.stack-edit\.is-locked \{[^}]*pointer-events:\s*none/);
 });
 
@@ -184,7 +185,7 @@ test("the stack column stays a centered 480px band and the phone card still hugs
   assert.match(css, /\.split-stack \{[^}]*margin:\s*0 auto/);
   assert.match(css, /\.split-stack \{[^}]*width:\s*100%/);
   assert.match(css, /\.split-stack \{[^}]*container-type:\s*inline-size/);
-  assert.match(css, /\.stack-card \{[^}]*padding:\s*calc\(8px - var\(--pw\)\)/);
+  assert.match(css, /\.stack-card \{[^}]*padding:\s*4px calc\(8px - var\(--pw\)\) 0/);
   assert.equal(css.includes("@media (min-width: 480px)"), false);
   const cardRule = css.slice(css.indexOf(".stack-card {"), css.indexOf(".stack-card {") + 500);
   assert.equal(cardRule.includes("container-type"), false);

@@ -22,6 +22,7 @@ test("a sideways drag locks to the track and a vertical move keeps scrolling", (
   assert.equal(clampSwipe(-12), 0);
   assert.equal(clampSwipe(40), 40);
   assert.equal(clampSwipe(200), SWIPE_REVEAL_PX);
+  assert.equal(SWIPE_REVEAL_PX, 76);
 });
 
 test("a fast fling only opens the card, and a later lever tap is what deletes", () => {
@@ -55,6 +56,13 @@ test("the card slides on a vertical-scroll track and the clicks share the flap l
   assert.match(card, /leverTapDeletes/);
   assert.match(card, /playSwipeTone\("clunk"\)/);
   assert.match(css, /\.stack-swipe-plate \{[^}]*repeating-linear-gradient\(-45deg/);
+  assert.match(css, /\.stack-swipe-plate \{[^}]*border-radius:\s*3px 0 0 3px/);
+  assert.match(css, /\.stack-swipe-plate \{[^}]*inset:\s*0/);
+  assert.match(css, /\.stack-swipe-delete \{[^}]*width:\s*var\(--reveal, 76px\)/);
+  assert.match(css, /\.stack-swipe-delete \{[^}]*left:\s*var\(--open-x\)/);
+  assert.match(css, /\.stack-swipe-delete \{[^}]*top:\s*var\(--open-y\)/);
+  assert.match(css, /\.stack-swipe \{[^}]*--open-y:\s*var\(--pw\)/);
+  assert.match(css, /\.stack-swipe \{[^}]*--open-x:\s*8px/);
   assert.match(css, /\.stack-swipe-push \{[^}]*border-radius:\s*50%/);
   assert.match(css, /\.stack-swipe-push \{[^}]*0 0 0 4px #111/);
   assert.match(css, /\.stack-swipe:not\(\.is-raised\) \.stack-swipe-delete \{[^}]*visibility:\s*hidden/);
