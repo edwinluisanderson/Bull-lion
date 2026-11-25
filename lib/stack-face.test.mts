@@ -133,9 +133,9 @@ test("a new card stays blank until the chain has paid out", () => {
   assert.equal(arrivalShowsBlank(null), false);
   assert.match(css, /left:\s*96px/);
   assert.match(css, /\.chain-half/);
-  assert.match(css, /card-unspool/);
-  assert.match(css, /animation:\s*stack-lower 250ms ease-out forwards/);
-  assert.match(table, /payingId/);
+  assert.match(css, /animation:\s*stack-lower 250ms ease-out both/);
+  assert.match(css, /translateY\(calc\(-1 \* var\(--pay-drop\)\)\)/);
+  assert.match(table, /is-arriving/);
   assert.match(table, /STACK_LOWER_MS/);
   assert.match(table, /motionReduced\(\)/);
   const arrival = table.slice(table.indexOf("function beginArrival"));
@@ -150,11 +150,11 @@ test("the chain is clipped to the stack and ends at the last joint", () => {
   assert.match(css, /\.stack-rails span \{[^}]*bottom:\s*0/);
   assert.match(css, /center bottom \/ 12px 16px repeat-y/);
   assert.match(css, /\.split-stack \{[^}]*clip-path:\s*inset\(0 -200vw -120px -200vw\)/);
-  assert.match(css, /\.stack-swipe\.is-paying > \.stack-swipe-window,\s*\.stack-swipe\.is-lowering > \.stack-swipe-window/);
+  assert.match(css, /\.split-stack\.is-arriving \.stack-rails \{[^}]*z-index:\s*0/);
   assert.equal(/\.stack-rails span \{[^}]*height:\s*\d+px/.test(css), false);
   assert.match(css, /\.split-total \{[^}]*position:\s*relative/);
-  assert.match(css, /animation:\s*stack-lower 250ms ease-out forwards/);
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\.stack-swipe\.is-lowering[\s\S]*?animation:\s*none/);
+  assert.match(css, /animation:\s*stack-lower 250ms ease-out both/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\.split-stack\.is-arriving \.split-rows[\s\S]*?animation:\s*none/);
 });
 
 test("the stack column stays a centered 480px band and the phone card still hugs", () => {

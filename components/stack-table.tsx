@@ -59,7 +59,7 @@ import {
 import { backspaceFlap, moveFlapCursor, openFlapCursor, pasteFlaps, typeFlapChar } from "@/lib/flap-edit";
 import { commitDescription, detailLayout, cardMoneyRow, metalTone, type FlapSpan } from "@/lib/stack-face";
 import { freshCardSnaps } from "@/lib/stack-flips";
-import { CHAIN_PAY_MS, STACK_LOWER_MS } from "@/lib/stack-motion";
+import { STACK_LOWER_MS } from "@/lib/stack-motion";
 import { stackCsvFilename } from "@/lib/stack-csv";
 import { stackExport, stackExportChoices, type StackExportKind } from "@/lib/stack-export";
 import { formatTotalAmount, totalBoardCopy } from "@/lib/stack-total";
@@ -571,17 +571,10 @@ export function StackTable({
       if (loweringRef.current !== incoming.id) return;
       loweringRef.current = null;
       setLoweringId(null);
-      payingRef.current = incoming.id;
-      setPayingId(incoming.id);
-      window.setTimeout(() => {
-        if (payingRef.current !== incoming.id) return;
-        payingRef.current = null;
-        setPayingId(null);
-      }, CHAIN_PAY_MS);
     }, STACK_LOWER_MS);
     window.setTimeout(() => {
       if (paidRef.current === incoming.id) releaseQueue(incoming.id);
-    }, STACK_LOWER_MS + CHAIN_PAY_MS + FLAP_CAP_MS + 400);
+    }, STACK_LOWER_MS + FLAP_CAP_MS + 400);
   }
 
   function landNewest(finalLines: StackLine[]) {
@@ -637,7 +630,7 @@ export function StackTable({
   const plateWinch = cover?.phase === "slide" && cover.index === 0;
 
   return (
-    <section ref={boardRef} className="split-stack" aria-label="My Stack">
+    <section ref={boardRef} className={`split-stack${loweringId ? " is-arriving" : ""}`} aria-label="My Stack">
       <div className={`stack-rails${plateWinch ? " is-winch" : ""}`} aria-hidden="true">
         <span data-side="left" />
         <span data-side="right" />
@@ -815,8 +808,8 @@ export function StackTable({
               locked={deleteRowLocked(shift !== null, blank, cover?.id ?? null, line?.id ?? null)}
               leaving={line != null && cover?.id === line.id}
               winch={cover?.phase === "slide" && index === cover.index - 1}
-              paying={line != null && payingId === line.id}
-              lowering={line != null && loweringId === line.id}
+              paying={false}
+              lowering={false}
               cover={coverRole}
               coverShift={reeling ? cover.distance : 0}
               shell={shell}

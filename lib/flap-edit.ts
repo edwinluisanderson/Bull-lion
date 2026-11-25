@@ -33,6 +33,12 @@ export function openFlapCursor(text: string, cap: number, cursor = 0): FlapCurso
   return { text: flapsToDraft(chars), cursor: place(cursor, width), cap: width };
 }
 
+/** The last flap already holds a character, so another letter must not replace it. */
+function lastFlapFull(chars: readonly string[], cap: number): boolean {
+  if (cap <= 0) return true;
+  return (chars[cap - 1] ?? " ") !== " ";
+}
+
 /** Overwrite the highlighted flap and move the highlight one step to the right. */
 export function typeFlapChar(state: FlapCursor, raw: string): FlapCursor {
   if (state.cap <= 0) return state;
@@ -40,8 +46,9 @@ export function typeFlapChar(state: FlapCursor, raw: string): FlapCursor {
   if (!char) return state;
   const next = cells(state.text, state.cap);
   const at = place(state.cursor, state.cap);
+  if (at === state.cap - 1 && lastFlapFull(next, state.cap)) return state;
   next[at] = char;
-  return { text: flapsToDraft(next), cursor: Math.min(at + 1, state.cap - 1), cap: state.cap };
+  return { text: flapsToDraft(next), cursor: at < state.cap - 1 ? at + 1 : at, cap: state.cap };
 }
 
 /**
@@ -72,6 +79,7 @@ export function pasteFlaps(state: FlapCursor, raw: string): FlapCursor {
   let wrote = 0;
   for (const char of incoming) {
     if (at >= state.cap) break;
+    if (at === state.cap - 1 && lastFlapFull(next, state.cap)) break;
     next[at] = char;
     at += 1;
     wrote += 1;

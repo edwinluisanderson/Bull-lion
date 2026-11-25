@@ -33,13 +33,13 @@ test("the highlight stops on the last description flap", () => {
   assert.equal(state.text, "   Z");
   assert.equal(state.cursor, 3);
   state = typeFlapChar(state, "Q");
-  assert.equal(state.text, "   Q");
+  assert.equal(state.text, "   Z");
   assert.equal(state.cursor, 3);
   assert.equal([...state.text].length <= state.cap, true);
   const full = typeFlapChar(typeFlapChar(openFlapCursor("", 2, 0), "A"), "B");
   assert.equal(full.text, "AB");
   assert.equal(full.cursor, 1);
-  assert.equal(typeFlapChar(full, "C").text, "AC");
+  assert.equal(typeFlapChar(full, "C").text, "AB");
 });
 
 test("backspace clears the highlighted flap, or the previous one when it is empty", () => {
@@ -62,12 +62,15 @@ test("paste fills flaps from the highlight and stops at the cap", () => {
   assert.equal(mid.text, "JCOIN");
   assert.equal(mid.cursor, 5);
   const capped = pasteFlaps(openFlapCursor("JUNK", 4, 0), "PASTE THIS WHOLE SENTENCE");
-  assert.equal(capped.text, "PAST");
+  assert.equal(capped.text, "PASK");
   assert.equal(capped.cursor, 3);
   assert.equal(capped.text.length <= capped.cap, true);
   const tail = pasteFlaps(openFlapCursor("JUNK", 4, 3), "XYZ");
-  assert.equal(tail.text, "JUNX");
+  assert.equal(tail.text, "JUNK");
   assert.equal(tail.cursor, 3);
+  const emptyTail = pasteFlaps(openFlapCursor("JUN", 4, 3), "XYZ");
+  assert.equal(emptyTail.text, "JUNX");
+  assert.equal(emptyTail.cursor, 3);
   assert.equal(pasteFlaps(openFlapCursor("JUNK", 4, 0), "###").text, "JUNK");
 });
 

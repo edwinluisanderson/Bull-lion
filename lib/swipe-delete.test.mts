@@ -58,6 +58,12 @@ test("the card slides on a vertical-scroll track and the clicks share the flap l
   assert.match(css, /\.stack-swipe-push \{[^}]*border-radius:\s*50%/);
   assert.match(css, /\.stack-swipe-push \{[^}]*0 0 0 4px #111/);
   assert.match(css, /\.stack-swipe:not\(\.is-raised\) \.stack-swipe-delete \{[^}]*visibility:\s*hidden/);
+  assert.match(css, /\.stack-swipe-window \{[^}]*pointer-events:\s*none/);
+  assert.match(css, /\.stack-swipe-face \{[^}]*pointer-events:\s*auto/);
+  assert.match(card, /onClick=\{onLeverClick\}/);
+  const lever = card.slice(card.indexOf('className="stack-swipe-delete"'), card.indexOf("stack-swipe-plate"));
+  assert.match(lever, /onClick=\{onLeverClick\}/);
+  assert.equal(lever.includes("pointer-events"), false);
   assert.match(card, /onOpen/);
   assert.match(sound, /function playSwipeTone/);
   assert.match(sound, /flapSum\(ctx\)/);
