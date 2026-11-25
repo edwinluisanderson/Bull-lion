@@ -281,28 +281,30 @@ export function SwipeCard({
           <span className="stack-swipe-push" />
         </span>
       </button>
-      <div
-        ref={faceRef}
-        className={dragging ? "stack-swipe-face is-dragging" : "stack-swipe-face"}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={finish}
-        onPointerCancel={finish}
-        onKeyDown={(event) => {
-          if (fromEditor(event.target) || fromEditor(document.activeElement)) return;
-          if (event.key !== "Backspace" && event.key !== "Delete") return;
-          event.preventDefault();
-          event.stopPropagation();
-        }}
-        onBeforeInput={(event) => {
-          if (fromEditor(event.target)) return;
-          const inputType = (event.nativeEvent as InputEvent).inputType;
-          if (inputType !== "deleteContentBackward" && inputType !== "deleteContentForward") return;
-          event.preventDefault();
-        }}
-        tabIndex={0}
-      >
-        {children}
+      <div className={`stack-swipe-window${paying || lowering ? " is-masked" : ""}`}>
+        <div
+          ref={faceRef}
+          className={dragging ? "stack-swipe-face is-dragging" : "stack-swipe-face"}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={finish}
+          onPointerCancel={finish}
+          onKeyDown={(event) => {
+            if (fromEditor(event.target) || fromEditor(document.activeElement)) return;
+            if (event.key !== "Backspace" && event.key !== "Delete") return;
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onBeforeInput={(event) => {
+            if (fromEditor(event.target)) return;
+            const inputType = (event.nativeEvent as InputEvent).inputType;
+            if (inputType !== "deleteContentBackward" && inputType !== "deleteContentForward") return;
+            event.preventDefault();
+          }}
+          tabIndex={0}
+        >
+          {children}
+        </div>
       </div>
     </li>
   );

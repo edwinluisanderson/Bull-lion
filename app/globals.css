@@ -1319,6 +1319,8 @@ html[data-ball="cobalt"] .pull-ball {
   box-shadow: none;
   /* The column is the container. Cards must not query themselves, or cqw falls back to the viewport. */
   container-type: inline-size;
+  /* Nothing, including a reeling chain, may paint above the name plate. Side travel stays open for the swipe. */
+  clip-path: inset(0 -200vw -120px -200vw);
 }
 
 .split-stack:has(.stack-swipe.is-raised) {
@@ -2261,7 +2263,8 @@ html[data-ball="cobalt"] .pull-ball {
   top: 0;
   bottom: 0;
   width: 12px;
-  background: radial-gradient(ellipse at 50% 8px, transparent 0 4px, #c4963e 5px 6.5px, transparent 7.5px) 0 0 / 12px 16px repeat-y;
+  /* Anchored to the Total, so a new card pays chain out from under the plate and a delete reels it back in. */
+  background: radial-gradient(ellipse at 50% 8px, transparent 0 4px, #c4963e 5px 6.5px, transparent 7.5px) center bottom / 12px 16px repeat-y;
 }
 
 .stack-rails span[data-side="left"] { left: 96px; }
@@ -2284,9 +2287,25 @@ html[data-ball="cobalt"] .pull-ball {
   animation: stack-lower 250ms ease-out forwards;
 }
 
-.stack-swipe.is-lowering > .stack-swipe-face {
+.stack-swipe-window {
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+  min-height: 0;
+}
+
+.stack-swipe-window.is-masked {
+  overflow: hidden;
+}
+
+.stack-swipe.is-paying > .stack-swipe-window,
+.stack-swipe.is-lowering > .stack-swipe-window {
   min-height: 0;
   overflow: hidden;
+}
+
+.stack-swipe.is-lowering .stack-swipe-face {
+  min-height: 0;
   transform: translateY(calc(-120% - 36px));
 }
 

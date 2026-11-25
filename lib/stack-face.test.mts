@@ -148,6 +148,9 @@ test("the chain is clipped to the stack and ends at the last joint", () => {
   assert.match(css, /\.stack-rails \{[^}]*overflow:\s*hidden/);
   assert.match(css, /\.stack-rails span \{[^}]*top:\s*0/);
   assert.match(css, /\.stack-rails span \{[^}]*bottom:\s*0/);
+  assert.match(css, /center bottom \/ 12px 16px repeat-y/);
+  assert.match(css, /\.split-stack \{[^}]*clip-path:\s*inset\(0 -200vw -120px -200vw\)/);
+  assert.match(css, /\.stack-swipe\.is-paying > \.stack-swipe-window,\s*\.stack-swipe\.is-lowering > \.stack-swipe-window/);
   assert.equal(/\.stack-rails span \{[^}]*height:\s*\d+px/.test(css), false);
   assert.match(css, /\.split-total \{[^}]*position:\s*relative/);
   assert.match(css, /animation:\s*stack-lower 250ms ease-out forwards/);
