@@ -1312,7 +1312,8 @@ html[data-ball="cobalt"] .pull-ball {
   z-index: 4;
   box-sizing: border-box;
   width: 100%;
-  margin: 0;
+  max-width: 480px;
+  margin: 0 auto;
   padding: 0;
   background: none;
   box-shadow: none;
@@ -2204,6 +2205,27 @@ html[data-ball="cobalt"] .pull-ball {
   to { transform: translateY(-10px); }
 }
 
+.stack-swipe.is-lowering {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-bottom: -8px;
+  overflow: hidden;
+  animation: stack-lower 250ms ease-out forwards;
+}
+
+.stack-swipe.is-lowering > .stack-swipe-face {
+  min-height: 0;
+  overflow: hidden;
+  transform: translateY(calc(-120% - 36px));
+}
+
+@keyframes stack-lower {
+  to {
+    grid-template-rows: 1fr;
+    margin-bottom: 0px;
+  }
+}
+
 .stack-swipe.is-paying .stack-swipe-face {
   animation: card-unspool 520ms cubic-bezier(0.16, 0.84, 0.32, 1) both;
 }
@@ -2214,6 +2236,7 @@ html[data-ball="cobalt"] .pull-ball {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .stack-swipe.is-lowering,
   .stack-swipe.is-paying .stack-swipe-face,
   [data-winch="card"] .chain-half-bottom,
   .stack-rails.is-winch span {

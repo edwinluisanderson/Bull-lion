@@ -55,7 +55,7 @@ import {
 } from "@/lib/stack-cascade";
 import { cardDetail, cardMoneyRow, metalTone } from "@/lib/stack-face";
 import { freshCardSnaps } from "@/lib/stack-flips";
-import { CHAIN_PAY_MS } from "@/lib/stack-motion";
+import { CHAIN_PAY_MS, STACK_LOWER_MS } from "@/lib/stack-motion";
 import { stackCsvFilename } from "@/lib/stack-csv";
 import { stackExport, stackExportChoices, type StackExportKind } from "@/lib/stack-export";
 import { formatTotalAmount, totalBoardCopy } from "@/lib/stack-total";
@@ -139,8 +139,10 @@ export function StackTable({
   const snapFresh = useRef(new Set<string>());
   const [introVersion, setIntroVersion] = useState(0);
   const payingRef = useRef<string | null>(null);
+  const loweringRef = useRef<string | null>(null);
   const paidRef = useRef<string | null>(null);
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [loweringId, setLoweringId] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [precise, setPrecise] = useState<string | null>(null);
   const slackMark = useRef<string | null>(null);
@@ -255,7 +257,7 @@ export function StackTable({
     if (!ready) return;
     let changed = false;
     for (const line of linesRef.current) {
-      if (payingRef.current === line.id) continue;
+      if (payingRef.current === line.id || loweringRef.current === line.id) continue;
       if (decidedCards.current.has(line.id)) continue;
       decidedCards.current.add(line.id);
       const node = cardNodes.current.get(line.id) ?? null;
@@ -271,7 +273,7 @@ export function StackTable({
       changed = true;
     }
     if (changed) setIntroVersion((version) => version + 1);
-  }, [ready, lineKey, payingId]);
+  }, [ready, lineKey, payingId, loweringId]);
 
   useEffect(() => {
     snapFresh.current.clear();
@@ -459,7 +461,9 @@ export function StackTable({
     if (!phaseRef.current.cascading && paidRef.current == null) return;
     paidRef.current = null;
     payingRef.current = null;
+    loweringRef.current = null;
     setPayingId(null);
+    setLoweringId(null);
     phaseRef.current = { ...phaseRef.current, cascading: false };
     const result = finishPullCascade(phaseRef.current);
     phaseRef.current = result.phase;
@@ -483,16 +487,23 @@ export function StackTable({
       return;
     }
     paidRef.current = incoming.id;
-    payingRef.current = incoming.id;
-    setPayingId(incoming.id);
+    loweringRef.current = incoming.id;
+    setLoweringId(incoming.id);
     window.setTimeout(() => {
-      if (payingRef.current !== incoming.id) return;
-      payingRef.current = null;
-      setPayingId(null);
-    }, CHAIN_PAY_MS);
+      if (loweringRef.current !== incoming.id) return;
+      loweringRef.current = null;
+      setLoweringId(null);
+      payingRef.current = incoming.id;
+      setPayingId(incoming.id);
+      window.setTimeout(() => {
+        if (payingRef.current !== incoming.id) return;
+        payingRef.current = null;
+        setPayingId(null);
+      }, CHAIN_PAY_MS);
+    }, STACK_LOWER_MS);
     window.setTimeout(() => {
       if (paidRef.current === incoming.id) releaseQueue(incoming.id);
-    }, CHAIN_PAY_MS + FLAP_CAP_MS + 400);
+    }, STACK_LOWER_MS + CHAIN_PAY_MS + FLAP_CAP_MS + 400);
   }
 
   function landNewest(finalLines: StackLine[]) {
@@ -634,7 +645,7 @@ export function StackTable({
       <ul className="split-rows">
         {shown.map((line, index) => {
           const blank = line == null;
-          const dropping = line != null && payingId === line.id;
+          const dropping = line != null && (payingId === line.id || loweringId === line.id);
           const melt = blank ? null : rowMelt(priceFor(quotes, line.symbol), line.grams, line.qty);
           const money = blank || !line ? null : cardMoneyRow(line.qty, melt);
           const meltFace = blank || !line || !money ? null : faceFor(line.id, money.text);
@@ -713,6 +724,7 @@ export function StackTable({
               leaving={line != null && cover?.id === line.id}
               winch={cover?.phase === "slide" && index === cover.index - 1}
               paying={line != null && payingId === line.id}
+              lowering={line != null && loweringId === line.id}
               cover={coverRole}
               coverShift={sliding ? cover.distance : 0}
               shell={shell}

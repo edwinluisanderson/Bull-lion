@@ -36,6 +36,7 @@ export function SwipeCard({
   leaving = false,
   winch = false,
   paying = false,
+  lowering = false,
   onOpen,
   onClose,
   onDelete,
@@ -57,6 +58,8 @@ export function SwipeCard({
   winch?: boolean;
   /** The new card is still sliding out from behind the name plate. */
   paying?: boolean;
+  /** The stack is easing down to make room for this card. */
+  lowering?: boolean;
   onOpen: () => void;
   onClose: () => void;
   onDelete: () => void;
@@ -232,7 +235,7 @@ export function SwipeCard({
 
   return (
     <li
-      className={`stack-swipe${shown > 0 || leaving ? " is-raised" : ""}${leaving ? " is-departing" : ""}${paying ? " is-paying" : ""}${cover === "arm" || cover === "over" || shell ? " is-remnant" : ""}${cover === "arm" || cover === "over" ? " is-cover-ready" : ""}${cover === "over" ? " is-covering" : ""}${cover === "front" ? " is-cover-front" : ""}${shell ? " is-collapsing" : ""}`}
+      className={`stack-swipe${shown > 0 || leaving ? " is-raised" : ""}${leaving ? " is-departing" : ""}${paying ? " is-paying" : ""}${lowering ? " is-lowering" : ""}${cover === "arm" || cover === "over" || shell ? " is-remnant" : ""}${cover === "arm" || cover === "over" ? " is-cover-ready" : ""}${cover === "over" ? " is-covering" : ""}${cover === "front" ? " is-cover-front" : ""}${shell ? " is-collapsing" : ""}`}
       data-swipe-id={id}
       data-open={open ? "true" : "false"}
       data-alarm={alarm}

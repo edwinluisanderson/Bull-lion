@@ -5,7 +5,7 @@ import test from "node:test";
 import { MONEY_OVER, presentMoney } from "@/lib/melt-abbrev";
 import { cardBottom, cardDetail, cardMoneyRow, compactWeight, metalTone } from "@/lib/stack-face";
 import { stackExport, stackExportChoices, stackSheetRows } from "@/lib/stack-export";
-import { arrivalShowsBlank, CHAIN_INSET_PX, CHAIN_PAY_MS } from "@/lib/stack-motion";
+import { arrivalShowsBlank, CHAIN_INSET_PX, CHAIN_PAY_MS, STACK_LOWER_MS } from "@/lib/stack-motion";
 import { FLAP_ALPHABET, FLAP_CAP_MS, FLAP_DESCRIPTION, FLAP_STEP_MS, flapFrames, flapStride } from "@/lib/split-flap";
 import type { StackLine } from "@/lib/stack-board";
 
@@ -93,11 +93,25 @@ test("downloads keep one card row and a full-precision total", () => {
 test("a new card stays blank until the chain has paid out", () => {
   assert.equal(CHAIN_INSET_PX, 96);
   assert.equal(CHAIN_PAY_MS > 0, true);
+  assert.equal(STACK_LOWER_MS, 250);
   assert.equal(arrivalShowsBlank("drop"), true);
   assert.equal(arrivalShowsBlank("flip"), false);
   assert.equal(arrivalShowsBlank(null), false);
   assert.match(css, /left:\s*96px/);
   assert.match(css, /\.chain-half/);
   assert.match(css, /card-unspool/);
+  assert.match(css, /animation:\s*stack-lower 250ms ease-out forwards/);
   assert.match(table, /payingId/);
+  assert.match(table, /STACK_LOWER_MS/);
+  assert.match(table, /motionReduced\(\)/);
+  const arrival = table.slice(table.indexOf("function beginArrival"));
+  assert.ok(arrival.indexOf("motionReduced()") < arrival.indexOf("setLoweringId"));
+});
+
+test("the stack column stays a centered 480px band and the phone card still hugs", () => {
+  assert.match(css, /\.split-stack \{[^}]*max-width:\s*480px/);
+  assert.match(css, /\.split-stack \{[^}]*margin:\s*0 auto/);
+  assert.match(css, /\.split-stack \{[^}]*width:\s*100%/);
+  assert.match(css, /\.stack-card \{[^}]*padding:\s*8px/);
+  assert.equal(css.includes("@media (min-width: 480px)"), false);
 });
