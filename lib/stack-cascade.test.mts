@@ -277,7 +277,7 @@ test("a flap counts as on screen only when its own box meets the viewport", () =
   );
 });
 
-test("the stack wires the cascade and the total board stays under the title", () => {
+test("the stack wires the cascade and the total board hangs at the bottom", () => {
   assert.match(table, /Let's get stacking!/);
   assert.equal(table.includes("The board is clear."), false);
   assert.match(table, /split-total-word/);
@@ -286,8 +286,8 @@ test("the stack wires the cascade and the total board stays under the title", ()
   assert.match(table, /startCascade\(/);
   assert.match(table, /settleCascade\(/);
   assert.match(table, /totalBoardCopy\(/);
-  assert.ok(table.indexOf('className="split-stack-head"') < table.indexOf('className={`split-total'));
-  assert.ok(table.indexOf("split-total-amount") < table.indexOf('className="split-rows"'));
+  assert.ok(table.indexOf('className="split-stack-head"') < table.indexOf('className="split-rows"'));
+  assert.ok(table.indexOf('className="split-rows"') < table.indexOf("split-total-amount"));
   assert.match(flap, /trackFlippingFlap/);
   assert.match(flap, /is-instant/);
   assert.match(sound, /new IntersectionObserver/);

@@ -3,9 +3,11 @@
 import { useLayoutEffect, useState } from "react";
 
 import { AssayDialog, AssayInfoIcon } from "@/components/assay-dialog";
+import { RoundedLight } from "@/components/rounded-light";
 import { WheelReadout } from "@/components/wheel-readout";
-import { formatStamp } from "@/lib/format";
-import { meltWheelLabel } from "@/lib/melt-wheels";
+import { formatStamp, formatWholeDollars } from "@/lib/format";
+import { meltPlateRounded, meltWheelLabel } from "@/lib/melt-wheels";
+import { presentMoney } from "@/lib/melt-abbrev";
 import { LIVE_WIRE_TICK_MS, liveWireState } from "@/lib/live-wire";
 import type { WeightSpec } from "@/lib/metals";
 import type { MetalQuote, PriceBook } from "@/lib/price-book";
@@ -30,6 +32,9 @@ export function Readout({
   fetchedAt: string;
 }) {
   const total = meltValue(metal.usdPerTroyOz, weight.grams, pieces);
+  const plateRounded = meltPlateRounded(total);
+  const plateMoney = presentMoney(total, "$9,999,999".length);
+  const [exactOpen, setExactOpen] = useState(false);
   const [now, setNow] = useState<number | null>(null);
   useLayoutEffect(() => {
     const tick = () => setNow(Date.now());
@@ -63,7 +68,14 @@ export function Readout({
           <p className="plate-title">{metal.name}</p>
           <p className="readout-kicker melt-kicker">Melt Price</p>
         </div>
-        <WheelReadout value={meltWheelLabel(total)} />
+        {plateRounded ? (
+          <p className="melt-overflow">
+            {plateMoney.text}
+            <RoundedLight exact={formatWholeDollars(total)} open={exactOpen} onToggle={() => setExactOpen((open) => !open)} />
+          </p>
+        ) : (
+          <WheelReadout value={meltWheelLabel(total)} />
+        )}
         <p className="tagline">{formatStackPhrase(weight, pieces)}</p>
         <p className="lamp" data-state={wire} data-testid="price-source">
           <i />

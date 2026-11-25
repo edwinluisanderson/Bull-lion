@@ -1,49 +1,49 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { FLAP_TOTAL_COLUMNS, FLAP_TOTAL_WORD_COLUMNS, fitFlapMoney } from "@/lib/split-flap";
+import { FLAP_TOTAL_COLUMNS, FLAP_TOTAL_WORD_COLUMNS, fitFlapMoney, padFlap } from "@/lib/split-flap";
 import { TOTAL_BOARD_ID, TOTAL_WORD_ID, seedCascade, syncCascadeLines } from "@/lib/stack-cascade";
 import {
   STACK_EMPTY_MESSAGE,
   TOTAL_WORD,
   formatTotalAmount,
-  splitFlapRows,
   totalBoardCopy,
 } from "@/lib/stack-total";
 
-test("the empty message splits across the two total rows", () => {
-  const rows = splitFlapRows(STACK_EMPTY_MESSAGE, FLAP_TOTAL_WORD_COLUMNS, FLAP_TOTAL_COLUMNS);
-  assert.equal(rows.top, "LET'S GET");
-  assert.equal(rows.bottom, "STACKING!");
-  assert.ok([...rows.top].length <= FLAP_TOTAL_WORD_COLUMNS);
-  assert.ok([...rows.bottom].length <= FLAP_TOTAL_COLUMNS);
-
-  const empty = totalBoardCopy(0, "$0.00");
-  assert.equal(empty.top, "LET'S GET");
+test("the empty message fills both total rows", () => {
+  assert.equal(FLAP_TOTAL_WORD_COLUMNS, 18);
+  assert.equal(STACK_EMPTY_MESSAGE.includes("stacking"), true);
+  const empty = totalBoardCopy(0, "$0");
+  assert.equal(empty.top.trim(), "LET'S GET");
   assert.equal(empty.bottom.trim(), "STACKING!");
+  assert.equal(empty.top.length, FLAP_TOTAL_WORD_COLUMNS);
   assert.equal(empty.bottom.length, FLAP_TOTAL_COLUMNS);
-  assert.equal(empty.topWidth, "LET'S GET".length);
+  assert.equal(empty.topWidth, FLAP_TOTAL_WORD_COLUMNS);
   assert.equal(empty.bottomWidth, FLAP_TOTAL_COLUMNS);
+  assert.equal(empty.top.startsWith(" "), true);
+  assert.equal(empty.bottom.startsWith(" "), true);
 });
 
-test("the amount row is a fixed field for $9,999,999.99", () => {
+test("the amount row is whole dollars, left TOTAL and right amount", () => {
   assert.equal(FLAP_TOTAL_COLUMNS, 13);
-  assert.equal("$9,999,999.99".length, FLAP_TOTAL_COLUMNS);
-  assert.equal(formatTotalAmount(9999999.99), "$9,999,999.99");
-  assert.equal(formatTotalAmount(3551), "$3,551.00");
-  assert.equal(formatTotalAmount(0), "$0.00");
+  assert.equal(formatTotalAmount(9999999.99), "$10,000,000");
+  assert.equal(formatTotalAmount(3551), "$3,551");
+  assert.equal(formatTotalAmount(0), "$0");
   assert.equal(formatTotalAmount(null), "-");
-  const fitted = fitFlapMoney(formatTotalAmount(9999999.99), FLAP_TOTAL_COLUMNS);
+  const fitted = fitFlapMoney(formatTotalAmount(9999999), FLAP_TOTAL_COLUMNS);
   const small = fitFlapMoney(formatTotalAmount(30), FLAP_TOTAL_COLUMNS);
-  assert.equal(fitted, "$9,999,999.99");
+  assert.equal(fitted.endsWith("$9,999,999"), true);
   assert.equal(small.length, FLAP_TOTAL_COLUMNS);
   assert.equal(fitted.length, small.length);
 
   const filled = totalBoardCopy(2, formatTotalAmount(30));
-  assert.equal(filled.top, TOTAL_WORD);
-  assert.equal(filled.topWidth, TOTAL_WORD.length);
+  assert.equal(filled.top, padFlap(TOTAL_WORD, FLAP_TOTAL_WORD_COLUMNS));
+  assert.equal(filled.top.startsWith(TOTAL_WORD), true);
+  assert.equal(filled.top.endsWith(" "), true);
+  assert.equal(filled.topWidth, FLAP_TOTAL_WORD_COLUMNS);
   assert.equal(filled.bottomWidth, FLAP_TOTAL_COLUMNS);
-  assert.equal(filled.bottom.endsWith("$30.00"), true);
+  assert.equal(filled.bottom.endsWith("$30"), true);
+  assert.equal(filled.rounded, false);
 });
 
 test("the total flips between the invitation and TOTAL plus the amount", () => {
@@ -65,9 +65,10 @@ test("the total flips between the invitation and TOTAL plus the amount", () => {
   ]);
   const word = added.slots.find((slot) => slot.id === TOTAL_WORD_ID);
   const amount = added.slots.find((slot) => slot.id === TOTAL_BOARD_ID);
-  assert.equal(word?.committed, TOTAL_WORD);
+  assert.equal(word?.committed, filledCopy.top);
   assert.equal(word?.animate, true);
   assert.equal(amount?.committed, filledCopy.bottom);
+  assert.equal(filledCopy.top.startsWith(TOTAL_WORD), true);
   assert.equal(amount?.animate, true);
   assert.equal(added.slots.find((slot) => slot.id === "card")?.committed, "$80");
 

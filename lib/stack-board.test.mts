@@ -55,11 +55,12 @@ test("split flaps walk forward and jump when motion is reduced", () => {
   assert.deepEqual(flapFrames("C", "A", true), ["A"]);
   assert.equal(padFlap("gold 1 oz", 6), "GOLD 1");
   assert.equal(flapFrames(" ", "A").at(-1), "A");
-  assert.equal(FLAP_DESCRIPTION, FLAP_BOARD_COLUMNS);
-  assert.equal(FLAP_BOARD_COLUMNS, FLAP_METAL + FLAP_WEIGHT + FLAP_QTY + FLAP_MELT);
+  assert.equal(FLAP_BOARD_COLUMNS, 16);
+  assert.equal(FLAP_DESCRIPTION, FLAP_BOARD_COLUMNS - FLAP_METAL);
+  assert.equal(FLAP_METAL, 2);
   const long = "Pocket coin from the old drawer";
   assert.ok(flapText(long).length > FLAP_DESCRIPTION);
-  assert.equal(padFlap(long, FLAP_DESCRIPTION), "POCKET COIN FROM TH");
+  assert.equal(padFlap(long, FLAP_DESCRIPTION), "POCKET COIN FR");
   assert.equal(padFlap("Gold 1 oz", FLAP_DESCRIPTION).trimEnd(), "GOLD 1 OZ");
 });
 
@@ -76,7 +77,7 @@ test("TEMP_CLEAR_ALL empties every card", () => {
   assert.deepEqual(clearAllLines(), []);
 });
 
-test("adding a line asks before combining the same metal and weight", () => {
+test("adding a line keeps a matching metal and weight as its own card", () => {
   const first = proposeAdd([], gold, "a");
   assert.equal(first.status, "added");
   assert.equal(first.lines.length, 1);
@@ -85,16 +86,14 @@ test("adding a line asks before combining the same metal and weight", () => {
   assert.equal(defaultLineDescription("Platinum", "1 oz", 12), "Platinum");
 
   const again = proposeAdd(first.lines, { ...gold, qty: 2, description: "Gold 1 oz" }, "b");
-  assert.equal(again.status, "needs-choice");
-  if (again.status !== "needs-choice") return;
-  assert.equal(again.matchId, "a");
-  assert.equal(again.lines.length, 1);
+  assert.equal(again.status, "added");
+  if (again.status !== "added") return;
+  assert.equal(again.lines.length, 2);
+  assert.equal(again.lines[0]?.id, "b");
+  assert.equal(again.lines[0]?.qty, 2);
+  assert.equal(again.lines[1]?.id, "a");
 
-  const combined = resolveAdd(first.lines, { ...gold, qty: 2 }, "combine", "b");
-  assert.equal(combined.length, 1);
-  assert.equal(combined[0]?.qty, 3);
-
-  const separate = resolveAdd(first.lines, { ...gold, qty: 2 }, "separate", "b");
+  const separate = resolveAdd(first.lines, { ...gold, qty: 2 }, "combine", "b");
   assert.equal(separate.length, 2);
   assert.equal(separate[0]?.id, "b");
   assert.equal(separate[0]?.qty, 2);
@@ -143,11 +142,11 @@ test("new lines stay newest-first and the cascade walks downward", () => {
   const shifted = insertCascade(longExisting, { ...incoming, id: "d", description: "Gold 1 oz" });
   const landed = shifted[1]?.at(-1);
   assert.equal(landed?.id, "a");
-  assert.equal(padFlap(landed?.description ?? "", FLAP_DESCRIPTION), "POCKET COIN FROM TH");
+  assert.equal(padFlap(landed?.description ?? "", FLAP_DESCRIPTION), "POCKET COIN FR");
 
-  const combined = resolveAdd(newer.lines, { ...gold, grams: 1, qty: 4, description: "Gold 1 g" }, "combine", "z");
-  assert.deepEqual(combined.map((line) => line.id), ["b", "a"]);
-  assert.equal(combined[0]?.qty, 5);
+  const separate = resolveAdd(newer.lines, { ...gold, grams: 1, qty: 4, description: "Gold 1 g" }, "combine", "z");
+  assert.deepEqual(separate.map((line) => line.id), ["z", "b", "a"]);
+  assert.equal(separate[0]?.qty, 4);
 
   const store = memory();
   writeStack(store, newer.lines);
@@ -249,17 +248,17 @@ test("the split-flap stack keeps its board and the flaps stay quiet when sound i
   assert.match(table, /Remove \$\{line\.description\}/);
   assert.match(flap, /prefers-reduced-motion: reduce/);
   assert.match(css, /\.gear-panel \{[^}]*margin-top:\s*20px/);
-  assert.match(css, /\.flap-top span,\s*\.flap-bottom span,\s*\.flap-leaf span \{[^}]*transform:\s*translateY\(0\.06em\)/);
+  assert.match(css, /\.flap-top span,\s*\.flap-bottom span,\s*\.flap-leaf span \{[^}]*transform:\s*translateY\(-0\.06em\)/);
   assert.match(table, />My Stack</);
   assert.match(css, /\.split-stack-title \{[^}]*text-transform:\s*none/);
-  assert.match(css, /\.stack-card \{[^}]*--flap-font:\s*clamp\(\s*16px,/);
+  assert.match(css, /\.stack-card \{[^}]*--flap-font:\s*calc\(var\(--flap-h\) \* 0\.75\)/);
   assert.match(css, /\.stack-card \{[^}]*grid-template-columns:\s*repeat\(var\(--flap-cols/);
   assert.match(css, /\.stack-card \{[^}]*column-gap:\s*2px/);
   assert.match(css, /\.split-stack-title \{[^}]*font-size:\s*1\.5rem/);
   assert.match(css, /\.split-stack-title \{[^}]*text-align:\s*center/);
   assert.match(css, /\.split-stack-head \{[^}]*justify-content:\s*center/);
-  assert.match(css, /\.split-total \{[^}]*min-height:\s*calc\(10px \+ var\(--card-body\) \+ 11px\)/);
-  assert.match(css, /\.split-total \{[^}]*padding:\s*10px 8px 11px/);
+  assert.match(css, /\.split-total \{[^}]*min-height:\s*calc\(16px \+ var\(--card-body\)\)/);
+  assert.match(css, /\.split-total \{[^}]*padding:\s*8px/);
   assert.match(css, /\.split-total-word \{[^}]*justify-content:\s*center/);
   assert.match(css, /\.split-total-amount \{[^}]*repeat\(var\(--total-flaps, 13\)/);
   assert.equal(css.includes(".split-total-label"), false);
@@ -271,8 +270,10 @@ test("the split-flap stack keeps its board and the flaps stay quiet when sound i
   assert.equal(table.includes("descriptionNeedsOwnRow"), false);
   assert.equal(table.includes("data-rows={3}"), false);
   assert.match(table, /width=\{FLAP_DESCRIPTION\}/);
-  assert.match(table, /gridRow: 1 \}\}>\s*Description/);
-  assert.match(table, /gridRow: 3 \}\}>\s*Metal/);
+  assert.match(table, /gridRow: 1 \}\}>\s*\{blank \|\| dropping \? "" : line\.mark\.toUpperCase\(\)\}/);
+  assert.match(table, /stack-qty/);
+  assert.equal(table.includes(">Description<"), false);
+  assert.equal(table.includes(">Metal<"), false);
   assert.equal(table.includes("insertCascade"), false);
   assert.match(table, /prefers-reduced-motion: reduce/);
   assert.match(css, /\.split-stack \{/);

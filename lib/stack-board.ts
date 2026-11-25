@@ -60,10 +60,11 @@ export function matchingLine(lines: readonly StackLine[], draft: Pick<StackDraft
   return lines.find((line) => line.symbol === draft.symbol && sameWeight(line.grams, draft.grams));
 }
 
-/** A new line joins the top of the board, or waits if that metal and weight are already there. */
+/**
+ * A new line always joins the top as its own card.
+ * The same metal and weight do not merge, and ounce cards are not mixed into gram cards.
+ */
 export function proposeAdd(lines: readonly StackLine[], draft: StackDraft, newId = createLineId()): AddProposal {
-  const match = matchingLine(lines, draft);
-  if (match) return { status: "needs-choice", lines: [...lines], matchId: match.id };
   return { status: "added", lines: [lineFrom(draft, newId), ...lines] };
 }
 
@@ -73,11 +74,8 @@ export function resolveAdd(
   choice: "combine" | "separate",
   newId = createLineId(),
 ): StackLine[] {
-  if (choice === "separate") return [lineFrom(draft, newId), ...lines];
-  const match = matchingLine(lines, draft);
-  if (!match) return [lineFrom(draft, newId), ...lines];
-  const added = Math.max(1, Math.round(draft.qty));
-  return lines.map((line) => (line.id === match.id ? { ...line, qty: line.qty + added } : line));
+  void choice;
+  return [lineFrom(draft, newId), ...lines];
 }
 
 /** One face in the downward cascade. Null is the blank brass card. */

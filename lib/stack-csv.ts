@@ -55,14 +55,14 @@ export function stackToCsv(lines: readonly StackLine[], quotes: readonly StackCs
       line.weightLabel,
       csvNumber(line.grams, 7),
       spot == null ? "" : csvNumber(spot, 4),
-      melt == null ? "" : String(Math.round(melt)),
+      melt == null ? "" : csvNumber(melt, 2),
     ];
   });
   const quantity = lines.reduce((sum, line) => sum + Math.round(line.qty), 0);
   const meltTotal = lines.reduce((sum, line) => {
     const spot = quoteFor(quotes, line.symbol);
     const melt = rowMelt(spot, line.grams, line.qty);
-    return sum + (melt == null ? 0 : Math.round(melt));
+    return sum + (melt == null ? 0 : Math.round(melt * 100) / 100);
   }, 0);
   const total = ["Total", "", String(quantity), "", "", "", String(meltTotal)];
   const rows = [STACK_CSV_COLUMNS, ...body, total].map((row) => row.map(csvField).join(","));

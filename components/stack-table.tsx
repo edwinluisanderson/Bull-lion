@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { RoundedLight } from "@/components/rounded-light";
 import { SplitFlap } from "@/components/split-flap";
 import { DELETE_SHOOT_MS } from "@/lib/delete-alarm";
 import {
@@ -20,12 +21,10 @@ import { SwipeCard } from "@/components/swipe-card";
 import { unlockReelClick } from "@/lib/reel-click";
 import {
   FLAP_BOARD_COLUMNS,
+  FLAP_CAP_MS,
   FLAP_DESCRIPTION,
-  FLAP_MELT,
-  FLAP_METAL,
-  FLAP_QTY,
   FLAP_TOTAL_COLUMNS,
-  FLAP_WEIGHT,
+  FLAP_TOTAL_WORD_COLUMNS,
 } from "@/lib/split-flap";
 import {
   flapMoney,
@@ -54,9 +53,11 @@ import {
   type CascadeEffect,
   type CascadeSlot,
 } from "@/lib/stack-cascade";
-import { abbreviateMelt } from "@/lib/melt-abbrev";
+import { cardDetail, cardMoneyRow, metalTone } from "@/lib/stack-face";
 import { freshCardSnaps } from "@/lib/stack-flips";
-import { stackCsvFilename, stackToCsv } from "@/lib/stack-csv";
+import { CHAIN_PAY_MS } from "@/lib/stack-motion";
+import { stackCsvFilename } from "@/lib/stack-csv";
+import { stackExport, stackExportChoices, type StackExportKind } from "@/lib/stack-export";
 import { formatTotalAmount, totalBoardCopy } from "@/lib/stack-total";
 
 export type StackSelection = {
@@ -137,6 +138,11 @@ export function StackTable({
   const introFlip = useRef(new Set<string>());
   const snapFresh = useRef(new Set<string>());
   const [introVersion, setIntroVersion] = useState(0);
+  const payingRef = useRef<string | null>(null);
+  const paidRef = useRef<string | null>(null);
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [precise, setPrecise] = useState<string | null>(null);
   const slackMark = useRef<string | null>(null);
   const queuedDelete = useRef<string | null>(null);
   const queueFrame = useRef(0);
@@ -170,7 +176,7 @@ export function StackTable({
     const priced = quotesRef.current;
     const next: CascadeBoard[] = rows.map((line) => ({
       id: line.id,
-      live: abbreviateMelt(rowMelt(priceFor(priced, line.symbol), line.grams, line.qty), FLAP_MELT),
+      live: cardMoneyRow(line.qty, rowMelt(priceFor(priced, line.symbol), line.grams, line.qty)).text,
       visible: measureVisible(line.id),
     }));
     const sum = rows.reduce((total, line) => {
@@ -249,6 +255,7 @@ export function StackTable({
     if (!ready) return;
     let changed = false;
     for (const line of linesRef.current) {
+      if (payingRef.current === line.id) continue;
       if (decidedCards.current.has(line.id)) continue;
       decidedCards.current.add(line.id);
       const node = cardNodes.current.get(line.id) ?? null;
@@ -257,12 +264,14 @@ export function StackTable({
         node ? node.getBoundingClientRect() : null,
         view ? { width: view.innerWidth, height: view.innerHeight } : null,
       );
-      if (snaps) snapFresh.current.add(line.id);
-      else introFlip.current.add(line.id);
+      if (snaps) {
+        snapFresh.current.add(line.id);
+        if (paidRef.current === line.id) releaseQueue(line.id);
+      } else introFlip.current.add(line.id);
       changed = true;
     }
     if (changed) setIntroVersion((version) => version + 1);
-  }, [ready, lineKey]);
+  }, [ready, lineKey, payingId]);
 
   useEffect(() => {
     snapFresh.current.clear();
@@ -445,13 +454,49 @@ export function StackTable({
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
-  function landNewest(finalLines: StackLine[]) {
-    phaseRef.current = { ...phaseRef.current, lines: finalLines, cascading: false };
+  function releaseQueue(id?: string) {
+    if (id && paidRef.current !== id) return;
+    if (!phaseRef.current.cascading && paidRef.current == null) return;
+    paidRef.current = null;
+    payingRef.current = null;
+    setPayingId(null);
+    phaseRef.current = { ...phaseRef.current, cascading: false };
+    const result = finishPullCascade(phaseRef.current);
+    phaseRef.current = result.phase;
+    if (!result.playNow || !result.draft) return;
+    const incoming = result.phase.lines[0];
+    if (!incoming) return;
+    unlockReelClick();
+    unlockFlapSamples();
+    beginArrival(result.phase.lines);
+  }
+
+  function beginArrival(finalLines: StackLine[]) {
+    const incoming = finalLines[0];
+    phaseRef.current = { ...phaseRef.current, lines: finalLines, cascading: true };
     setShift(null);
     setShiftStep(0);
     finalRef.current = null;
     setLines(finalLines);
-    applyPull(finishPullCascade(phaseRef.current));
+    if (!incoming || motionReduced()) {
+      releaseQueue();
+      return;
+    }
+    paidRef.current = incoming.id;
+    payingRef.current = incoming.id;
+    setPayingId(incoming.id);
+    window.setTimeout(() => {
+      if (payingRef.current !== incoming.id) return;
+      payingRef.current = null;
+      setPayingId(null);
+    }, CHAIN_PAY_MS);
+    window.setTimeout(() => {
+      if (paidRef.current === incoming.id) releaseQueue(incoming.id);
+    }, CHAIN_PAY_MS + FLAP_CAP_MS + 400);
+  }
+
+  function landNewest(finalLines: StackLine[]) {
+    beginArrival(finalLines);
   }
 
   function applyPull(result: PullAddResult) {
@@ -477,17 +522,18 @@ export function StackTable({
 
   const downloadLines = phaseRef.current.cascading ? phaseRef.current.lines : lines;
 
-  function downloadStack() {
+  function downloadStack(kind: StackExportKind) {
     if (downloadLines.length === 0) return;
     playSwipeTone("detent");
-    const csv = stackToCsv(downloadLines, quotesRef.current);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const file = stackExport(kind, downloadLines, quotesRef.current);
+    const blob = new Blob([file.bytes.buffer.slice(file.bytes.byteOffset, file.bytes.byteOffset + file.bytes.byteLength) as ArrayBuffer], { type: file.mime });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = stackCsvFilename(new Date());
+    link.download = kind === "csv" ? stackCsvFilename(new Date()) : file.filename;
     link.click();
     URL.revokeObjectURL(url);
+    setExportOpen(false);
   }
 
   const shown: StackFace[] = shift ? (shift[shiftStep] ?? shift[0] ?? []) : lines;
@@ -499,16 +545,27 @@ export function StackTable({
   const wordFace = faceFor(TOTAL_WORD_ID, totalCopy.top);
   const amountFace = faceFor(TOTAL_BOARD_ID, totalCopy.bottom);
 
+  const plateWinch = cover?.phase === "slide" && cover.index === 0;
+
   return (
     <section ref={boardRef} className="split-stack" aria-label="My Stack">
-      <div className="split-stack-head">
+      <div className={`stack-rails${plateWinch ? " is-winch" : ""}`} aria-hidden="true">
+        <span data-side="left" />
+        <span data-side="right" />
+      </div>
+      <div className="split-stack-head" data-winch={plateWinch ? "plate" : undefined}>
+        <span className="rivet" data-corner="tl" />
+        <span className="rivet" data-corner="tr" />
+        <span className="rivet" data-corner="bl" />
+        <span className="rivet" data-corner="br" />
         <p className="split-stack-title">My Stack</p>
         <button
           type="button"
-          className="stack-download"
+          className={`stack-download${downloadLines.length > 0 ? " is-live" : ""}`}
           aria-label="Download My Stack"
+          aria-expanded={exportOpen}
           disabled={downloadLines.length === 0}
-          onClick={downloadStack}
+          onClick={() => setExportOpen((open) => !open)}
         >
           <svg viewBox="2.85 2.85 26.3 26.3" aria-hidden="true" focusable="false">
             <defs>
@@ -563,53 +620,38 @@ export function StackTable({
             </g>
           </svg>
         </button>
-      </div>
-      <div
-        ref={totalNode}
-        className={`split-total${cover?.phase === "slide" && !cover.tail ? " is-cover-front" : ""}${cover?.phase === "slide" && cover.tail ? " is-rise" : ""}`}
-      >
-        <span className="sr-only">
-          {lines.length === 0 ? "Let's get stacking!" : `Total ${formatTotalAmount(stackSum)}`}
-        </span>
-        <span className="split-total-word">
-          <SplitFlap
-            text={wordFace.text}
-            width={Math.max(wordFace.text.trimEnd().length, 1)}
-            instant={wordFace.instant}
-            onSettled={() => settleBoard(TOTAL_WORD_ID)}
-          />
-        </span>
-        <span className="split-total-amount" style={{ ["--total-flaps" as string]: FLAP_TOTAL_COLUMNS }}>
-          <SplitFlap
-            text={amountFace.text}
-            width={FLAP_TOTAL_COLUMNS}
-            instant={amountFace.instant}
-            onSettled={() => settleBoard(TOTAL_BOARD_ID)}
-          />
-        </span>
+        {exportOpen ? (
+          <div className="stack-export" role="dialog" aria-label="Download My Stack">
+            {stackExportChoices().map((choice) => (
+              <button key={choice.id} type="button" onClick={() => downloadStack(choice.id)}>
+                <strong>{choice.label}</strong>
+                <span>{choice.detail}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
       <ul className="split-rows">
         {shown.map((line, index) => {
           const blank = line == null;
+          const dropping = line != null && payingId === line.id;
           const melt = blank ? null : rowMelt(priceFor(quotes, line.symbol), line.grams, line.qty);
-          const mark = blank ? "" : line.mark;
-          const weightLabel = blank ? "" : line.weightLabel;
-          const qtyLabel = blank ? "" : String(line.qty);
-          const descriptionText = blank ? "" : line.description;
-          const meltFace = blank || !line ? null : faceFor(line.id, abbreviateMelt(melt, FLAP_MELT));
+          const money = blank || !line ? null : cardMoneyRow(line.qty, melt);
+          const meltFace = blank || !line || !money ? null : faceFor(line.id, money.text);
           const boardInstant = line
-            ? snapFresh.current.has(line.id)
+            ? dropping
               ? true
-              : introFlip.current.has(line.id)
-                ? false
-                : (meltFace?.instant ?? false)
+              : snapFresh.current.has(line.id)
+                ? true
+                : introFlip.current.has(line.id)
+                  ? false
+                  : (meltFace?.instant ?? false)
             : false;
           void introVersion;
-          const weightStart = FLAP_METAL + 1;
-          const qtyStart = weightStart + FLAP_WEIGHT;
-          const meltStart = qtyStart + FLAP_QTY;
-          const description = blank || shift ? (
-            <SplitFlap text={descriptionText} width={FLAP_DESCRIPTION} instant={boardInstant} />
+          const detailText = blank || !line || dropping ? "" : cardDetail(line.weightLabel, line.description);
+          const bottomText = dropping ? "" : (meltFace?.text ?? "");
+          const description = blank || shift || dropping ? (
+            <SplitFlap text={detailText} width={FLAP_DESCRIPTION} instant={boardInstant || dropping} />
           ) : editing === line.id ? (
             <input
               className="stack-name"
@@ -634,7 +676,7 @@ export function StackTable({
               aria-label={`Edit description, ${line.description}`}
               onClick={() => setEditing(line.id)}
             >
-              <SplitFlap text={line.description} width={FLAP_DESCRIPTION} instant={boardInstant} />
+              <SplitFlap text={detailText} width={FLAP_DESCRIPTION} instant={boardInstant} />
             </button>
           );
           const sliding = cover != null && line != null && line.id === cover.id && cover.phase === "slide" && !cover.tail;
@@ -669,6 +711,8 @@ export function StackTable({
               open={line != null && openId === line.id}
               locked={deleteRowLocked(shift !== null, blank, cover?.id ?? null, line?.id ?? null)}
               leaving={line != null && cover?.id === line.id}
+              winch={cover?.phase === "slide" && index === cover.index - 1}
+              paying={line != null && payingId === line.id}
               cover={coverRole}
               coverShift={sliding ? cover.distance : 0}
               shell={shell}
@@ -687,7 +731,7 @@ export function StackTable({
               }}
             >
             <div
-              className="stack-card"
+              className={`stack-card${payingId === line?.id ? " is-paying" : ""}`}
               data-rows={2}
               ref={(node) => {
                 if (!line) return;
@@ -701,54 +745,77 @@ export function StackTable({
                   {line.mark}, {line.weightLabel}, quantity {line.qty}, {line.description}, melt {flapMoney(melt)}
                 </span>
               )}
-              <span className="stack-kicker" style={{ gridColumn: "1 / -1", gridRow: 1 }}>
-                Description
+              <span className="stack-metal" data-tone={blank || !line || dropping ? "silver" : metalTone(line.mark)} style={{ gridColumn: "1 / span 2", gridRow: 1 }}>
+                {blank || dropping ? "" : line.mark.toUpperCase()}
               </span>
-              <span className="stack-span" style={{ gridColumn: "1 / -1", gridRow: 2 }}>
+              <span className="stack-span" style={{ gridColumn: "3 / -1", gridRow: 1 }}>
                 {description}
               </span>
-              <span className="stack-kicker stack-kicker-next" style={{ gridColumn: `1 / span ${FLAP_METAL}`, gridRow: 3 }}>
-                Metal
+              <span className="stack-qty" style={{ gridColumn: "1 / span 2", gridRow: 2 }}>
+                {blank || dropping ? "" : "QTY"}
               </span>
-              <span className="stack-kicker stack-kicker-next" style={{ gridColumn: `${weightStart} / span ${FLAP_WEIGHT}`, gridRow: 3 }}>
-                Weight
-              </span>
-              <span className="stack-kicker stack-kicker-next" style={{ gridColumn: `${qtyStart} / span ${FLAP_QTY}`, gridRow: 3 }}>
-                Qty
-              </span>
-              <span className="stack-kicker stack-kicker-next" style={{ gridColumn: `${meltStart} / span ${FLAP_MELT}`, gridRow: 3 }}>
-                Melt
-              </span>
-              <span className="stack-span" style={{ gridColumn: `1 / span ${FLAP_METAL}`, gridRow: 4 }}>
-                <SplitFlap text={mark} width={FLAP_METAL} instant={boardInstant} />
-              </span>
-              <span className="stack-span" style={{ gridColumn: `${weightStart} / span ${FLAP_WEIGHT}`, gridRow: 4 }}>
-                <SplitFlap text={weightLabel} width={FLAP_WEIGHT} instant={boardInstant} />
-              </span>
-              <span className="stack-span" style={{ gridColumn: `${qtyStart} / span ${FLAP_QTY}`, gridRow: 4 }}>
-                <SplitFlap text={qtyLabel} width={FLAP_QTY} instant={boardInstant} />
-              </span>
-              <span className="stack-span" style={{ gridColumn: `${meltStart} / span ${FLAP_MELT}`, gridRow: 4 }}>
+              <span className="stack-span" style={{ gridColumn: "3 / -1", gridRow: 2 }}>
                 <SplitFlap
-                  text={meltFace ? meltFace.text : ""}
-                  width={FLAP_MELT}
+                  text={bottomText}
+                  width={FLAP_DESCRIPTION}
                   instant={boardInstant}
                   onSettled={
                     line
                       ? () => {
                           introFlip.current.delete(line.id);
                           settleBoard(line.id);
+                          if (paidRef.current === line.id) releaseQueue(line.id);
                         }
                       : undefined
                   }
                 />
               </span>
+              {money && money.rounded ? (
+                <RoundedLight
+                  exact={money.exact}
+                  open={precise === line?.id}
+                  onToggle={() => setPrecise((current) => (current === line?.id ? null : line?.id ?? null))}
+                />
+              ) : null}
               {remove}
             </div>
             </SwipeCard>
           );
         })}
       </ul>
+      <div
+        ref={totalNode}
+        className={`split-total${cover?.phase === "slide" && !cover.tail ? " is-cover-front" : ""}${cover?.phase === "slide" && cover.tail ? " is-rise" : ""}`}
+      >
+        <span className="chain-half chain-half-top" aria-hidden="true" />
+        <span className="chain-half chain-half-top is-right" aria-hidden="true" />
+        <span className="sr-only">
+          {lines.length === 0 ? "Let's get stacking!" : `Total ${formatTotalAmount(stackSum)}`}
+        </span>
+        <span className={`split-total-word${lines.length === 0 ? "" : " is-start"}`}>
+          <SplitFlap
+            text={wordFace.text}
+            width={FLAP_TOTAL_WORD_COLUMNS}
+            instant={wordFace.instant}
+            onSettled={() => settleBoard(TOTAL_WORD_ID)}
+          />
+        </span>
+        <span className="split-total-amount" style={{ ["--total-flaps" as string]: FLAP_TOTAL_COLUMNS }}>
+          <SplitFlap
+            text={amountFace.text}
+            width={FLAP_TOTAL_COLUMNS}
+            instant={amountFace.instant}
+            onSettled={() => settleBoard(TOTAL_BOARD_ID)}
+          />
+        </span>
+        {totalCopy.rounded ? (
+          <RoundedLight
+            exact={totalCopy.exact}
+            open={precise === TOTAL_BOARD_ID}
+            onToggle={() => setPrecise((current) => (current === TOTAL_BOARD_ID ? null : TOTAL_BOARD_ID))}
+          />
+        ) : null}
+      </div>
     </section>
   );
 }

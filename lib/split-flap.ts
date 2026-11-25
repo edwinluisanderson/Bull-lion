@@ -1,24 +1,27 @@
-/** Train-board alphabet. Unknown marks fall back to a blank. */
-export const FLAP_ALPHABET = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$.,/-+'!";
+import { presentMoney } from "@/lib/melt-abbrev";
 
-export const FLAP_METAL = 2;
-export const FLAP_WEIGHT = 7;
-export const FLAP_QTY = 3;
+/** Train-board alphabet. Unknown marks fall back to a blank. */
+export const FLAP_ALPHABET = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$.,/-+'!%";
+
+/** A card row. The first cell is two columns wide; the rest are single flaps. */
+export const FLAP_COLUMNS = 16;
+export const FLAP_LEAD = 2;
+export const FLAP_DETAIL = FLAP_COLUMNS - FLAP_LEAD;
+export const FLAP_BOARD_COLUMNS = FLAP_COLUMNS;
+/** Description flaps after the metal cell. The weight token shares this row. */
+export const FLAP_DESCRIPTION = FLAP_DETAIL;
+/** Preferred width of an abbreviated melt when the quantity is short. */
 export const FLAP_MELT = 7;
-/** One shared grid. Row 2 uses the same columns as metal, weight, qty, and melt. */
-export const FLAP_BOARD_COLUMNS = FLAP_METAL + FLAP_WEIGHT + FLAP_QTY + FLAP_MELT;
-/** Descriptions stay on row 2. Letters past the grid are cut, not given another row. */
-export const FLAP_DESCRIPTION = FLAP_BOARD_COLUMNS;
+export const FLAP_METAL = FLAP_LEAD;
+export const FLAP_QTY = 3;
+export const FLAP_WEIGHT = 7;
 /**
- * Amount row on the Total board. Thirteen cells hold $9,999,999.99.
- * Wider totals drop commas, then show the largest value that fits.
+ * Amount row on the Total board. Thirteen cells, a little larger than a card flap.
+ * Whole dollars stay when they fit. A longer total abbreviates.
  */
 export const FLAP_TOTAL_COLUMNS = 13;
-/**
- * Small flaps that fit across that amount row at a 320px viewport.
- * The empty message splits onto however many of these the words need.
- */
-export const FLAP_TOTAL_WORD_COLUMNS = 16;
+/** Top row of the Total board. Slightly smaller than a card flap. */
+export const FLAP_TOTAL_WORD_COLUMNS = 18;
 /** Advance width of Cinzel 700, in ems, so a tile can match its glyph. */
 const FLAP_EM: Record<string, number> = {
   " ": 0.25,
@@ -66,6 +69,7 @@ const FLAP_EM: Record<string, number> = {
   "+": 0.481,
   "'": 0.28,
   "!": 0.4,
+  "%": 0.72,
 };
 
 export function flapEm(char: string): number {
@@ -73,6 +77,8 @@ export function flapEm(char: string): number {
 }
 /** One mechanical step. Long enough to read, short enough for a row. */
 export const FLAP_STEP_MS = 70;
+/** A card finishes its roll inside this, skipping ahead on a long forward trip. */
+export const FLAP_CAP_MS = 1200;
 
 export function flapIndex(char: string): number {
   const found = FLAP_ALPHABET.indexOf(char.toUpperCase());
@@ -103,8 +109,9 @@ export function fitFlapMoney(text: string, width: number): string {
   if (grouped.length <= width) return grouped.padStart(width, " ");
   const plain = grouped.replaceAll(",", "");
   if (plain.length <= width) return plain.padStart(width, " ");
-  const digits = Math.max(0, width - 1);
-  return ("$" + "9".repeat(digits)).slice(0, width);
+  const numeric = Number(String(text).replace(/[^0-9.-]/g, ""));
+  const fitted = presentMoney(Number.isFinite(numeric) ? numeric : null, width);
+  return flapText(fitted.text).slice(0, width).padStart(width, " ");
 }
 
 /** The letters painted on the description row. Extra characters are dropped. */
@@ -122,19 +129,52 @@ export function advanceFlap(char: string): string {
   return FLAP_ALPHABET[(flapIndex(char) + 1) % FLAP_ALPHABET.length] ?? " ";
 }
 
+/** Forward steps from one glyph to the next. The drum never runs backward. */
+export function forwardFlapDistance(from: string, to: string): number {
+  const start = flapIndex(from);
+  const end = flapIndex(to);
+  if (start === end) return 0;
+  return (end - start + FLAP_ALPHABET.length) % FLAP_ALPHABET.length;
+}
+
+/** How many glyphs a long roll may skip. 1 steps every character. 2 or 3 skip ahead. */
+export function flapStride(distance: number): number {
+  if (!Number.isFinite(distance) || distance <= 1) return 1;
+  const budget = Math.max(1, Math.floor(FLAP_CAP_MS / FLAP_STEP_MS));
+  if (distance <= budget) return 1;
+  if (Math.ceil(distance / 2) <= budget) return 2;
+  if (Math.ceil(distance / 3) <= budget) return 3;
+  return Math.max(1, Math.ceil(distance / budget));
+}
+
+function hopFlap(char: string, toward: string, stride: number): string {
+  const left = forwardFlapDistance(char, toward);
+  if (left === 0) return toward;
+  const hop = Math.min(stride, left);
+  return FLAP_ALPHABET[(flapIndex(char) + hop) % FLAP_ALPHABET.length] ?? " ";
+}
+
 /**
  * Boards after the current one, ending on the target.
  * Reduced motion is a single jump. An unchanged line is empty.
+ * A short roll steps one glyph at a time. A long roll skips every second or
+ * third glyph so the card lands inside FLAP_CAP_MS. Travel stays forward.
  */
 export function flapFrames(from: string, to: string, reduced = false): string[] {
   const width = Math.max(from.length, to.length);
   const target = padFlap(to, width);
   const start = padFlap(from, width);
   if (reduced) return start === target ? [] : [target];
+  const farthest = Math.max(
+    0,
+    ...[...start].map((char, index) => forwardFlapDistance(char, target[index] ?? " ")),
+  );
+  const stride = flapStride(farthest);
+  const budget = Math.max(1, Math.floor(FLAP_CAP_MS / FLAP_STEP_MS));
   const frames: string[] = [];
   let current = start;
-  for (let step = 0; step < FLAP_ALPHABET.length && current !== target; step += 1) {
-    current = [...current].map((char, index) => (char === target[index] ? char : advanceFlap(char))).join("");
+  while (current !== target && frames.length < budget) {
+    current = [...current].map((char, index) => hopFlap(char, target[index] ?? " ", stride)).join("");
     frames.push(current);
   }
   return frames;

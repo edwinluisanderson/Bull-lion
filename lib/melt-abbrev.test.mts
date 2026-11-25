@@ -38,10 +38,10 @@ test("large melts abbreviate and round onto the next suffix at the boundary", ()
 });
 
 test("the card row abbreviates and the total board keeps the full amount", () => {
-  assert.match(table, /abbreviateMelt\(rowMelt\(/);
-  assert.match(table, /abbreviateMelt\(melt, FLAP_MELT\)/);
+  assert.match(table, /cardMoneyRow\(line\.qty, rowMelt\(/);
+  assert.match(table, /cardMoneyRow\(line\.qty, melt\)/);
   assert.match(table, /formatTotalAmount\(/);
-  assert.equal(formatTotalAmount(9999999.99), "$9,999,999.99");
+  assert.equal(formatTotalAmount(9999999.99), "$10,000,000");
   assert.equal(abbreviateMelt(9999999.99), "$10.0M");
   assert.notEqual(formatTotalAmount(123456.78), abbreviateMelt(123456.78));
 });

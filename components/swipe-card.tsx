@@ -34,6 +34,8 @@ export function SwipeCard({
   coverShift = 0,
   shell = null,
   leaving = false,
+  winch = false,
+  paying = false,
   onOpen,
   onClose,
   onDelete,
@@ -51,6 +53,10 @@ export function SwipeCard({
   shell?: { height: number; marginTop: number } | null;
   /** The parent has accepted this row's delete, so the face shoots off. */
   leaving?: boolean;
+  /** This card is reeling in the chain under it. */
+  winch?: boolean;
+  /** The new card is still sliding out from behind the name plate. */
+  paying?: boolean;
   onOpen: () => void;
   onClose: () => void;
   onDelete: () => void;
@@ -226,10 +232,11 @@ export function SwipeCard({
 
   return (
     <li
-      className={`stack-swipe${shown > 0 || leaving ? " is-raised" : ""}${leaving ? " is-departing" : ""}${cover === "arm" || cover === "over" || shell ? " is-remnant" : ""}${cover === "arm" || cover === "over" ? " is-cover-ready" : ""}${cover === "over" ? " is-covering" : ""}${cover === "front" ? " is-cover-front" : ""}${shell ? " is-collapsing" : ""}`}
+      className={`stack-swipe${shown > 0 || leaving ? " is-raised" : ""}${leaving ? " is-departing" : ""}${paying ? " is-paying" : ""}${cover === "arm" || cover === "over" || shell ? " is-remnant" : ""}${cover === "arm" || cover === "over" ? " is-cover-ready" : ""}${cover === "over" ? " is-covering" : ""}${cover === "front" ? " is-cover-front" : ""}${shell ? " is-collapsing" : ""}`}
       data-swipe-id={id}
       data-open={open ? "true" : "false"}
       data-alarm={alarm}
+      data-winch={winch ? "card" : undefined}
       style={{
         ["--reveal" as string]: `${SWIPE_REVEAL_PX}px`,
         ["--swipe" as string]: `${shown}px`,
@@ -239,6 +246,10 @@ export function SwipeCard({
       }}
     >
       {alarm === "open" ? <div className="delete-alarm-glow" aria-hidden="true" /> : null}
+      <span className="chain-half chain-half-top" aria-hidden="true" />
+      <span className="chain-half chain-half-top is-right" aria-hidden="true" />
+      <span className="chain-half chain-half-bottom" aria-hidden="true" />
+      <span className="chain-half chain-half-bottom is-right" aria-hidden="true" />
       <button
         type="button"
         className="stack-swipe-delete"
