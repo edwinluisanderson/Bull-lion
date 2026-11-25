@@ -108,6 +108,18 @@ test("a new card stays blank until the chain has paid out", () => {
   assert.ok(arrival.indexOf("motionReduced()") < arrival.indexOf("setLoweringId"));
 });
 
+test("the chain is clipped to the stack and ends at the last joint", () => {
+  assert.match(css, /\.stack-rails \{[^}]*top:\s*0/);
+  assert.match(css, /\.stack-rails \{[^}]*bottom:\s*0/);
+  assert.match(css, /\.stack-rails \{[^}]*overflow:\s*hidden/);
+  assert.match(css, /\.stack-rails span \{[^}]*top:\s*0/);
+  assert.match(css, /\.stack-rails span \{[^}]*bottom:\s*0/);
+  assert.equal(/\.stack-rails span \{[^}]*height:\s*\d+px/.test(css), false);
+  assert.match(css, /\.split-total \{[^}]*position:\s*relative/);
+  assert.match(css, /animation:\s*stack-lower 250ms ease-out forwards/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\.stack-swipe\.is-lowering[\s\S]*?animation:\s*none/);
+});
+
 test("the stack column stays a centered 480px band and the phone card still hugs", () => {
   assert.match(css, /\.split-stack \{[^}]*max-width:\s*480px/);
   assert.match(css, /\.split-stack \{[^}]*margin:\s*0 auto/);
