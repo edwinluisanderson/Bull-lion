@@ -15,6 +15,8 @@ import {
   deleteRowLocked,
   isCoveringRow,
   isRemnantRow,
+  plateHidden,
+  plateReelsBehind,
   queuedCoverId,
   reusedSlotMustSnap,
 } from "@/lib/delete-cover";
@@ -86,6 +88,26 @@ test("the face still shoots off and the button is not faded away", () => {
   assert.match(card, /is-collapsing/);
   assert.equal(COVER_SLIDE_MS > COVER_FRAME_MS, true);
   assert.match(css, /\.split-rows \{[^}]*gap:\s*8px/);
+});
+
+test("chains stay behind the plates and a deleted plate reels up behind the one above", () => {
+  assert.equal(plateReelsBehind(0), "nameplate");
+  assert.equal(plateReelsBehind(2), "card");
+  assert.equal(plateHidden(0, 52), false);
+  assert.equal(plateHidden(52, 52), true);
+  assert.equal(plateHidden(60, 52), true);
+  const chain = Number(css.match(/\.chain-half \{[^}]*z-index:\s*(\d+)/)?.[1]);
+  const face = Number(css.match(/\.stack-swipe-face \{[^}]*z-index:\s*(\d+)/)?.[1]);
+  const rails = Number(css.match(/\.stack-rails \{[^}]*z-index:\s*(\d+)/)?.[1]);
+  const row = Number(css.match(/\.stack-swipe \{[^}]*z-index:\s*(\d+)/)?.[1]);
+  assert.ok(chain < face);
+  assert.ok(rails < row);
+  assert.equal(css.includes(".chain-half-bottom::after"), false);
+  assert.match(css, /\.stack-swipe\.is-reeled \{[^}]*z-index:\s*0/);
+  assert.match(css, /\.stack-swipe\.is-reeled \.stack-empty-plate \{[^}]*translateY\(calc\(-1 \* var\(--lift/);
+  assert.match(card, /stack-empty-plate/);
+  assert.match(table, /lift: coverLive \? cover\.rowHeight : 0/);
+  assert.match(card, /is-reeled/);
 });
 
 test("a second delete waits its turn and the other cards stay swipeable", () => {

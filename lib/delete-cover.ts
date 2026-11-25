@@ -123,6 +123,20 @@ export function reusedSlotMustSnap(
   return previousId != null && previousId !== nextId;
 }
 
+/**
+ * The empty plate is winched up behind whatever sits above it.
+ * The top card goes behind the name plate. Any other card goes behind the card above.
+ */
+export function plateReelsBehind(index: number): "nameplate" | "card" {
+  return index <= 0 ? "nameplate" : "card";
+}
+
+/** The plate is fully hidden once it has been pulled up by its own height. */
+export function plateHidden(lift: number, rowHeight: number): boolean {
+  if (!Number.isFinite(lift) || !Number.isFinite(rowHeight) || rowHeight <= 0) return false;
+  return lift >= rowHeight;
+}
+
 /** One waiting delete. It starts after the active row is actually removed. */
 export function queuedCoverId(activeId: string, queuedId: string | null): string | null {
   if (!queuedId || queuedId === activeId) return null;

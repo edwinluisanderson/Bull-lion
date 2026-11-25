@@ -10,6 +10,7 @@ import {
   COVER_SLIDE_MS,
   advanceDeleteCover,
   beginDeleteCover,
+  STACK_ROW_GAP_PX,
   collapseInset,
   deleteRowLocked,
   queuedCoverId,
@@ -690,13 +691,15 @@ export function StackTable({
               <SplitFlap text={detailText} width={FLAP_DESCRIPTION} instant={boardInstant} />
             </button>
           );
-          const sliding = cover != null && line != null && line.id === cover.id && cover.phase === "slide" && !cover.tail;
-          const following = cover != null && cover.phase === "slide" && !cover.tail && index > cover.index;
-          const coverRole = sliding ? (coverLive ? "over" : "arm") : following ? "front" : "row";
-          const shell = cover != null && line != null && line.id === cover.id && cover.phase === "slide" && cover.tail
+          const reeling = cover != null && line != null && line.id === cover.id && cover.phase === "slide";
+          const above = cover != null && cover.phase === "slide" && index === cover.index - 1;
+          const coverRole = above ? "front" : "row";
+          const shell = reeling
             ? {
                 height: coverLive ? 0 : cover.rowHeight,
-                marginTop: coverLive ? -collapseInset(true, cover.index) : 0,
+                marginTop: coverLive ? -collapseInset(cover.tail, cover.index) : 0,
+                marginBottom: coverLive && !cover.tail ? -STACK_ROW_GAP_PX : 0,
+                lift: coverLive ? cover.rowHeight : 0,
               }
             : null;
           const remove = blank ? null : (
@@ -726,7 +729,7 @@ export function StackTable({
               paying={line != null && payingId === line.id}
               lowering={line != null && loweringId === line.id}
               cover={coverRole}
-              coverShift={sliding ? cover.distance : 0}
+              coverShift={reeling ? cover.distance : 0}
               shell={shell}
               onOpen={() => {
                 if (line) setOpenId(line.id);

@@ -50,8 +50,8 @@ export function SwipeCard({
   /** "arm" readies the slot, "over" pulls the rows up across it, "front" paints a row above it. */
   cover?: "row" | "arm" | "over" | "front";
   coverShift?: number;
-  /** Last-card collapse: an explicit height that then eases to zero. */
-  shell?: { height: number; marginTop: number } | null;
+  /** The empty plate collapses upward. `lift` is how far that plate has been pulled. */
+  shell?: { height: number; marginTop: number; marginBottom?: number; lift?: number } | null;
   /** The parent has accepted this row's delete, so the face shoots off. */
   leaving?: boolean;
   /** This card is reeling in the chain under it. */
@@ -235,7 +235,7 @@ export function SwipeCard({
 
   return (
     <li
-      className={`stack-swipe${shown > 0 || leaving ? " is-raised" : ""}${leaving ? " is-departing" : ""}${paying ? " is-paying" : ""}${lowering ? " is-lowering" : ""}${cover === "arm" || cover === "over" || shell ? " is-remnant" : ""}${cover === "arm" || cover === "over" ? " is-cover-ready" : ""}${cover === "over" ? " is-covering" : ""}${cover === "front" ? " is-cover-front" : ""}${shell ? " is-collapsing" : ""}`}
+      className={`stack-swipe${shown > 0 || leaving ? " is-raised" : ""}${leaving ? " is-departing" : ""}${paying ? " is-paying" : ""}${lowering ? " is-lowering" : ""}${cover === "arm" || cover === "over" || shell ? " is-remnant" : ""}${cover === "arm" || cover === "over" ? " is-cover-ready" : ""}${cover === "over" ? " is-covering" : ""}${cover === "front" ? " is-cover-front" : ""}${shell ? " is-collapsing is-reeled" : ""}`}
       data-swipe-id={id}
       data-open={open ? "true" : "false"}
       data-alarm={alarm}
@@ -244,11 +244,15 @@ export function SwipeCard({
         ["--reveal" as string]: `${SWIPE_REVEAL_PX}px`,
         ["--swipe" as string]: `${shown}px`,
         ["--cover" as string]: cover === "arm" || cover === "over" ? `${coverShift}px` : undefined,
+        ["--reel" as string]: shell ? `${shell.lift && shell.lift > 0 ? shell.lift + shell.height : shell.height}px` : undefined,
+        ["--lift" as string]: shell ? `${shell.lift ?? 0}px` : undefined,
         height: shell ? `${shell.height}px` : undefined,
         marginTop: shell ? `${shell.marginTop}px` : undefined,
+        marginBottom: shell?.marginBottom ? `${shell.marginBottom}px` : undefined,
       }}
     >
       {alarm === "open" ? <div className="delete-alarm-glow" aria-hidden="true" /> : null}
+      <span className="stack-empty-plate" aria-hidden="true" />
       <span className="chain-half chain-half-top" aria-hidden="true" />
       <span className="chain-half chain-half-top is-right" aria-hidden="true" />
       <span className="chain-half chain-half-bottom" aria-hidden="true" />
