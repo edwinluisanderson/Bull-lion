@@ -16,6 +16,7 @@ import {
   type LockDrag,
 } from "@/lib/lock-sound";
 import { unlockAppAudio } from "@/lib/sound-preload";
+import { isDeleteIntent } from "@/lib/editor-keys";
 import {
   SWIPE_REVEAL_PX,
   clampSwipe,
@@ -24,6 +25,12 @@ import {
   settleSwipe,
   type SwipeAxis,
 } from "@/lib/swipe-delete";
+
+/** Keys and presses that belong to the description editor, not the card. */
+function fromEditor(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return target.closest("input, textarea, [contenteditable='true'], .stack-name, .stack-edit") != null;
+}
 
 export function SwipeCard({
   id,
@@ -150,6 +157,7 @@ export function SwipeCard({
   }
 
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (fromEditor(event.target)) return;
     unlockAppAudio();
     if (locked || event.button !== 0) return;
     phase.current = freshLockDrag(open ? SWIPE_REVEAL_PX : 0);
@@ -281,9 +289,17 @@ export function SwipeCard({
         onPointerUp={finish}
         onPointerCancel={finish}
         onKeyDown={(event) => {
-          if (event.key !== "Delete" && event.key !== "Backspace") return;
+          if (fromEditor(event.target)) return;
+          if (!isDeleteIntent({ key: event.key, keyCode: event.keyCode })) return;
+          if (event.key !== "Backspace" && event.key !== "Delete") return;
           event.preventDefault();
           depart();
+        }}
+        onBeforeInput={(event) => {
+          if (fromEditor(event.target)) return;
+          const inputType = (event.nativeEvent as InputEvent).inputType;
+          if (inputType !== "deleteContentBackward" && inputType !== "deleteContentForward") return;
+          event.preventDefault();
         }}
         tabIndex={0}
         aria-keyshortcuts="Delete"

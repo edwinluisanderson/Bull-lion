@@ -24,6 +24,7 @@ import {
   FLAP_BOARD_COLUMNS,
   FLAP_CAP_MS,
   FLAP_DESCRIPTION,
+  flapText,
   FLAP_TOTAL_COLUMNS,
   FLAP_TOTAL_WORD_COLUMNS,
 } from "@/lib/split-flap";
@@ -54,7 +55,8 @@ import {
   type CascadeEffect,
   type CascadeSlot,
 } from "@/lib/stack-cascade";
-import { cardDetail, cardMoneyRow, metalTone } from "@/lib/stack-face";
+import { blockEmptyEditorDelete } from "@/lib/editor-keys";
+import { clampDescription, commitDescription, detailLayout, cardMoneyRow, metalTone, type FlapSpan } from "@/lib/stack-face";
 import { freshCardSnaps } from "@/lib/stack-flips";
 import { CHAIN_PAY_MS, STACK_LOWER_MS } from "@/lib/stack-motion";
 import { stackCsvFilename } from "@/lib/stack-csv";
@@ -115,6 +117,7 @@ export function StackTable({
   const [lines, setLines] = useState<StackLine[]>([]);
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [cover, setCover] = useState<DeleteCover | null>(null);
   const [coverLive, setCoverLive] = useState(false);
@@ -660,36 +663,84 @@ export function StackTable({
                   : (meltFace?.instant ?? false)
             : false;
           void introVersion;
-          const detailText = blank || !line || dropping ? "" : cardDetail(line.weightLabel, line.description);
+          const layout = line && !dropping ? detailLayout(line.weightLabel, line.description) : null;
+          const detailText = layout?.row ?? "";
           const bottomText = dropping ? "" : (meltFace?.text ?? "");
-          const description = blank || shift || dropping ? (
+          const lockFlap = (text: string, span: FlapSpan | null) =>
+            span ? (
+              <span className="stack-lock" style={{ gridColumn: `${span.start} / span ${span.length}` }}>
+                <SplitFlap text={text} width={span.length} instant={boardInstant} />
+              </span>
+            ) : null;
+          const description = layout == null ? (
             <SplitFlap text={detailText} width={FLAP_DESCRIPTION} instant={boardInstant || dropping} />
-          ) : editing === line.id ? (
-            <input
-              className="stack-name"
-              aria-label={`Description for ${line.description}`}
-              defaultValue={line.description}
-              autoFocus
-              onBlur={(event) => {
-                const next = renameLine(lines, line.id, event.target.value);
-                phaseRef.current = { ...phaseRef.current, lines: next };
-                setLines(next);
-                setEditing(null);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") event.currentTarget.blur();
-                if (event.key === "Escape") setEditing(null);
-              }}
-            />
           ) : (
-            <button
-              type="button"
-              className="stack-edit"
-              aria-label={`Edit description, ${line.description}`}
-              onClick={() => setEditing(line.id)}
-            >
-              <SplitFlap text={detailText} width={FLAP_DESCRIPTION} instant={boardInstant} />
-            </button>
+            <>
+              {lockFlap(layout.weight, layout.weightSpan)}
+              {lockFlap(" ", layout.leadGap)}
+              {layout.descriptionSpan && line ? (
+                editing === line.id ? (
+                  <input
+                    className="stack-name"
+                    style={{ gridColumn: `${layout.descriptionSpan.start} / span ${layout.descriptionSpan.length}` }}
+                    aria-label={`Description for ${line.description}`}
+                    value={editDraft}
+                    maxLength={layout.descriptionCap}
+                    autoFocus
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onPaste={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      const pasted = event.clipboardData.getData("text");
+                      const start = event.currentTarget.selectionStart ?? editDraft.length;
+                      const end = event.currentTarget.selectionEnd ?? start;
+                      const merged = editDraft.slice(0, start) + pasted + editDraft.slice(end);
+                      setEditDraft(clampDescription(merged, layout.descriptionCap));
+                    }}
+                    onChange={(event) => setEditDraft(clampDescription(event.target.value, layout.descriptionCap))}
+                    onBeforeInput={(event) => {
+                      event.stopPropagation();
+                      const inputType = (event.nativeEvent as InputEvent).inputType;
+                      if (blockEmptyEditorDelete(editDraft, { inputType })) event.preventDefault();
+                    }}
+                    onKeyDown={(event) => {
+                      event.stopPropagation();
+                      if (blockEmptyEditorDelete(editDraft, { key: event.key, keyCode: event.keyCode })) {
+                        event.preventDefault();
+                        return;
+                      }
+                      if (event.key === "Enter") event.currentTarget.blur();
+                      if (event.key === "Escape") setEditing(null);
+                    }}
+                    onBlur={() => {
+                      const next = commitDescription(line.description, editDraft, layout.descriptionCap);
+                      if (next && next !== flapText(line.description).trim()) {
+                        const renamed = renameLine(lines, line.id, next);
+                        phaseRef.current = { ...phaseRef.current, lines: renamed };
+                        setLines(renamed);
+                      }
+                      setEditing(null);
+                    }}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="stack-edit"
+                    style={{ gridColumn: `${layout.descriptionSpan.start} / span ${layout.descriptionSpan.length}` }}
+                    aria-label={`Edit description, ${line.description}`}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={() => {
+                      setEditDraft(layout.description);
+                      setEditing(line.id);
+                    }}
+                  >
+                    <SplitFlap text={layout.description} width={layout.descriptionCap} instant={boardInstant} />
+                  </button>
+                )
+              ) : null}
+              {lockFlap(" ", layout.tailGap)}
+              {lockFlap(layout.purity, layout.puritySpan)}
+            </>
           );
           const reeling = cover != null && line != null && line.id === cover.id && cover.phase === "slide";
           const above = cover != null && cover.phase === "slide" && index === cover.index - 1;

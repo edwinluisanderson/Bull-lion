@@ -1517,6 +1517,19 @@ html[data-ball="cobalt"] .pull-ball {
   width: 100%;
 }
 
+.stack-span > .stack-lock {
+  display: grid;
+  grid-template-columns: subgrid;
+  min-width: 0;
+}
+
+.stack-span > .stack-lock > .split-flap {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
 .stack-span .flap-tile {
   width: auto;
   min-width: 0;

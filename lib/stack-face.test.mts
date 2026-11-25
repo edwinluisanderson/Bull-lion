@@ -3,7 +3,17 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { MONEY_OVER, presentMoney } from "@/lib/melt-abbrev";
-import { cardBottom, cardDetail, cardMoneyRow, compactWeight, metalTone } from "@/lib/stack-face";
+import {
+  cardBottom,
+  cardDetail,
+  cardMoneyRow,
+  clampDescription,
+  commitDescription,
+  compactWeight,
+  descriptionCap,
+  detailLayout,
+  metalTone,
+} from "@/lib/stack-face";
 import { stackExport, stackExportChoices, stackSheetRows } from "@/lib/stack-export";
 import { arrivalShowsBlank, CHAIN_INSET_PX, CHAIN_PAY_MS, STACK_LOWER_MS } from "@/lib/stack-motion";
 import { FLAP_ALPHABET, FLAP_CAP_MS, FLAP_DESCRIPTION, FLAP_STEP_MS, flapFrames, flapStride } from "@/lib/split-flap";
@@ -21,6 +31,30 @@ test("the description row drops the space before the unit and keeps the percent"
   assert.equal(cardDetail("12.5 g", "Junk 90%").length, FLAP_DESCRIPTION);
   assert.equal(metalTone("Au"), "gold");
   assert.equal(metalTone("Ag"), "silver");
+});
+
+test("only the description flaps are editable, and the cap stays inside the row", () => {
+  const junk = detailLayout("12.5 g", "Junk 90%");
+  assert.equal(junk.weight, "12.5G");
+  assert.equal(junk.description, "JUNK");
+  assert.equal(junk.purity, "90%");
+  assert.equal(junk.descriptionCap, 4);
+  assert.equal(junk.weightSpan?.length, 5);
+  assert.equal(junk.descriptionSpan?.length, 4);
+  assert.equal(junk.puritySpan?.length, 3);
+  assert.equal(junk.row.trimEnd(), "12.5G JUNK 90%");
+  assert.equal([...junk.row].length, FLAP_DESCRIPTION);
+
+  assert.equal(descriptionCap("1 oz", "Maple"), 10);
+  assert.equal(descriptionCap("1/10 oz", "Coin"), 7);
+  const long = detailLayout("1 oz", "Pocket coin from the old drawer");
+  assert.equal(long.descriptionCap, 10);
+  assert.equal(long.description, "POCKET COI");
+  assert.equal([...long.row].length, FLAP_DESCRIPTION);
+  assert.equal(commitDescription("Pocket coin from the old drawer", "POCKET COI", 10), "POCKET COIN FROM THE OLD DRAWER");
+  assert.equal(commitDescription("Junk 90%", "COIN", 4), "COIN 90%");
+  assert.equal(clampDescription("PASTE THIS WHOLE SENTENCE", 4), "PAST");
+  assert.equal(cardDetail("12.5 g", "Junk 90%").trimEnd(), "12.5G JUNK 90%");
 });
 
 test("quantity sits on the left and the melt on the right", () => {
