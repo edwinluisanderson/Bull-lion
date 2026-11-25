@@ -666,9 +666,19 @@ export function StackTable({
           const layout = line && !dropping ? detailLayout(line.weightLabel, line.description) : null;
           const detailText = layout?.row ?? "";
           const bottomText = dropping ? "" : (meltFace?.text ?? "");
-          const lockFlap = (text: string, span: FlapSpan | null) =>
+          const holdFixed = (event: { preventDefault: () => void; stopPropagation: () => void }) => {
+            event.preventDefault();
+            event.stopPropagation();
+          };
+          const lockFlap = (text: string, span: FlapSpan | null, part: "weight" | "purity" | "gap") =>
             span ? (
-              <span className="stack-lock" style={{ gridColumn: `${span.start} / span ${span.length}` }}>
+              <span
+                className="stack-lock"
+                data-fixed={part}
+                style={{ gridColumn: `${span.start} / span ${span.length}` }}
+                onPointerDown={holdFixed}
+                onMouseDown={holdFixed}
+              >
                 <SplitFlap text={text} width={span.length} instant={boardInstant} />
               </span>
             ) : null;
@@ -676,8 +686,8 @@ export function StackTable({
             <SplitFlap text={detailText} width={FLAP_DESCRIPTION} instant={boardInstant || dropping} />
           ) : (
             <>
-              {lockFlap(layout.weight, layout.weightSpan)}
-              {lockFlap(" ", layout.leadGap)}
+              {lockFlap(layout.weight, layout.weightSpan, "weight")}
+              {lockFlap(" ", layout.leadGap, "gap")}
               {layout.descriptionSpan && line ? (
                 editing === line.id ? (
                   <input
@@ -738,8 +748,8 @@ export function StackTable({
                   </button>
                 )
               ) : null}
-              {lockFlap(" ", layout.tailGap)}
-              {lockFlap(layout.purity, layout.puritySpan)}
+              {lockFlap(" ", layout.tailGap, "gap")}
+              {lockFlap(layout.purity, layout.puritySpan, "purity")}
             </>
           );
           const reeling = cover != null && line != null && line.id === cover.id && cover.phase === "slide";
@@ -807,7 +817,20 @@ export function StackTable({
                   {line.mark}, {line.weightLabel}, quantity {line.qty}, {line.description}, melt {flapMoney(melt)}
                 </span>
               )}
-              <span className="stack-metal" data-tone={blank || !line || dropping ? "silver" : metalTone(line.mark)} style={{ gridColumn: "1 / span 2", gridRow: 1 }}>
+              <span
+                className="stack-metal"
+                data-fixed="metal"
+                data-tone={blank || !line || dropping ? "silver" : metalTone(line.mark)}
+                style={{ gridColumn: "1 / span 2", gridRow: 1 }}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+              >
                 {blank || dropping ? "" : line.mark.toUpperCase()}
               </span>
               <span className="stack-span" style={{ gridColumn: "3 / -1", gridRow: 1 }}>

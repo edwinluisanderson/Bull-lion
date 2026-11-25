@@ -270,7 +270,9 @@ test("the split-flap stack keeps its board and the flaps stay quiet when sound i
   assert.equal(table.includes("descriptionNeedsOwnRow"), false);
   assert.equal(table.includes("data-rows={3}"), false);
   assert.match(table, /width=\{FLAP_DESCRIPTION\}/);
-  assert.match(table, /gridRow: 1 \}\}>\s*\{blank \|\| dropping \? "" : line\.mark\.toUpperCase\(\)\}/);
+  const metalAt = table.indexOf('data-fixed="metal"');
+  const markAt = table.indexOf("line.mark.toUpperCase()");
+  assert.ok(metalAt > 0 && markAt > metalAt && markAt - metalAt < 1200);
   assert.match(table, /stack-qty/);
   assert.equal(table.includes(">Description<"), false);
   assert.equal(table.includes(">Metal<"), false);

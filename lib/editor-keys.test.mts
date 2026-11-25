@@ -19,7 +19,9 @@ test("a desktop Backspace or Delete in the editor never deletes the card", () =>
   assert.equal(swallowCardDelete(face, { key: "Backspace" }), false);
   assert.equal(isDeleteIntent({ key: "Backspace" }), true);
   assert.match(card, /fromEditor\(event\.target\)/);
-  assert.match(card, /if \(event\.key !== "Backspace" && event\.key !== "Delete"\) return/);
+  assert.match(card, /fromEditor\(document\.activeElement\)/);
+  const keys = card.slice(card.indexOf("onKeyDown="), card.indexOf("onBeforeInput="));
+  assert.equal(keys.includes("depart("), false);
   assert.match(table, /event\.stopPropagation\(\)/);
   assert.match(table, /blockEmptyEditorDelete/);
 });
@@ -37,4 +39,22 @@ test("an Android soft-keyboard delete stays in the editor", () => {
   assert.match(table, /onBeforeInput/);
   assert.match(table, /maxLength=\{layout\.descriptionCap\}/);
   assert.match(table, /onPaste/);
+});
+
+test("tapping the metal, the weight, or the purity opens no editor", () => {
+  assert.match(table, /data-fixed="metal"/);
+  assert.match(table, /data-fixed=\{part\}/);
+  assert.match(table, /lockFlap\(layout\.weight, layout\.weightSpan, "weight"\)/);
+  assert.match(table, /lockFlap\(layout\.purity, layout\.puritySpan, "purity"\)/);
+  const metal = table.slice(table.indexOf('data-fixed="metal"'), table.indexOf("stack-span", table.indexOf('data-fixed="metal"')));
+  assert.equal(metal.includes("<button"), false);
+  assert.equal(metal.includes("setEditing"), false);
+  const locks = table.slice(table.indexOf("const lockFlap"), table.indexOf("const description"));
+  assert.equal(locks.includes("setEditing"), false);
+  assert.equal(locks.includes("<button"), false);
+  assert.equal(table.includes("editWeight"), false);
+  assert.equal(table.includes("weight-edit"), false);
+  const edit = table.indexOf('className="stack-edit"');
+  assert.ok(edit > table.indexOf("layout.descriptionSpan"));
+  assert.match(table, /aria-label=\{`Edit description/);
 });

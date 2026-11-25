@@ -29,7 +29,7 @@ import {
 /** Keys and presses that belong to the description editor, not the card. */
 function fromEditor(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
-  return target.closest("input, textarea, [contenteditable='true'], .stack-name, .stack-edit") != null;
+  return target.closest("input, textarea, [contenteditable='true'], .stack-name, .stack-edit, .stack-lock, .stack-metal") != null;
 }
 
 export function SwipeCard({
@@ -289,11 +289,10 @@ export function SwipeCard({
         onPointerUp={finish}
         onPointerCancel={finish}
         onKeyDown={(event) => {
-          if (fromEditor(event.target)) return;
-          if (!isDeleteIntent({ key: event.key, keyCode: event.keyCode })) return;
+          if (fromEditor(event.target) || fromEditor(document.activeElement)) return;
           if (event.key !== "Backspace" && event.key !== "Delete") return;
           event.preventDefault();
-          depart();
+          event.stopPropagation();
         }}
         onBeforeInput={(event) => {
           if (fromEditor(event.target)) return;
@@ -302,7 +301,6 @@ export function SwipeCard({
           event.preventDefault();
         }}
         tabIndex={0}
-        aria-keyshortcuts="Delete"
       >
         {children}
       </div>
