@@ -112,6 +112,17 @@ test("the stack column stays a centered 480px band and the phone card still hugs
   assert.match(css, /\.split-stack \{[^}]*max-width:\s*480px/);
   assert.match(css, /\.split-stack \{[^}]*margin:\s*0 auto/);
   assert.match(css, /\.split-stack \{[^}]*width:\s*100%/);
+  assert.match(css, /\.split-stack \{[^}]*container-type:\s*inline-size/);
   assert.match(css, /\.stack-card \{[^}]*padding:\s*8px/);
   assert.equal(css.includes("@media (min-width: 480px)"), false);
+  const cardRule = css.slice(css.indexOf(".stack-card {"), css.indexOf(".stack-card {") + 500);
+  assert.equal(cardRule.includes("container-type"), false);
+  assert.match(cardRule, /--card-h:\s*calc\(100cqw \* 52\.25 \/ 292\.8\)/);
+  const phoneColumn = 320 - 2 * 0.85 * 16;
+  assert.equal(phoneColumn, 292.8);
+  assert.equal((phoneColumn * 52.25) / 292.8, 52.25);
+  const desktopColumn = 390 - 2 * 0.85 * 16;
+  const desktopHeight = (desktopColumn * 52.25) / 292.8;
+  assert.ok(Math.abs(desktopHeight / desktopColumn - 0.1784) < 0.001);
+  assert.ok(desktopHeight < 70);
 });

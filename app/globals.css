@@ -1317,6 +1317,8 @@ html[data-ball="cobalt"] .pull-ball {
   padding: 0;
   background: none;
   box-shadow: none;
+  /* The column is the container. Cards must not query themselves, or cqw falls back to the viewport. */
+  container-type: inline-size;
 }
 
 .split-stack:has(.stack-swipe.is-raised) {
@@ -1457,20 +1459,20 @@ html[data-ball="cobalt"] .pull-ball {
 }
 
 .stack-card {
-  container-type: inline-size;
-  /* Sixteen columns, 8px of padding each side, fifteen 2px gaps. */
-  --card-flap: calc((100cqw - 16px - 30px) / 16);
+  /* 52.25px tall on the 320px phone column (292.8px after the workshop's side padding). */
+  --card-h: calc(100cqw * 52.25 / 292.8);
+  --card-flap: calc((var(--card-h) - 18px) / 2);
   --flap-h: var(--card-flap);
   --flap-font: calc(var(--flap-h) * 0.75);
 }
 
 .split-total {
-  container-type: inline-size;
-  /* Same outer height as a card: two flap rows and 8px of padding. */
-  --card-flap: calc((100cqw - 16px - 30px) / 16);
+  /* Same outer height as a card. The word row stays a little smaller than the amount. */
+  --card-h: calc(100cqw * 52.25 / 292.8);
+  --card-flap: calc((var(--card-h) - 18px) / 2);
   --card-body: calc(var(--card-flap) * 2 + 2px);
-  --word-h: calc(var(--card-flap) * 0.86);
-  --amount-h: calc(var(--card-flap) * 1.12);
+  --word-h: calc(var(--card-flap) * 2 * 0.86 / 1.98);
+  --amount-h: calc(var(--card-flap) * 2 * 1.12 / 1.98);
   --word-font: calc(var(--word-h) * 0.75);
   --amount-font: calc(var(--amount-h) * 0.75);
 }
@@ -1482,7 +1484,7 @@ html[data-ball="cobalt"] .pull-ball {
   column-gap: 2px;
   row-gap: 2px;
   min-width: 0;
-  min-height: calc(16px + var(--card-flap) * 2 + 2px);
+  min-height: var(--card-h);
   padding: 8px;
   border-radius: 8px;
   background:
@@ -1967,7 +1969,7 @@ html[data-ball="cobalt"] .pull-ball {
 
 .split-total {
   box-sizing: border-box;
-  min-height: calc(16px + var(--card-body));
+  min-height: var(--card-h);
   margin: 8px 0 0;
   padding: 8px;
   border-radius: 8px;

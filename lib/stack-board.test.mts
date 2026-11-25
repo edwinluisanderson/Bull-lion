@@ -257,7 +257,7 @@ test("the split-flap stack keeps its board and the flaps stay quiet when sound i
   assert.match(css, /\.split-stack-title \{[^}]*font-size:\s*1\.5rem/);
   assert.match(css, /\.split-stack-title \{[^}]*text-align:\s*center/);
   assert.match(css, /\.split-stack-head \{[^}]*justify-content:\s*center/);
-  assert.match(css, /\.split-total \{[^}]*min-height:\s*calc\(16px \+ var\(--card-body\)\)/);
+  assert.match(css, /\.split-total \{[^}]*min-height:\s*var\(--card-h\)/);
   assert.match(css, /\.split-total \{[^}]*padding:\s*8px/);
   assert.match(css, /\.split-total-word \{[^}]*justify-content:\s*center/);
   assert.match(css, /\.split-total-amount \{[^}]*repeat\(var\(--total-flaps, 13\)/);
