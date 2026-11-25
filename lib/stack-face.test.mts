@@ -132,8 +132,9 @@ test("a new card stays blank until the chain has paid out", () => {
   assert.equal(arrivalShowsBlank("flip"), false);
   assert.equal(arrivalShowsBlank(null), false);
   assert.match(css, /left:\s*100px/);
-  assert.match(css, /\.chain-half/);
-  assert.match(css, /\.chain-half \{[^}]*display:\s*none/);
+  assert.equal(css.includes(".stack-rails"), false);
+  assert.equal(table.includes("stack-rails"), false);
+  assert.equal(css.includes("chain-reel"), false);
   assert.match(css, /animation:\s*stack-lower 250ms ease-out both/);
   assert.match(css, /translateY\(calc\(-1 \* var\(--pay-drop\)\)\)/);
   assert.match(table, /is-arriving/);
@@ -143,19 +144,15 @@ test("a new card stays blank until the chain has paid out", () => {
   assert.ok(arrival.indexOf("motionReduced()") < arrival.indexOf("setLoweringId"));
 });
 
-test("the chain is clipped to the stack and ends at the last joint", () => {
-  assert.match(css, /\.stack-rails \{[^}]*top:\s*0/);
-  assert.match(css, /\.stack-rails \{[^}]*bottom:\s*0/);
-  assert.match(css, /\.stack-rails \{[^}]*overflow:\s*hidden/);
-  assert.match(css, /\.stack-rails span \{[^}]*top:\s*0/);
-  assert.match(css, /\.stack-rails span \{[^}]*bottom:\s*0/);
-  assert.match(css, /\.stack-rails span \{[^}]*width:\s*6px/);
-  assert.match(css, /\.split-stack:not\(\.is-arriving\) \.stack-rails:not\(\.is-winch\) \{[^}]*opacity:\s*0/);
+test("the plates hang from the twist-in links and the background rail is gone", () => {
+  assert.equal(css.includes(".stack-rails"), false);
+  assert.equal(table.includes("stack-rails"), false);
+  assert.equal(css.includes(".is-winch"), false);
   assert.match(css, /\.split-stack \{[^}]*clip-path:\s*inset\(0 -200vw -120px -200vw\)/);
-  assert.match(css, /\.split-stack\.is-arriving \.stack-rails \{[^}]*z-index:\s*-2/);
   assert.match(css, /\.mock-link\.is-left \{[^}]*--link14-bR/);
   assert.match(css, /\.mock-link\.is-right \{[^}]*--link14-bL/);
-  assert.equal(/\.stack-rails span \{[^}]*height:\s*\d+px/.test(css), false);
+  assert.match(css, /\.split-stack\.is-arriving \.split-stack-head > \.mock-link/);
+  assert.match(css, /\.stack-swipe\.is-reeled \.mock-link \{[^}]*translateY\(calc\(-1 \* var\(--lift/);
   assert.match(css, /\.split-total \{[^}]*position:\s*relative/);
   assert.match(css, /animation:\s*stack-lower 250ms ease-out both/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\.split-stack\.is-arriving \.split-rows[\s\S]*?animation:\s*none/);

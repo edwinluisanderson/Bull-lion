@@ -627,15 +627,9 @@ export function StackTable({
   const wordFace = faceFor(TOTAL_WORD_ID, totalCopy.top);
   const amountFace = faceFor(TOTAL_BOARD_ID, totalCopy.bottom);
 
-  const plateWinch = cover?.phase === "slide" && cover.index === 0;
-
   return (
     <section ref={boardRef} className={`split-stack${loweringId ? " is-arriving" : ""}`} aria-label="My Stack">
-      <div className={`stack-rails${plateWinch ? " is-winch" : ""}`} aria-hidden="true">
-        <span data-side="left" />
-        <span data-side="right" />
-      </div>
-      <div className="split-stack-head" data-winch={plateWinch ? "plate" : undefined}>
+      <div className="split-stack-head">
         <span className="mock-hole is-bottom is-left" aria-hidden="true" />
         <span className="mock-hole is-bottom is-right" aria-hidden="true" />
         <span className="mock-link is-left" aria-hidden="true" />

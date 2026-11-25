@@ -106,12 +106,14 @@ test("chains stay behind the plates and a deleted plate reels up behind the one 
   assert.equal(plateHidden(0, 52), false);
   assert.equal(plateHidden(52, 52), true);
   assert.equal(plateHidden(60, 52), true);
-  const chain = Number(css.match(/\.chain-half \{[^}]*z-index:\s*(\d+)/)?.[1]);
+  const link = Number(css.match(/\.mock-link \{[^}]*z-index:\s*(\d+)/)?.[1]);
   const face = Number(css.match(/\.stack-swipe-face \{[^}]*z-index:\s*(\d+)/)?.[1]);
-  const rails = Number(css.match(/\.stack-rails \{[^}]*z-index:\s*(-?\d+)/)?.[1]);
   const row = Number(css.match(/\.stack-swipe \{[^}]*z-index:\s*(\d+)/)?.[1]);
-  assert.ok(chain < face);
-  assert.ok(rails < row);
+  assert.ok(link > 0);
+  assert.ok(face > 0);
+  assert.ok(row > 0);
+  assert.equal(css.includes(".stack-rails"), false);
+  assert.equal(table.includes("stack-rails"), false);
   assert.equal(css.includes(".chain-half-bottom::after"), false);
   assert.match(css, /\.stack-swipe\.is-reeled \{[^}]*z-index:\s*0/);
   assert.match(css, /\.stack-swipe\.is-reeled \.stack-empty-plate \{[^}]*translateY\(calc\(-1 \* var\(--lift/);

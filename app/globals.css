@@ -1946,7 +1946,6 @@ html[data-ball="cobalt"] .pull-ball {
   pointer-events: none;
 }
 
-.stack-swipe.is-reeled .chain-half,
 .stack-swipe.is-reeled .mock-plate,
 .stack-swipe.is-reeled .mock-hole,
 .stack-swipe.is-reeled .mock-link {
@@ -2308,58 +2307,6 @@ html[data-ball="cobalt"] .pull-ball {
   font-weight: 700;
 }
 
-.chain-half {
-  display: none;
-  position: absolute;
-  z-index: 1;
-  box-sizing: border-box;
-  width: 14px;
-  height: 8px;
-  border: 3px solid #c4963e;
-  background: transparent;
-  box-shadow: inset 0 0 0 1px #7a5a22;
-  pointer-events: none;
-}
-
-.chain-half.is-right { right: 96px; left: auto; }
-.chain-half:not(.is-right) { left: 96px; }
-.chain-half-top {
-  top: -7px;
-  border-bottom: 0;
-  border-radius: 8px 8px 0 0;
-}
-.chain-half-bottom {
-  bottom: -7px;
-  border-top: 0;
-  border-radius: 0 0 8px 8px;
-}
-
-.stack-rails {
-  position: absolute;
-  z-index: -2;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.split-stack:not(.is-arriving) .stack-rails:not(.is-winch) {
-  opacity: 0;
-}
-
-.stack-rails span {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 6px;
-  background: linear-gradient(90deg, #2e1404, #a5602a 35%, #f2c08a 45%, #7a3e14 75%, #2e1404);
-}
-
-.stack-rails span[data-side="left"] { left: 100px; }
-.stack-rails span[data-side="right"] { right: 100px; }
-
 /* Copper-bronze ring. Six pixels of glass plus two of board keep the flaps eight pixels in. */
 .mock-plate,
 .mock-slot,
@@ -2484,31 +2431,22 @@ html[data-ball="cobalt"] .pull-ball {
 .split-stack:has(.mock-lifted) .split-total > .mock-link { z-index: 9; }
 .split-stack-head > .mock-link { top: calc(100% - 5px); z-index: 6; }
 
-[data-winch="card"] .chain-half-bottom {
-  animation: chain-reel 520ms linear both;
-}
-
-@keyframes chain-reel {
-  from { transform: translateY(0); }
-  to { transform: translateY(-10px); }
-}
-
 .split-rows,
-.stack-rails,
-.split-total {
+.split-total,
+.split-stack-head > .mock-link {
   --pay-drop: calc(100cqw * 58.25 / 292.8 + 8px);
+}
+
+.split-stack.is-arriving .split-rows,
+.split-stack.is-arriving .split-total,
+.split-stack.is-arriving .split-stack-head > .mock-link {
+  animation: stack-lower 250ms ease-out both;
 }
 
 .split-stack.is-arriving .split-rows,
 .split-stack.is-arriving .split-total {
   position: relative;
   z-index: 2;
-  animation: stack-lower 250ms ease-out both;
-}
-
-.split-stack.is-arriving .stack-rails {
-  z-index: -2;
-  animation: stack-lower 250ms ease-out both;
 }
 
 .stack-swipe-window {
@@ -2536,10 +2474,8 @@ html[data-ball="cobalt"] .pull-ball {
 
 @media (prefers-reduced-motion: reduce) {
   .split-stack.is-arriving .split-rows,
-  .split-stack.is-arriving .stack-rails,
   .split-stack.is-arriving .split-total,
-  [data-winch="card"] .chain-half-bottom,
-  .stack-rails.is-winch span {
+  .split-stack.is-arriving .split-stack-head > .mock-link {
     animation: none;
   }
 }

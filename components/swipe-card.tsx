@@ -277,10 +277,6 @@ export function SwipeCard({
       <span className="mock-hole is-bottom is-right" aria-hidden="true" />
       {alarm === "open" ? <div className="delete-alarm-glow" aria-hidden="true" /> : null}
       <span className="stack-empty-plate" aria-hidden="true" />
-      <span className="chain-half chain-half-top" aria-hidden="true" />
-      <span className="chain-half chain-half-top is-right" aria-hidden="true" />
-      <span className="chain-half chain-half-bottom" aria-hidden="true" />
-      <span className="chain-half chain-half-bottom is-right" aria-hidden="true" />
       <button
         type="button"
         className="stack-swipe-delete"
