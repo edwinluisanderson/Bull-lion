@@ -67,7 +67,7 @@ test("the deleted plate slides up with the stack and does not fade", () => {
   assert.equal(card.includes("DELETE_LINGER_MS"), false);
   assert.match(card, /onDepart\(\)/);
   assert.equal(card.includes("setDeparting"), false);
-  assert.equal(card.includes("is-departing"), false);
+  assert.match(card, /leaving \? " is-departing"/);
   assert.match(card, /is-rising/);
   assert.match(card, /is-reel-card/);
   const raise = css.slice(css.indexOf("@keyframes stack-raise"), css.indexOf("}", css.indexOf("to {", css.indexOf("@keyframes stack-raise"))) + 1);
@@ -75,7 +75,7 @@ test("the deleted plate slides up with the stack and does not fade", () => {
   assert.equal(raise.includes("opacity"), false);
   assert.match(css, /animation:\s*stack-raise 250ms ease-out both/);
   assert.equal(COVER_SLIDE_MS, 250);
-  assert.match(table, /advanceDeleteCover\(beginDeleteCover/);
+  assert.match(table, /setCover\(beginDeleteCover/);
   assert.match(table, /is-rising/);
   assert.match(css, new RegExp(`transition: transform ${DELETE_SHOOT_MS}ms`));
   assert.equal(css.includes("delete-linger"), false);

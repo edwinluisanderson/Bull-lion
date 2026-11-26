@@ -248,11 +248,12 @@ button,
 .plate-title {
   margin: 0.1rem 0 0;
   color: #3a2710;
-  font-family: var(--font-display), Palatino, serif;
-  font-size: 1.45rem;
-  font-weight: 900;
-  line-height: 1.05;
+  font-family: var(--font-nameplate), "Rye", serif;
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1;
   letter-spacing: 0.03em;
+  white-space: nowrap;
   text-shadow: 0 1px 0 rgba(255, 236, 190, 0.55);
 }
 
@@ -1433,16 +1434,17 @@ html[data-ball="cobalt"] .pull-ball {
   margin: 0;
   padding-inline: 48px;
   color: #3a2710;
-  font-family: var(--font-display), Palatino, serif;
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-family: var(--font-nameplate), "Rye", serif;
+  font-size: 30px;
+  font-weight: 400;
   font-variant: normal;
   font-variant-caps: normal;
-  letter-spacing: 0.08em;
-  line-height: 1.05;
+  letter-spacing: 0.03em;
+  line-height: 1;
   text-align: center;
   text-transform: none;
-  text-shadow: 0 1px 0 rgba(255, 244, 214, 0.45);
+  white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(255, 236, 190, 0.55);
 }
 
 .split-total {
@@ -1772,6 +1774,9 @@ html[data-ball="cobalt"] .pull-ball {
   /* The recess starts at the inside of the 6px ring and 8px from the sides. */
   --open-y: var(--pw);
   --open-x: 8px;
+  /* Original 76px delete control, scaled to the 46.25px opening. */
+  --del-k: calc(46.25 / 76);
+  --del: 46.25px;
 }
 
 .stack-swipe-delete {
@@ -1779,12 +1784,12 @@ html[data-ball="cobalt"] .pull-ball {
   z-index: 0;
   isolation: isolate;
   top: var(--open-y);
-  bottom: var(--open-y);
   left: var(--open-x);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--reveal, 76px);
+  width: var(--reveal, 46.25px);
+  height: var(--del);
   padding: 0;
   border: 0;
   background: transparent;
@@ -1796,15 +1801,17 @@ html[data-ball="cobalt"] .pull-ball {
 }
 
 .stack-swipe-plate {
-  position: absolute;
-  inset: 0;
+  position: relative;
   display: grid;
   place-items: center;
+  flex: none;
+  width: var(--del);
+  height: var(--del);
   border-radius: 3px 0 0 3px;
-  background: repeating-linear-gradient(-45deg, #f0c400 0 7px, #111 7px 14px);
+  background: repeating-linear-gradient(-45deg, #f0c400 0 calc(7px * var(--del-k)), #111 calc(7px * var(--del-k)) calc(14px * var(--del-k)));
   box-shadow:
-    inset 0 0 0 3px #111,
-    0 1px 0 rgba(0, 0, 0, 0.45);
+    inset 0 0 0 calc(3px * var(--del-k)) #111,
+    0 calc(1px * var(--del-k)) 0 rgba(0, 0, 0, 0.45);
 }
 
 .delete-amber {
@@ -1813,20 +1820,21 @@ html[data-ball="cobalt"] .pull-ball {
   inset: 4%;
   border-radius: 50%;
   background: #140c08;
-  box-shadow: inset 0 0 0 2px #111;
+  box-shadow: inset 0 0 0 calc(2px * var(--del-k)) #111;
   mask-image: radial-gradient(circle, transparent 0 46%, #000 54%);
   pointer-events: none;
 }
 
+/* saved for settings tray: lighthouse beams (.delete-beam) are not mounted. */
 .delete-beam {
   position: absolute;
   z-index: 0;
   top: 50%;
   left: 50%;
-  width: 880px;
-  height: 880px;
-  margin-top: -440px;
-  margin-left: -440px;
+  width: calc(880px * var(--del-k));
+  height: calc(880px * var(--del-k));
+  margin-top: calc(-440px * var(--del-k));
+  margin-left: calc(-440px * var(--del-k));
   background:
     conic-gradient(
       from -8deg,
@@ -1858,34 +1866,36 @@ html[data-ball="cobalt"] .pull-ball {
   animation: none;
 }
 
+/* saved for settings tray
 .stack-swipe[data-alarm="open"] .delete-beam {
   opacity: 1;
   visibility: visible;
   animation: lighthouse-sweep 5s linear infinite;
 }
+*/
 
 .stack-swipe[data-alarm="open"] .stack-swipe-push {
   background:
     radial-gradient(ellipse at 34% 24%, rgba(255, 255, 255, 0.7) 0 7%, transparent 18%),
     radial-gradient(circle at 50% 48%, #fff6f6 0 4%, #ffd4d4 14%, #ff4d4d 38%, #e10600 64%, #7a0000 100%);
   box-shadow:
-    0 0 0 4px #111,
-    0 0 16px 4px rgba(255, 36, 36, 0.5),
-    inset 0 0 18px 2px rgba(255, 70, 70, 0.72),
-    inset 0 -8px 12px rgba(90, 0, 0, 0.35);
+    0 0 0 calc(4px * var(--del-k)) #111,
+    0 0 calc(16px * var(--del-k)) calc(4px * var(--del-k)) rgba(255, 36, 36, 0.5),
+    inset 0 0 calc(18px * var(--del-k)) calc(2px * var(--del-k)) rgba(255, 70, 70, 0.72),
+    inset 0 calc(-8px * var(--del-k)) calc(12px * var(--del-k)) rgba(90, 0, 0, 0.35);
 }
 
 .delete-alarm-glow {
-  position: fixed;
-  z-index: 0;
+  position: absolute;
+  z-index: 3;
   inset: 0;
+  border-radius: inherit;
   pointer-events: none;
   background: radial-gradient(
-    circle at 50% 42%,
-    rgba(255, 48, 40, 0.34),
-    rgba(140, 0, 0, 0.2) 38%,
-    rgba(40, 0, 0, 0.08) 68%,
-    transparent 80%
+    circle at 50% 50%,
+    rgba(255, 48, 40, 0.55),
+    rgba(140, 0, 0, 0.28) 58%,
+    transparent 78%
   );
   animation: delete-alarm-pulse 1.8s ease-in-out infinite;
 }
@@ -2026,9 +2036,9 @@ html[data-ball="cobalt"] .pull-ball {
     radial-gradient(ellipse at 32% 24%, rgba(255, 214, 214, 0.45) 0 8%, rgba(255, 160, 160, 0.05) 18%, transparent 26%),
     radial-gradient(circle at 50% 54%, rgba(92, 14, 14, 0.82) 0 46%, rgba(48, 6, 6, 0.94) 100%);
   box-shadow:
-    0 0 0 4px #111,
-    inset 0 1px 0 rgba(255, 210, 210, 0.32),
-    inset 0 -7px 8px rgba(0, 0, 0, 0.28);
+    0 0 0 calc(4px * var(--del-k)) #111,
+    inset 0 calc(1px * var(--del-k)) 0 rgba(255, 210, 210, 0.32),
+    inset 0 calc(-7px * var(--del-k)) calc(8px * var(--del-k)) rgba(0, 0, 0, 0.28);
   transition: background 320ms ease, box-shadow 320ms ease;
 }
 
@@ -2532,13 +2542,30 @@ html[data-ball="cobalt"] .pull-ball {
   }
 }
 
-/* TEMP_CLEAR_ALL: small brass control on the scrap plate. */
-.scrap-clear {
+/* TEMP_CLEAR_ALL: Clear all and the info button share a centered row on the scrap plate. */
+.scrap-dock {
   position: absolute;
   z-index: 10;
   top: 50%;
   left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 0;
   transform: translate(-50%, -50%);
+  pointer-events: auto;
+}
+
+.scrap-dock .assay-info {
+  position: static;
+  top: auto;
+  right: auto;
+}
+
+.scrap-clear {
+  position: static;
+  z-index: 10;
   margin: 0;
   padding: 3px 7px;
   border: 0;
@@ -2798,9 +2825,47 @@ html[data-ball="cobalt"] .pull-ball {
 }
 
 .melt-kicker {
-  margin: 0.2rem 0 0;
-  color: #3a2710;
+  display: none;
 }
+
+.melt-price-tag {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 116.61px;
+  height: 20px;
+  margin: 0;
+  padding: 5px 16px 4px;
+  border-radius: 4px;
+  background: url(/brushed-brass-tile.png) center / 100% 100% no-repeat;
+  box-shadow: 0 0 0 1px rgba(42, 26, 8, 0.55);
+  color: #3a2710;
+  font-family: var(--font-display), Palatino, serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: 0 1px 0 rgba(255, 236, 190, 0.7), 0 -0.5px 0 rgba(40, 24, 8, 0.28);
+  white-space: nowrap;
+}
+
+.melt-price-screw {
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff3c4, #c6a15a 42%, #5c4316 78%);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.65), inset 0 -1px 1px rgba(0, 0, 0, 0.45);
+}
+
+.melt-price-screw[data-side="left"] { left: 3px; }
+.melt-price-screw[data-side="right"] { right: 3px; }
 
 .melt-overflow {
   position: relative;
@@ -2871,18 +2936,23 @@ html[data-ball="cobalt"] .pull-ball {
   font-size: 0.95rem;
 }
 
-.melt-plate .plate-title {
-  font-size: 1.55rem;
-}
-
 .melt-plate .plate-title,
 .melt-plate .tagline {
   width: 100%;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   text-align: center;
+}
+
+.melt-plate .plate-title {
+  font-size: 30px;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.melt-plate .tagline {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .readout-stack {
@@ -3378,7 +3448,7 @@ html[data-compact="3"][data-plate] .window-frame {
 
 @container plate (min-width: 0px) {
   .melt-plate .plate-title {
-    font-size: min(1.55rem, calc((100cqi - 108px) / 6.4));
+    font-size: 30px;
   }
 }
 

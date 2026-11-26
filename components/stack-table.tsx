@@ -369,9 +369,7 @@ export function StackTable({
     if (index < 0) return;
     const { rowHeight, totalHeight } = measureRow(lineId);
     setOpenId((current) => (current === lineId ? null : current));
-    const started = advanceDeleteCover(beginDeleteCover(lineId, index, rows.length, rowHeight, totalHeight));
-    if (started === "remove") return;
-    setCover(started);
+    setCover(beginDeleteCover(lineId, index, rows.length, rowHeight, totalHeight));
   }
 
   function requestDelete(lineId: string) {

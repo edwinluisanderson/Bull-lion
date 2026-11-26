@@ -10,6 +10,7 @@ import { WheelLamps } from "@/components/wheel-lamps";
 import { pulseWheelLamp } from "@/lib/wheel-lamp";
 import { StackTable } from "@/components/stack-table";
 import { PullBall } from "@/components/lever";
+import { AssayDialog, AssayInfoIcon } from "@/components/assay-dialog";
 import { Readout } from "@/components/readout";
 import { Reel, type ReelSymbol } from "@/components/reel";
 import { weightShowsDollars } from "@/lib/affordable-weight";
@@ -262,7 +263,6 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
               weight={weight}
               pieces={pieces}
               spinning={spinning}
-              formula={formula}
               source={book.source}
               fetchedAt={book.fetchedAt}
             />
@@ -455,16 +455,26 @@ export function SlotMachine({ initialBook }: { initialBook: PriceBook }) {
           <span className="rivet" data-corner="tr" />
           <span className="rivet" data-corner="bl" />
           <span className="rivet" data-corner="br" />
-          {/* TEMP_CLEAR_ALL: testing control on the scrap plate. Remove with the flag. */}
-          {TEMP_CLEAR_ALL ? (
-            <button
-              type="button"
-              className="scrap-clear"
-              onClick={() => window.dispatchEvent(new Event(CLEAR_STACK_EVENT))}
-            >
-              Clear all
-            </button>
-          ) : null}
+          <div className="scrap-dock">
+            {/* TEMP_CLEAR_ALL: testing control on the scrap plate. Remove with the flag. */}
+            {TEMP_CLEAR_ALL ? (
+              <button
+                type="button"
+                className="scrap-clear"
+                onClick={() => window.dispatchEvent(new Event(CLEAR_STACK_EVENT))}
+              >
+                Clear all
+              </button>
+            ) : null}
+            <AssayDialog
+              formula={formula}
+              trigger={
+                <button type="button" className="assay-info" aria-label="Assay notes">
+                  <AssayInfoIcon />
+                </button>
+              }
+            />
+          </div>
         </div>
         {lampCompare ? (
           <div className="lamp-compare">

@@ -2,7 +2,6 @@
 
 import { useLayoutEffect, useState } from "react";
 
-import { AssayDialog, AssayInfoIcon } from "@/components/assay-dialog";
 import { RoundedLight } from "@/components/rounded-light";
 import { WheelReadout } from "@/components/wheel-readout";
 import { formatStamp, formatWholeDollars } from "@/lib/format";
@@ -19,7 +18,6 @@ export function Readout({
   weight,
   pieces,
   spinning: _spinning,
-  formula,
   source,
   fetchedAt,
 }: {
@@ -27,7 +25,6 @@ export function Readout({
   weight: WeightSpec;
   pieces: number;
   spinning: boolean;
-  formula?: string;
   source: PriceBook["source"];
   fetchedAt: string;
 }) {
@@ -56,17 +53,8 @@ export function Readout({
         <span className="rivet" data-corner="tr" />
         <span className="rivet" data-corner="bl" />
         <span className="rivet" data-corner="br" />
-        <AssayDialog
-          formula={formula}
-          trigger={
-            <button type="button" className="assay-info" aria-label="Assay notes">
-              <AssayInfoIcon />
-            </button>
-          }
-        />
         <div className="melt-heading">
           <p className="plate-title">{metal.name}</p>
-          <p className="readout-kicker melt-kicker">Melt Price</p>
         </div>
         {plateRounded ? (
           <p className="melt-overflow">
@@ -76,6 +64,11 @@ export function Readout({
         ) : (
           <WheelReadout value={meltWheelLabel(total)} />
         )}
+        <p className="melt-price-tag">
+          <span className="melt-price-screw" data-side="left" aria-hidden="true" />
+          Melt Price
+          <span className="melt-price-screw" data-side="right" aria-hidden="true" />
+        </p>
         <p className="tagline">{formatStackPhrase(weight, pieces)}</p>
         <p className="lamp" data-state={wire} data-testid="price-source">
           <i />

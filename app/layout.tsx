@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Big_Shoulders, Cinzel, IBM_Plex_Mono, Inter, Source_Serif_4 } from "next/font/google";
+import { Big_Shoulders, Cinzel, IBM_Plex_Mono, Inter, Rye, Source_Serif_4 } from "next/font/google";
 
 import { PageSnap } from "@/components/page-snap";
 import "./globals.css";
@@ -33,6 +33,13 @@ const flap = Inter({
   display: "swap",
 });
 
+const nameplate = Rye({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-nameplate",
+  display: "swap",
+});
+
 const body = Source_Serif_4({
   subsets: ["latin"],
   weight: ["400", "600", "700"],
@@ -62,7 +69,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       data-bars="long"
       data-gearscale="1.2"
       data-ball="ruby"
-      className={`${display.variable} ${reel.variable} ${readout.variable} ${body.variable} ${flap.variable} h-full antialiased`}
+      className={`${display.variable} ${nameplate.variable} ${reel.variable} ${readout.variable} ${body.variable} ${flap.variable} h-full antialiased`}
     >
       <body className="min-h-full">
         <PageSnap />

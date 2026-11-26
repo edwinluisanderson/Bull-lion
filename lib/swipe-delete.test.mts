@@ -22,12 +22,12 @@ test("a sideways drag locks to the track and a vertical move keeps scrolling", (
   assert.equal(clampSwipe(-12), 0);
   assert.equal(clampSwipe(40), 40);
   assert.equal(clampSwipe(200), SWIPE_REVEAL_PX);
-  assert.equal(SWIPE_REVEAL_PX, 76);
+  assert.equal(SWIPE_REVEAL_PX, 46.25);
 });
 
 test("a fast fling only opens the card, and a later lever tap is what deletes", () => {
   assert.equal(settleSwipe(20), "shut");
-  assert.equal(settleSwipe(30), "shut");
+  assert.equal(settleSwipe(30), "open");
   assert.equal(settleSwipe(SWIPE_REVEAL_PX / 2), "open");
   assert.equal(settleSwipe(SWIPE_REVEAL_PX), "open");
   assert.equal(settleSwipe(SWIPE_REVEAL_PX * 2), "open");
@@ -57,14 +57,16 @@ test("the card slides on a vertical-scroll track and the clicks share the flap l
   assert.match(card, /playSwipeTone\("clunk"\)/);
   assert.match(css, /\.stack-swipe-plate \{[^}]*repeating-linear-gradient\(-45deg/);
   assert.match(css, /\.stack-swipe-plate \{[^}]*border-radius:\s*3px 0 0 3px/);
-  assert.match(css, /\.stack-swipe-plate \{[^}]*inset:\s*0/);
-  assert.match(css, /\.stack-swipe-delete \{[^}]*width:\s*var\(--reveal, 76px\)/);
+  assert.match(css, /\.stack-swipe-plate \{[^}]*width:\s*var\(--del\)/);
+  assert.match(css, /\.stack-swipe-plate \{[^}]*height:\s*var\(--del\)/);
+  assert.match(css, /\.stack-swipe \{[^}]*--del-k:\s*calc\(46\.25 \/ 76\)/);
+  assert.match(css, /\.stack-swipe-delete \{[^}]*width:\s*var\(--reveal, 46\.25px\)/);
   assert.match(css, /\.stack-swipe-delete \{[^}]*left:\s*var\(--open-x\)/);
   assert.match(css, /\.stack-swipe-delete \{[^}]*top:\s*var\(--open-y\)/);
   assert.match(css, /\.stack-swipe \{[^}]*--open-y:\s*var\(--pw\)/);
   assert.match(css, /\.stack-swipe \{[^}]*--open-x:\s*8px/);
   assert.match(css, /\.stack-swipe-push \{[^}]*border-radius:\s*50%/);
-  assert.match(css, /\.stack-swipe-push \{[^}]*0 0 0 4px #111/);
+  assert.match(css, /\.stack-swipe-push \{[^}]*calc\(4px \* var\(--del-k\)\) #111/);
   assert.match(css, /\.stack-swipe:not\(\.is-raised\) \.stack-swipe-delete \{[^}]*visibility:\s*hidden/);
   assert.match(css, /\.stack-swipe-window \{[^}]*pointer-events:\s*none/);
   assert.match(css, /\.stack-swipe-face \{[^}]*pointer-events:\s*auto/);

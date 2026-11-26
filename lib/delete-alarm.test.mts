@@ -30,7 +30,8 @@ test("the ahooga waits a few seconds and stays quiet when the page or the sound 
 
 test("a locked card spins amber lamps, glows, and a tap shoots the card off", () => {
   assert.match(card, /data-alarm=\{alarm\}/);
-  assert.match(card, /delete-beam/);
+  assert.match(card, /saved for settings tray/);
+  assert.equal(card.includes('className="delete-beam"'), false);
   assert.match(card, /delete-alarm-glow/);
   assert.equal(card.includes("createPortal"), false);
   assert.match(card, /playDeleteAhooga/);
@@ -42,17 +43,16 @@ test("a locked card spins amber lamps, glows, and a tap shoots the card off", ()
   assert.match(machine, /preloadAppSounds\(\)/);
   assert.match(machine, /installAppAudioUnlock\(\)/);
   assert.match(alarm, /export function loadDeleteAhooga/);
-  assert.match(css, /\.delete-beam \{[^}]*width:\s*880px/);
-  assert.match(css, /\.delete-beam \{[^}]*height:\s*880px/);
+  assert.match(css, /saved for settings tray/);
+  assert.match(css, /\.delete-beam \{[^}]*width:\s*calc\(880px \* var\(--del-k\)\)/);
+  assert.match(css, /\.delete-beam \{[^}]*height:\s*calc\(880px \* var\(--del-k\)\)/);
   assert.match(css, /\.delete-beam \{[^}]*conic-gradient\(/);
   assert.match(css, /\.delete-beam \{[^}]*mask-image:\s*radial-gradient\(circle, transparent 0 2\.3%/);
   assert.match(css, /\.delete-beam \{[^}]*pointer-events:\s*none/);
   assert.match(css, /\.delete-beam \{[^}]*opacity:\s*0/);
   assert.match(css, /\.delete-beam \{[^}]*visibility:\s*hidden/);
   assert.match(css, /\.stack-swipe\[data-alarm="drag"\] \.delete-beam \{[^}]*opacity:\s*0/);
-  assert.match(css, /\.stack-swipe\[data-alarm="open"\] \.delete-beam \{[^}]*opacity:\s*1/);
-  assert.match(css, /\.stack-swipe\[data-alarm="open"\] \.delete-beam \{[^}]*visibility:\s*visible/);
-  assert.match(css, /\.stack-swipe\[data-alarm="open"\] \.delete-beam \{[^}]*lighthouse-sweep 5s linear infinite/);
+  assert.match(css, /saved for settings tray[\s\S]*lighthouse-sweep 5s linear infinite/);
   assert.match(css, /\.stack-swipe\[data-alarm="open"\] \.stack-swipe-push \{[^}]*#fff6f6/);
   assert.match(css, /\.stack-swipe\[data-alarm="drag"\] \.delete-beam \{[^}]*animation:\s*none/);
   assert.equal(css.includes("brightness(0.42)"), false);
@@ -62,8 +62,8 @@ test("a locked card spins amber lamps, glows, and a tap shoots the card off", ()
   assert.match(css, /\.stack-swipe-delete \{[^}]*z-index:\s*0/);
   assert.match(css, /\.stack-swipe-face \{[^}]*z-index:\s*2/);
   assert.match(css, /\.delete-alarm-glow \{[^}]*pointer-events:\s*none/);
-  assert.match(css, /\.delete-alarm-glow \{[^}]*position:\s*fixed/);
-  assert.match(css, /\.delete-alarm-glow \{[^}]*z-index:\s*0/);
+  assert.match(css, /\.delete-alarm-glow \{[^}]*position:\s*absolute/);
+  assert.match(css, /\.delete-alarm-glow \{[^}]*z-index:\s*3/);
   assert.match(css, /\.stack-swipe\.is-departing \.stack-swipe-face \{[^}]*translateX\(120vw\)/);
   assert.equal(css.includes("delete-linger"), false);
   const reduced = css

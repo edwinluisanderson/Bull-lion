@@ -3,7 +3,7 @@
  * This is the caution-stripe width. The board's left edge starts at the
  * same inset as the stripes, so the swipe stops on their right edge.
  */
-export const SWIPE_REVEAL_PX = 76;
+export const SWIPE_REVEAL_PX = 46.25;
 /** Movement below this stays undecided so a vertical scroll can win. */
 export const SWIPE_AXIS_SLOP = 8;
 /** Ignore a lever click that is really the pointerup ending a drag. */

@@ -251,7 +251,7 @@ export function SwipeCard({
 
   return (
     <li
-      className={`stack-swipe${shown > 0 || leaving ? " is-raised" : ""}${paying ? " is-paying" : ""}${lowering ? " is-lowering" : ""}${cover === "arm" || cover === "over" || shell ? " is-remnant" : ""}${cover === "arm" || cover === "over" ? " is-cover-ready" : ""}${cover === "over" ? " is-covering" : ""}${cover === "front" ? " is-cover-front" : ""}${shell ? " is-collapsing is-reeled" : ""}${rising ? " is-rising" : ""}${reelCard ? " is-reel-card" : ""}`}
+      className={`stack-swipe${shown > 0 || leaving ? " is-raised" : ""}${leaving ? " is-departing" : ""}${paying ? " is-paying" : ""}${lowering ? " is-lowering" : ""}${cover === "arm" || cover === "over" || shell ? " is-remnant" : ""}${cover === "arm" || cover === "over" ? " is-cover-ready" : ""}${cover === "over" ? " is-covering" : ""}${cover === "front" ? " is-cover-front" : ""}${shell ? " is-collapsing is-reeled" : ""}${rising ? " is-rising" : ""}${reelCard ? " is-reel-card" : ""}`}
       data-swipe-id={id}
       data-open={open ? "true" : "false"}
       data-alarm={alarm}
@@ -280,7 +280,6 @@ export function SwipeCard({
       <span className="mock-hole is-top is-right" aria-hidden="true" />
       <span className="mock-hole is-bottom is-left" aria-hidden="true" />
       <span className="mock-hole is-bottom is-right" aria-hidden="true" />
-      {alarm === "open" ? <div className="delete-alarm-glow" aria-hidden="true" /> : null}
       <span className="stack-empty-plate" aria-hidden="true" />
       <button
         type="button"
@@ -293,7 +292,8 @@ export function SwipeCard({
         onClick={onLeverClick}
       >
         <span className="stack-swipe-plate" aria-hidden="true">
-          <span className="delete-beam" aria-hidden="true" />
+          {alarm === "open" ? <span className="delete-alarm-glow" aria-hidden="true" /> : null}
+          {/* saved for settings tray: lighthouse beams (.delete-beam) stay in CSS and are not mounted. */}
           <span className="delete-amber" aria-hidden="true" />
           <span className="stack-swipe-push" />
         </span>
