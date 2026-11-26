@@ -47,7 +47,7 @@ test("spot dust rounds to four decimals and grams keep the troy ounce", () => {
   };
   const csv = stackToCsv([silver], [{ symbol: "XAG", usdPerTroyOz: 45.825001 }]);
   const row = csv.slice(1).trim().split("\r\n")[1];
-  assert.equal(row, "Ag,Silver 10 oz,1,10 oz,311.034768,45.825,458");
+  assert.equal(row, "Ag,Silver 10 oz,1,10 oz,311.034768,45.825,458.25");
 });
 
 test("a missing spot leaves the melt blank and the Total skips it", () => {

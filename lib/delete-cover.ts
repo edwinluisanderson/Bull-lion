@@ -1,5 +1,5 @@
-/** How long the rows take to slide up over a deleted slot. */
-export const COVER_SLIDE_MS = 520;
+/** The deleted plate slides up for the same 250ms ease as a new card arriving. */
+export const COVER_SLIDE_MS = 250;
 /**
  * The slide class is applied one frame after the transition is armed,
  * so the hold is a little longer than the CSS animation.
@@ -121,6 +121,20 @@ export function reusedSlotMustSnap(
 ): boolean {
   if (wasLeaving && !leaving) return true;
   return previousId != null && previousId !== nextId;
+}
+
+/**
+ * The empty plate is winched up behind whatever sits above it.
+ * The top card goes behind the name plate. Any other card goes behind the card above.
+ */
+export function plateReelsBehind(index: number): "nameplate" | "card" {
+  return index <= 0 ? "nameplate" : "card";
+}
+
+/** The plate is fully hidden once it has been pulled up by its own height. */
+export function plateHidden(lift: number, rowHeight: number): boolean {
+  if (!Number.isFinite(lift) || !Number.isFinite(rowHeight) || rowHeight <= 0) return false;
+  return lift >= rowHeight;
 }
 
 /** One waiting delete. It starts after the active row is actually removed. */

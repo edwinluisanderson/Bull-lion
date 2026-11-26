@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { FLAP_GAIN, FLAP_MAX_PER_WINDOW, nextFlapSound } from "@/lib/flap-sound";
-import { FLAP_BOARD_COLUMNS, FLAP_DESCRIPTION, FLAP_MELT, FLAP_METAL, FLAP_QTY, FLAP_TOTAL_COLUMNS, FLAP_TOTAL_LABEL_COLUMNS, FLAP_WEIGHT, fitFlapMoney, flapFrames, flapText, padFlap, rightFlap } from "@/lib/split-flap";
+import { FLAP_BOARD_COLUMNS, FLAP_DESCRIPTION, FLAP_MELT, FLAP_METAL, FLAP_QTY, FLAP_TOTAL_COLUMNS, FLAP_WEIGHT, fitFlapMoney, flapFrames, flapText, padFlap, rightFlap } from "@/lib/split-flap";
 import {
   STACK_STORAGE_KEY,
   defaultLineDescription,
@@ -55,11 +55,12 @@ test("split flaps walk forward and jump when motion is reduced", () => {
   assert.deepEqual(flapFrames("C", "A", true), ["A"]);
   assert.equal(padFlap("gold 1 oz", 6), "GOLD 1");
   assert.equal(flapFrames(" ", "A").at(-1), "A");
-  assert.equal(FLAP_DESCRIPTION, FLAP_BOARD_COLUMNS);
-  assert.equal(FLAP_BOARD_COLUMNS, FLAP_METAL + FLAP_WEIGHT + FLAP_QTY + FLAP_MELT);
+  assert.equal(FLAP_BOARD_COLUMNS, 16);
+  assert.equal(FLAP_DESCRIPTION, FLAP_BOARD_COLUMNS - FLAP_METAL);
+  assert.equal(FLAP_METAL, 2);
   const long = "Pocket coin from the old drawer";
   assert.ok(flapText(long).length > FLAP_DESCRIPTION);
-  assert.equal(padFlap(long, FLAP_DESCRIPTION), "POCKET COIN FROM TH");
+  assert.equal(padFlap(long, FLAP_DESCRIPTION), "POCKET COIN FR");
   assert.equal(padFlap("Gold 1 oz", FLAP_DESCRIPTION).trimEnd(), "GOLD 1 OZ");
 });
 
@@ -76,7 +77,7 @@ test("TEMP_CLEAR_ALL empties every card", () => {
   assert.deepEqual(clearAllLines(), []);
 });
 
-test("adding a line asks before combining the same metal and weight", () => {
+test("adding a line keeps a matching metal and weight as its own card", () => {
   const first = proposeAdd([], gold, "a");
   assert.equal(first.status, "added");
   assert.equal(first.lines.length, 1);
@@ -85,16 +86,14 @@ test("adding a line asks before combining the same metal and weight", () => {
   assert.equal(defaultLineDescription("Platinum", "1 oz", 12), "Platinum");
 
   const again = proposeAdd(first.lines, { ...gold, qty: 2, description: "Gold 1 oz" }, "b");
-  assert.equal(again.status, "needs-choice");
-  if (again.status !== "needs-choice") return;
-  assert.equal(again.matchId, "a");
-  assert.equal(again.lines.length, 1);
+  assert.equal(again.status, "added");
+  if (again.status !== "added") return;
+  assert.equal(again.lines.length, 2);
+  assert.equal(again.lines[0]?.id, "b");
+  assert.equal(again.lines[0]?.qty, 2);
+  assert.equal(again.lines[1]?.id, "a");
 
-  const combined = resolveAdd(first.lines, { ...gold, qty: 2 }, "combine", "b");
-  assert.equal(combined.length, 1);
-  assert.equal(combined[0]?.qty, 3);
-
-  const separate = resolveAdd(first.lines, { ...gold, qty: 2 }, "separate", "b");
+  const separate = resolveAdd(first.lines, { ...gold, qty: 2 }, "combine", "b");
   assert.equal(separate.length, 2);
   assert.equal(separate[0]?.id, "b");
   assert.equal(separate[0]?.qty, 2);
@@ -127,8 +126,8 @@ test("new lines stay newest-first and the cascade walks downward", () => {
   assert.equal(frames[1]?.[1]?.id, "a");
   const slidingIds = (frames[1] ?? []).map((face) => face?.id).filter((id) => id != null);
   assert.equal(new Set(slidingIds).size < slidingIds.length, true);
-  assert.match(table, /key=\{index\}/);
-  assert.equal(table.includes("key={line ? line.id"), false);
+  assert.match(table, /key=\{line == null \? `blank-\$\{index\}` : line\.id\}/);
+  assert.equal(table.includes("key={index}"), false);
   assert.equal(frames[2]?.[1]?.id, "b");
   assert.equal(frames.at(-1)?.[0]?.id, "c");
   assert.deepEqual(
@@ -143,11 +142,11 @@ test("new lines stay newest-first and the cascade walks downward", () => {
   const shifted = insertCascade(longExisting, { ...incoming, id: "d", description: "Gold 1 oz" });
   const landed = shifted[1]?.at(-1);
   assert.equal(landed?.id, "a");
-  assert.equal(padFlap(landed?.description ?? "", FLAP_DESCRIPTION), "POCKET COIN FROM TH");
+  assert.equal(padFlap(landed?.description ?? "", FLAP_DESCRIPTION), "POCKET COIN FR");
 
-  const combined = resolveAdd(newer.lines, { ...gold, grams: 1, qty: 4, description: "Gold 1 g" }, "combine", "z");
-  assert.deepEqual(combined.map((line) => line.id), ["b", "a"]);
-  assert.equal(combined[0]?.qty, 5);
+  const separate = resolveAdd(newer.lines, { ...gold, grams: 1, qty: 4, description: "Gold 1 g" }, "combine", "z");
+  assert.deepEqual(separate.map((line) => line.id), ["z", "b", "a"]);
+  assert.equal(separate[0]?.qty, 4);
 
   const store = memory();
   writeStack(store, newer.lines);
@@ -187,24 +186,23 @@ test("the stack survives a reload and drops a broken record", () => {
   assert.deepEqual(readStack(store), []);
 });
 
-test("the melt total label stays put and the value sits on the right of a fixed field", () => {
-  assert.equal(FLAP_TOTAL_COLUMNS, 11);
-  assert.equal(fitFlapMoney("$99,999,999", FLAP_TOTAL_COLUMNS), "$99,999,999");
-  assert.equal(fitFlapMoney("$1,234,567", FLAP_TOTAL_COLUMNS), " $1,234,567");
-  assert.equal(fitFlapMoney("$999,999,999", FLAP_TOTAL_COLUMNS), " $999999999");
-  assert.equal(fitFlapMoney("$99,999,999,999", FLAP_TOTAL_COLUMNS), "$9999999999");
-  assert.equal(FLAP_TOTAL_LABEL_COLUMNS + FLAP_TOTAL_COLUMNS, FLAP_BOARD_COLUMNS);
-  const narrow = fitFlapMoney("$30", FLAP_TOTAL_COLUMNS);
-  const wide = fitFlapMoney("$10,000", FLAP_TOTAL_COLUMNS);
-  assert.equal(narrow.length, wide.length);
-  assert.equal(narrow.endsWith("$30"), true);
-  assert.equal(wide.endsWith("$10,000"), true);
-  assert.equal(narrow.startsWith(" "), true);
-  assert.match(table, />Total</);
-  assert.match(table, /fitFlapMoney\(flapMoney\(total\), FLAP_TOTAL_COLUMNS\)/);
+test("the total amount keeps a fixed field wide enough for cents", () => {
+  assert.equal(FLAP_TOTAL_COLUMNS, 13);
+  assert.equal("$9,999,999.99".length, FLAP_TOTAL_COLUMNS);
+  assert.equal(fitFlapMoney("$9,999,999.99", FLAP_TOTAL_COLUMNS), "$9,999,999.99");
+  assert.equal(fitFlapMoney("$1,234.50", FLAP_TOTAL_COLUMNS), "    $1,234.50");
+  assert.equal(fitFlapMoney("$99,999,999.99", FLAP_TOTAL_COLUMNS), " $99999999.99");
+  const narrow = fitFlapMoney("$30.00", FLAP_TOTAL_COLUMNS);
+  const wide = fitFlapMoney("$10,000.00", FLAP_TOTAL_COLUMNS);
+  assert.equal(narrow.length, FLAP_TOTAL_COLUMNS);
+  assert.equal(wide.length, FLAP_TOTAL_COLUMNS);
+  assert.equal(narrow.endsWith("$30.00"), true);
+  assert.equal(wide.endsWith("$10,000.00"), true);
+  assert.match(table, /totalBoardCopy\(/);
   assert.equal(table.includes("Melt Total"), false);
   assert.equal(table.includes("Stack Total"), false);
   assert.equal(table.includes("--total-em"), false);
+  assert.equal(table.includes("The board is clear."), false);
 });
 
 test("My Stack sits between the cabinet and the scrap plate", () => {
@@ -241,7 +239,7 @@ test("the split-flap stack keeps its board and the flaps stay quiet when sound i
   assert.equal(table.includes("stack-add"), false);
   assert.equal(table.includes("addCurrent"), false);
   assert.equal(table.includes("Keep separate"), false);
-  assert.match(table, />Total</);
+  assert.match(table, /Let's get stacking!/);
   assert.equal(table.includes("Grand total"), false);
   assert.equal(table.includes("--total-em"), false);
   assert.match(table, /readStack\(window\.localStorage\)/);
@@ -250,34 +248,37 @@ test("the split-flap stack keeps its board and the flaps stay quiet when sound i
   assert.match(table, /Remove \$\{line\.description\}/);
   assert.match(flap, /prefers-reduced-motion: reduce/);
   assert.match(css, /\.gear-panel \{[^}]*margin-top:\s*20px/);
-  assert.match(css, /\.flap-top span,\s*\.flap-bottom span,\s*\.flap-leaf span \{[^}]*transform:\s*translateY\(0\.06em\)/);
+  assert.match(css, /\.flap-top span,\s*\.flap-bottom span,\s*\.flap-leaf span \{[^}]*transform:\s*translateY\(-0\.06em\)/);
   assert.match(table, />My Stack</);
   assert.match(css, /\.split-stack-title \{[^}]*text-transform:\s*none/);
-  assert.match(css, /\.stack-card \{[^}]*--flap-font:\s*clamp\(\s*16px,/);
+  assert.match(css, /\.stack-card \{[^}]*--flap-font:\s*calc\(var\(--flap-h\) \* 0\.88\)/);
   assert.match(css, /\.stack-card \{[^}]*grid-template-columns:\s*repeat\(var\(--flap-cols/);
-  assert.match(css, /\.stack-card \{[^}]*column-gap:\s*2px/);
-  assert.match(css, /\.split-stack-title \{[^}]*font-size:\s*1\.5rem/);
+  assert.match(css, /\.stack-card \{[^}]*column-gap:\s*1\.5px/);
+  assert.match(css, /\.split-stack-title \{[^}]*font-size:\s*30px/);
   assert.match(css, /\.split-stack-title \{[^}]*text-align:\s*center/);
   assert.match(css, /\.split-stack-head \{[^}]*justify-content:\s*center/);
-  assert.match(css, /\.split-total-label \{[^}]*font-size:\s*1\.25rem/);
-  assert.match(css, /\.split-total \{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*auto/);
-  assert.match(css, /\.split-total \{[^}]*--flap-font:\s*1\.25rem/);
-  assert.match(css, /\.split-total-label \{[^}]*text-align:\s*left/);
-  assert.match(css, /\.split-total-label \{[^}]*text-transform:\s*none/);
-  assert.match(css, /\.split-total-label \{[^}]*font-family:\s*var\(--font-body\)/);
-  assert.match(css, /\.split-total-label \{[^}]*font-variant:\s*normal/);
-  assert.match(css, /\.split-total-label \{[^}]*font-size:\s*1\.25rem/);
+  assert.match(css, /\.split-total \{[^}]*min-height:\s*var\(--card-h\)/);
+  assert.match(css, /\.split-total \{[^}]*padding:\s*calc\(8px - var\(--pw\)\)/);
+  assert.match(css, /\.split-total-word \{[^}]*justify-content:\s*center/);
+  assert.match(css, /\.split-total-amount \{[^}]*repeat\(var\(--total-flaps, 13\)/);
+  assert.equal(css.includes(".split-total-label"), false);
   assert.match(css, /\.flap-tile \{[^}]*background:\s*#000/);
-  assert.match(css, /\.flap-top,\s*\.flap-bottom,\s*\.flap-leaf \{[^}]*background:\s*#000/);
-  assert.match(css, /\.flap-bottom \{[^}]*border-top:\s*1px solid #1f1f1f/);
-  assert.match(css, /\.stack-card \{[^}]*box-shadow:[^}]*#c4963e/);
+  assert.match(css, /\.flap-top,\s*\.flap-leaf \{[^}]*background:\s*#101010/);
+  assert.match(css, /\.flap-bottom \{[^}]*background:\s*#000/);
+  assert.match(css, /\.flap-bottom \{[^}]*border-top:\s*1px solid #1a1a1a/);
+  assert.match(css, /\.flap-stack/);
+  assert.match(css, /\.mock-plate \{[^}]*border-radius:\s*8px/);
   assert.match(table, /data-rows=\{2\}/);
   assert.equal(table.includes("descriptionNeedsOwnRow"), false);
   assert.equal(table.includes("data-rows={3}"), false);
   assert.match(table, /width=\{FLAP_DESCRIPTION\}/);
-  assert.match(table, /gridRow: 1 \}\}>\s*Description/);
-  assert.match(table, /gridRow: 3 \}\}>\s*Metal/);
-  assert.match(table, /insertCascade\(existing, incoming\)/);
+  const metalAt = table.indexOf('data-fixed="metal"');
+  const markAt = table.indexOf("line.mark.toUpperCase()");
+  assert.ok(metalAt > 0 && markAt > metalAt && markAt - metalAt < 1200);
+  assert.match(table, /stack-qty/);
+  assert.equal(table.includes(">Description<"), false);
+  assert.equal(table.includes(">Metal<"), false);
+  assert.equal(table.includes("insertCascade"), false);
   assert.match(table, /prefers-reduced-motion: reduce/);
   assert.match(css, /\.split-stack \{/);
   assert.match(css, /\.flap-leaf \{[^}]*animation:\s*flap-turn 70ms linear/);

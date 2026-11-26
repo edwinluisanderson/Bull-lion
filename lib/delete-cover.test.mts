@@ -15,6 +15,8 @@ import {
   deleteRowLocked,
   isCoveringRow,
   isRemnantRow,
+  plateHidden,
+  plateReelsBehind,
   queuedCoverId,
   reusedSlotMustSnap,
 } from "@/lib/delete-cover";
@@ -61,12 +63,20 @@ test("the last card has no row below it, so the slot collapses from the bottom",
   assert.equal(collapseInset(false, 2), 0);
 });
 
-test("the face still shoots off and the button is not faded away", () => {
+test("the deleted plate slides up with the stack and does not fade", () => {
   assert.equal(card.includes("DELETE_LINGER_MS"), false);
   assert.match(card, /onDepart\(\)/);
   assert.equal(card.includes("setDeparting"), false);
   assert.match(card, /leaving \? " is-departing"/);
-  assert.match(css, /\.stack-swipe\.is-departing \.stack-swipe-face \{[^}]*translateX\(120vw\)/);
+  assert.match(card, /is-rising/);
+  assert.match(card, /is-reel-card/);
+  const raise = css.slice(css.indexOf("@keyframes stack-raise"), css.indexOf("}", css.indexOf("to {", css.indexOf("@keyframes stack-raise"))) + 1);
+  assert.match(raise, /translateY\(calc\(-1 \* var\(--pay-drop\)\)\)/);
+  assert.equal(raise.includes("opacity"), false);
+  assert.match(css, /animation:\s*stack-raise 250ms ease-out both/);
+  assert.equal(COVER_SLIDE_MS, 250);
+  assert.match(table, /setCover\(beginDeleteCover/);
+  assert.match(table, /is-rising/);
   assert.match(css, new RegExp(`transition: transform ${DELETE_SHOOT_MS}ms`));
   assert.equal(css.includes("delete-linger"), false);
   assert.match(css, /\.stack-swipe\.is-raised\.is-remnant \{[^}]*z-index:\s*0/);
@@ -86,6 +96,40 @@ test("the face still shoots off and the button is not faded away", () => {
   assert.match(card, /is-collapsing/);
   assert.equal(COVER_SLIDE_MS > COVER_FRAME_MS, true);
   assert.match(css, /\.split-rows \{[^}]*gap:\s*8px/);
+});
+
+test("the visible remove button uses the same reel as a swipe delete", () => {
+  const button = table.slice(table.indexOf('className="stack-remove"'), table.indexOf("</button>", table.indexOf('className="stack-remove"')));
+  assert.match(button, /onClick=\{\(\) => requestDelete\(line\.id\)\}/);
+  assert.equal(button.includes("removeLine"), false);
+  assert.equal(button.includes("setLines"), false);
+  assert.match(table, /function requestDelete\(lineId: string\)/);
+  assert.match(table, /prefers-reduced-motion: reduce/);
+  assert.match(table, /armCover\(lineId, rows\)/);
+});
+
+test("chains stay behind the plates and a deleted plate reels up behind the one above", () => {
+  assert.equal(plateReelsBehind(0), "nameplate");
+  assert.equal(plateReelsBehind(2), "card");
+  assert.equal(plateHidden(0, 52), false);
+  assert.equal(plateHidden(52, 52), true);
+  assert.equal(plateHidden(60, 52), true);
+  const link = Number(css.match(/\.mock-link \{[^}]*z-index:\s*(\d+)/)?.[1]);
+  const face = Number(css.match(/\.stack-swipe-face \{[^}]*z-index:\s*(\d+)/)?.[1]);
+  const row = Number(css.match(/\.stack-swipe \{[^}]*z-index:\s*(\d+)/)?.[1]);
+  assert.ok(link > 0);
+  assert.ok(face > 0);
+  assert.ok(row > 0);
+  assert.equal(css.includes(".stack-rails"), false);
+  assert.equal(table.includes("stack-rails"), false);
+  assert.equal(css.includes(".chain-half-bottom::after"), false);
+  assert.match(css, /\.stack-swipe\.is-reeled \{[^}]*z-index:\s*0/);
+  assert.match(css, /\.stack-swipe\.is-reeled \.stack-empty-plate \{[^}]*translateY\(calc\(-1 \* var\(--lift/);
+  assert.match(card, /stack-empty-plate/);
+  assert.match(table, /index >= cover\.index/);
+  assert.match(table, /reelCard=\{rising && line != null && line\.id === cover\?\.id\}/);
+  assert.match(css, /\.stack-swipe\.is-rising\.is-reel-card \{[^}]*z-index:\s*0/);
+  assert.match(card, /is-reeled/);
 });
 
 test("a second delete waits its turn and the other cards stay swipeable", () => {
@@ -115,5 +159,5 @@ test("the card that slides into a deleted slot does not inherit the shoot-off", 
   assert.match(card, /reusedSlotMustSnap\(prevId\.current, id, prevLeaving\.current, leaving\)/);
   assert.match(card, /face\.style\.transition = "none"/);
   assert.match(card, /translateX\(0px\)/);
-  assert.match(table, /key=\{index\}/);
+  assert.match(table, /key=\{line == null \? `blank-\$\{index\}` : line\.id\}/);
 });

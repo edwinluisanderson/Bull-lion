@@ -12,6 +12,40 @@ import { spinSoundEnabled } from "@/lib/spin-overlay";
 export const DELETE_AHOOGA_URL = "/sounds/delete-ahooga.mp3";
 /** Repeat while the card stays locked open. A few seconds between blasts. */
 export const DELETE_AHOOGA_EVERY_MS = 4500;
+/**
+ * One breath of the delete alarm. Two breaths are one ahooga gap, so every
+ * blast lands on a peak. The screen glow, the filament, and the bulb share
+ * this clock through --breath-ms and --breath-delay.
+ */
+export const DELETE_BREATH_MS = DELETE_AHOOGA_EVERY_MS / 2;
+
+/**
+ * Negative animation-delay that puts the 50% keyframe peak on `startedAt`.
+ * `now` is the moment the delay is applied. The blast schedule uses the same
+ * `startedAt`, so the breath and the horn cannot drift.
+ */
+export function breathDelayMs(startedAt: number, now: number, breathMs = DELETE_BREATH_MS): number {
+  if (!Number.isFinite(startedAt) || !Number.isFinite(now) || !(breathMs > 0)) return 0;
+  return -(now - startedAt + breathMs / 2);
+}
+
+/** Position in the current breath. The peak is halfway through. */
+export function breathPhaseMs(startedAt: number, now: number, breathMs = DELETE_BREATH_MS): number {
+  if (!(breathMs > 0)) return 0;
+  const elapsed = now - startedAt + breathMs / 2;
+  const mod = elapsed % breathMs;
+  return mod < 0 ? mod + breathMs : mod;
+}
+
+/** Signed distance from the breath peak, in (-breath/2, breath/2]. Zero is the peak. */
+export function breathPeakOffsetMs(startedAt: number, now: number, breathMs = DELETE_BREATH_MS): number {
+  const phase = breathPhaseMs(startedAt, now, breathMs);
+  const peak = breathMs / 2;
+  let delta = phase - peak;
+  if (delta > peak) delta -= breathMs;
+  if (delta < -peak) delta += breathMs;
+  return delta;
+}
 export const DELETE_AHOOGA_GAIN = 0.42;
 /** Card face travel. The shell stays until the rows below cover it. */
 export const DELETE_SHOOT_MS = 460;

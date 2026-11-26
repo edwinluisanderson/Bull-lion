@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { RoundedLight } from "@/components/rounded-light";
 import { SplitFlap } from "@/components/split-flap";
 import { DELETE_SHOOT_MS } from "@/lib/delete-alarm";
 import {
@@ -9,30 +10,25 @@ import {
   COVER_SLIDE_MS,
   advanceDeleteCover,
   beginDeleteCover,
-  collapseInset,
   deleteRowLocked,
   queuedCoverId,
   type DeleteCover,
 } from "@/lib/delete-cover";
-import { playSwipeTone, unlockFlapSamples, watchFlapBoard } from "@/lib/flap-sound";
+import { playSwipeTone, unlockFlapSamples } from "@/lib/flap-sound";
 import { emptyPullAdd, finishPullCascade, notePullAdd, type PullAddResult } from "@/lib/pull-stack";
+import { DescriptionFlaps } from "@/components/description-flaps";
 import { SwipeCard } from "@/components/swipe-card";
 import { unlockReelClick } from "@/lib/reel-click";
 import {
   FLAP_BOARD_COLUMNS,
+  FLAP_CAP_MS,
   FLAP_DESCRIPTION,
-  FLAP_MELT,
-  FLAP_METAL,
-  FLAP_QTY,
+  flapText,
   FLAP_TOTAL_COLUMNS,
-  FLAP_WEIGHT,
-  fitFlapMoney,
-  rightFlap,
+  FLAP_TOTAL_WORD_COLUMNS,
 } from "@/lib/split-flap";
 import {
   flapMoney,
-  grandTotal,
-  insertCascade,
   readStack,
   CLEAR_STACK_EVENT,
   TEMP_CLEAR_ALL,
@@ -45,7 +41,26 @@ import {
   type StackFace,
   type StackLine,
 } from "@/lib/stack-board";
-import { stackCsvFilename, stackToCsv } from "@/lib/stack-csv";
+import {
+  TOTAL_BOARD_ID,
+  TOTAL_WORD_ID,
+  priceCascade,
+  rectIntersectsViewport,
+  seedCascade,
+  settleCascade,
+  startCascade,
+  syncCascadeLines,
+  type CascadeBoard,
+  type CascadeEffect,
+  type CascadeSlot,
+} from "@/lib/stack-cascade";
+import { backspaceFlap, moveFlapCursor, openFlapCursor, pasteFlaps, typeFlapChar } from "@/lib/flap-edit";
+import { commitDescription, detailLayout, cardMoneyRow, metalTone, type FlapSpan } from "@/lib/stack-face";
+import { freshCardSnaps } from "@/lib/stack-flips";
+import { STACK_LOWER_MS } from "@/lib/stack-motion";
+import { stackCsvFilename } from "@/lib/stack-csv";
+import { stackExport, stackExportChoices, type StackExportKind } from "@/lib/stack-export";
+import { formatTotalAmount, totalBoardCopy } from "@/lib/stack-total";
 
 export type StackSelection = {
   symbol: string;
@@ -101,9 +116,11 @@ export function StackTable({
   const [lines, setLines] = useState<StackLine[]>([]);
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [editCursor, setEditCursor] = useState(0);
+  const draftRef = useRef<{ id: string; text: string; cursor: number; cap: number } | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [cover, setCover] = useState<DeleteCover | null>(null);
-  const [coverLive, setCoverLive] = useState(false);
   const [shift, setShift] = useState<StackFace[][] | null>(null);
   const [shiftStep, setShiftStep] = useState(0);
   const finalRef = useRef<StackLine[] | null>(null);
@@ -113,6 +130,25 @@ export function StackTable({
   const selectionRef = useRef(selection);
   const quotesRef = useRef(quotes);
   const boardRef = useRef<HTMLElement>(null);
+  const cardNodes = useRef(new Map<string, HTMLElement>());
+  const totalNode = useRef<HTMLDivElement>(null);
+  const slotsRef = useRef<CascadeSlot[] | null>(null);
+  const cascadeTimers = useRef(new Map<string, number>());
+  const quoteSeen = useRef<string | null>(null);
+  const linesSeen = useRef<string | null>(null);
+  const beginRef = useRef<(id: string) => void>(() => {});
+  const [cascadeSlots, setCascadeSlots] = useState<CascadeSlot[] | null>(null);
+  const decidedCards = useRef(new Set<string>());
+  const introFlip = useRef(new Set<string>());
+  const snapFresh = useRef(new Set<string>());
+  const [introVersion, setIntroVersion] = useState(0);
+  const payingRef = useRef<string | null>(null);
+  const loweringRef = useRef<string | null>(null);
+  const paidRef = useRef<string | null>(null);
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const [loweringId, setLoweringId] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [precise, setPrecise] = useState<string | null>(null);
   const slackMark = useRef<string | null>(null);
   const queuedDelete = useRef<string | null>(null);
   const queueFrame = useRef(0);
@@ -123,14 +159,152 @@ export function StackTable({
   shiftRef.current = shift;
   selectionRef.current = selection;
   quotesRef.current = quotes;
+  const quoteKey = quotes.map((quote) => `${quote.symbol}:${quote.usdPerTroyOz}`).join("|");
+  const lineKey = lines.map((line) => `${line.id}:${line.symbol}:${line.grams}:${line.qty}`).join("|");
+
+  const elementVisible = useCallback((node: Element | null): boolean => {
+    if (!node) return false;
+    const view = node.ownerDocument?.defaultView;
+    if (!view) return false;
+    return rectIntersectsViewport(node.getBoundingClientRect(), { width: view.innerWidth, height: view.innerHeight });
+  }, []);
+
+  const measureVisible = useCallback(
+    (id: string): boolean => {
+      if (id === TOTAL_BOARD_ID) return elementVisible(totalNode.current);
+      return elementVisible(cardNodes.current.get(id) ?? null);
+    },
+    [elementVisible],
+  );
+
+  const buildBoards = useCallback((): CascadeBoard[] => {
+    const rows = linesRef.current;
+    const priced = quotesRef.current;
+    const next: CascadeBoard[] = rows.map((line) => ({
+      id: line.id,
+      live: cardMoneyRow(line.qty, rowMelt(priceFor(priced, line.symbol), line.grams, line.qty)).text,
+      visible: measureVisible(line.id),
+    }));
+    const sum = rows.reduce((total, line) => {
+      const melt = rowMelt(priceFor(priced, line.symbol), line.grams, line.qty);
+      return total + (melt ?? 0);
+    }, 0);
+    const copy = totalBoardCopy(rows.length, formatTotalAmount(rows.length === 0 ? null : sum));
+    const visible = measureVisible(TOTAL_BOARD_ID);
+    next.push({ id: TOTAL_WORD_ID, live: copy.top, visible });
+    next.push({ id: TOTAL_BOARD_ID, live: copy.bottom, visible });
+    return next;
+  }, [measureVisible]);
+
+  const armEffects = useCallback((effects: readonly CascadeEffect[], now: number) => {
+    for (const effect of effects) {
+      if (effect.type === "cancel") {
+        const timer = cascadeTimers.current.get(effect.id);
+        if (timer !== undefined) window.clearTimeout(timer);
+        cascadeTimers.current.delete(effect.id);
+      } else if (effect.type === "schedule") {
+        const existing = cascadeTimers.current.get(effect.id);
+        if (existing !== undefined) window.clearTimeout(existing);
+        const delay = Math.max(0, effect.at - now);
+        const id = effect.id;
+        const timer = window.setTimeout(() => {
+          cascadeTimers.current.delete(id);
+          beginRef.current(id);
+        }, delay);
+        cascadeTimers.current.set(id, timer);
+      }
+    }
+  }, []);
+
+  const adoptCascade = useCallback(
+    (slots: CascadeSlot[], effects: readonly CascadeEffect[], now: number) => {
+      slotsRef.current = slots;
+      setCascadeSlots(slots);
+      armEffects(effects, now);
+    },
+    [armEffects],
+  );
+
+  beginRef.current = (id: string) => {
+    const slots = slotsRef.current;
+    if (!slots) return;
+    const now = performance.now();
+    const step = startCascade(slots, id, now, measureVisible(id), motionReduced());
+    adoptCascade(step.slots, step.effects, now);
+  };
+
+  function settleBoard(id: string) {
+    const slots = slotsRef.current;
+    if (!slots?.some((slot) => slot.id === id && slot.status === "flipping")) return;
+    const now = performance.now();
+    const step = settleCascade(slots, id, now, motionReduced(), buildBoards());
+    adoptCascade(step.slots, step.effects, now);
+  }
+
+  function faceFor(id: string, live: string): { text: string; instant: boolean } {
+    const slot = cascadeSlots?.find((entry) => entry.id === id);
+    if (!slot) return { text: live, instant: false };
+    return { text: slot.committed, instant: !slot.animate };
+  }
 
   useEffect(() => () => window.cancelAnimationFrame(queueFrame.current), []);
 
-  useLayoutEffect(() => {
-    const board = boardRef.current;
-    if (!board) return;
-    return watchFlapBoard(board);
+  useEffect(() => {
+    const timers = cascadeTimers.current;
+    return () => {
+      for (const timer of timers.values()) window.clearTimeout(timer);
+      timers.clear();
+    };
   }, []);
+
+  useLayoutEffect(() => {
+    if (!ready) return;
+    let changed = false;
+    for (const line of linesRef.current) {
+      if (payingRef.current === line.id || loweringRef.current === line.id) continue;
+      if (decidedCards.current.has(line.id)) continue;
+      decidedCards.current.add(line.id);
+      const node = cardNodes.current.get(line.id) ?? null;
+      const view = node?.ownerDocument?.defaultView ?? null;
+      const snaps = freshCardSnaps(
+        node ? node.getBoundingClientRect() : null,
+        view ? { width: view.innerWidth, height: view.innerHeight } : null,
+      );
+      if (snaps) {
+        snapFresh.current.add(line.id);
+        if (paidRef.current === line.id) releaseQueue(line.id);
+      } else introFlip.current.add(line.id);
+      changed = true;
+    }
+    if (changed) setIntroVersion((version) => version + 1);
+  }, [ready, lineKey, payingId, loweringId]);
+
+  useEffect(() => {
+    snapFresh.current.clear();
+  }, [introVersion]);
+
+  useLayoutEffect(() => {
+    if (!ready) return;
+    const boards = buildBoards();
+    const now = performance.now();
+    if (quoteSeen.current === null) {
+      quoteSeen.current = quoteKey;
+      linesSeen.current = lineKey;
+      const seeded = seedCascade(boards).map((slot) => ({ ...slot, animate: slot.visible }));
+      slotsRef.current = seeded;
+      setCascadeSlots(seeded);
+      return;
+    }
+    const quoteChanged = quoteSeen.current !== quoteKey;
+    const linesChanged = linesSeen.current !== lineKey;
+    quoteSeen.current = quoteKey;
+    linesSeen.current = lineKey;
+    if (!quoteChanged && !linesChanged) return;
+    const step = quoteChanged
+      ? priceCascade(slotsRef.current ?? [], boards, now, motionReduced())
+      : syncCascadeLines(slotsRef.current ?? [], boards);
+    adoptCascade(step.slots, step.effects, now);
+  }, [ready, quoteKey, lineKey, buildBoards, adoptCascade]);
 
   useEffect(() => {
     const stored = readStack(window.localStorage);
@@ -154,9 +328,9 @@ export function StackTable({
       playSwipeTone("clunk");
       phaseRef.current = { ...emptyPullAdd(), lines: clearAllLines() };
       setOpenId(null);
+      draftRef.current = null;
       setEditing(null);
       setCover(null);
-      setCoverLive(false);
       setShift(null);
       setShiftStep(0);
       setLines(clearAllLines());
@@ -195,7 +369,6 @@ export function StackTable({
     if (index < 0) return;
     const { rowHeight, totalHeight } = measureRow(lineId);
     setOpenId((current) => (current === lineId ? null : current));
-    setCoverLive(false);
     setCover(beginDeleteCover(lineId, index, rows.length, rowHeight, totalHeight));
   }
 
@@ -230,7 +403,6 @@ export function StackTable({
       }, DELETE_SHOOT_MS);
       return () => window.clearTimeout(timer);
     }
-    const frame = window.requestAnimationFrame(() => setCoverLive(true));
     const timer = window.setTimeout(() => {
       const id = cover.id;
       if (advanceDeleteCover(cover) !== "remove") return;
@@ -239,7 +411,6 @@ export function StackTable({
       queuedDelete.current = null;
       phaseRef.current = { ...phaseRef.current, lines: kept };
       setCover(null);
-      setCoverLive(false);
       setLines(kept);
       if (!queued || !kept.some((line) => line.id === queued)) return;
       const nextId = queued;
@@ -256,10 +427,7 @@ export function StackTable({
         armCover(nextId, linesRef.current);
       });
     }, COVER_SLIDE_MS + COVER_FRAME_MS);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      window.clearTimeout(timer);
-    };
+    return () => window.clearTimeout(timer);
   }, [cover]);
 
   useEffect(() => {
@@ -286,19 +454,121 @@ export function StackTable({
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
-  function landNewest(existing: readonly StackLine[], incoming: StackLine, finalLines: StackLine[]) {
-    phaseRef.current = { ...phaseRef.current, lines: finalLines, cascading: !motionReduced() };
-    if (motionReduced()) {
-      setShift(null);
-      setShiftStep(0);
-      finalRef.current = null;
-      setLines(finalLines);
-      applyPull(finishPullCascade(phaseRef.current));
+  function commitDescriptionDraft(id: string) {
+    const draft = draftRef.current;
+    if (!draft || draft.id !== id) return;
+    draftRef.current = null;
+    const line = linesRef.current.find((entry) => entry.id === id);
+    setEditing((current) => (current === id ? null : current));
+    if (!line) return;
+    const next = commitDescription(line.description, draft.text, draft.cap);
+    if (!next || next === flapText(line.description).trim()) return;
+    const renamed = renameLine(linesRef.current, line.id, next);
+    phaseRef.current = { ...phaseRef.current, lines: renamed };
+    setLines(renamed);
+  }
+
+  function cancelDescriptionDraft(id: string) {
+    if (draftRef.current?.id === id) draftRef.current = null;
+    setEditing((current) => (current === id ? null : current));
+  }
+
+  function activateDescription(id: string, shown: string, cap: number, index: number) {
+    const current = draftRef.current;
+    if (current && current.id !== id) commitDescriptionDraft(current.id);
+    if (!draftRef.current || draftRef.current.id !== id) {
+      const opened = openFlapCursor(shown, cap, index);
+      draftRef.current = { id, ...opened };
+      setEditing(id);
+      setEditDraft(opened.text);
+      setEditCursor(opened.cursor);
       return;
     }
-    finalRef.current = finalLines;
+    const moved = moveFlapCursor(draftRef.current, index);
+    draftRef.current = { id, ...moved };
+    setEditCursor(moved.cursor);
+  }
+
+  function moveDescription(id: string, index: number) {
+    const draft = draftRef.current;
+    if (!draft || draft.id !== id) return;
+    const moved = moveFlapCursor(draft, index);
+    draftRef.current = { id, ...moved };
+    setEditCursor(moved.cursor);
+  }
+
+  function publishDescription(id: string, next: { text: string; cursor: number; cap: number }) {
+    draftRef.current = { id, ...next };
+    setEditDraft(next.text);
+    setEditCursor(next.cursor);
+  }
+
+  function typeDescription(id: string, raw: string) {
+    const draft = draftRef.current;
+    if (!draft || draft.id !== id) return;
+    const chars = [...flapText(raw)];
+    if (chars.length === 0) return;
+    const next = chars.length === 1 ? typeFlapChar(draft, chars[0] ?? "") : pasteFlaps(draft, raw);
+    publishDescription(id, next);
+  }
+
+  function backspaceDescription(id: string) {
+    const draft = draftRef.current;
+    if (!draft || draft.id !== id) return;
+    publishDescription(id, backspaceFlap(draft));
+  }
+
+  function pasteDescription(id: string, raw: string) {
+    const draft = draftRef.current;
+    if (!draft || draft.id !== id) return;
+    publishDescription(id, pasteFlaps(draft, raw));
+  }
+
+  function releaseQueue(id?: string) {
+    if (id && paidRef.current !== id) return;
+    if (!phaseRef.current.cascading && paidRef.current == null) return;
+    paidRef.current = null;
+    payingRef.current = null;
+    loweringRef.current = null;
+    setPayingId(null);
+    setLoweringId(null);
+    phaseRef.current = { ...phaseRef.current, cascading: false };
+    const result = finishPullCascade(phaseRef.current);
+    phaseRef.current = result.phase;
+    if (!result.playNow || !result.draft) return;
+    const incoming = result.phase.lines[0];
+    if (!incoming) return;
+    unlockReelClick();
+    unlockFlapSamples();
+    beginArrival(result.phase.lines);
+  }
+
+  function beginArrival(finalLines: StackLine[]) {
+    const incoming = finalLines[0];
+    phaseRef.current = { ...phaseRef.current, lines: finalLines, cascading: true };
+    setShift(null);
     setShiftStep(0);
-    setShift(insertCascade(existing, incoming));
+    finalRef.current = null;
+    setLines(finalLines);
+    if (!incoming || motionReduced()) {
+      releaseQueue();
+      return;
+    }
+    paidRef.current = incoming.id;
+    loweringRef.current = incoming.id;
+    setLoweringId(incoming.id);
+    window.setTimeout(() => {
+      if (loweringRef.current !== incoming.id) return;
+      loweringRef.current = null;
+      setLoweringId(null);
+    }, STACK_LOWER_MS);
+    window.setTimeout(() => {
+      if (paidRef.current === incoming.id) releaseQueue(incoming.id);
+    }, STACK_LOWER_MS + FLAP_CAP_MS + 400);
+  }
+
+  function landNewest(finalLines: StackLine[]) {
+    beginArrival(finalLines);
   }
 
   function applyPull(result: PullAddResult) {
@@ -308,7 +578,7 @@ export function StackTable({
     if (!incoming) return;
     unlockReelClick();
     unlockFlapSamples();
-    landNewest(result.from, incoming, result.phase.lines);
+    landNewest(result.phase.lines);
   }
 
   useEffect(() => {
@@ -324,33 +594,52 @@ export function StackTable({
 
   const downloadLines = phaseRef.current.cascading ? phaseRef.current.lines : lines;
 
-  function downloadStack() {
+  function downloadStack(kind: StackExportKind) {
     if (downloadLines.length === 0) return;
     playSwipeTone("detent");
-    const csv = stackToCsv(downloadLines, quotesRef.current);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const file = stackExport(kind, downloadLines, quotesRef.current);
+    const blob = new Blob([file.bytes.buffer.slice(file.bytes.byteOffset, file.bytes.byteOffset + file.bytes.byteLength) as ArrayBuffer], { type: file.mime });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = stackCsvFilename(new Date());
+    link.download = kind === "csv" ? stackCsvFilename(new Date()) : file.filename;
     link.click();
     URL.revokeObjectURL(url);
+    setExportOpen(false);
   }
 
   const shown: StackFace[] = shift ? (shift[shiftStep] ?? shift[0] ?? []) : lines;
-  const melts = lines.map((line) => rowMelt(priceFor(quotes, line.symbol), line.grams, line.qty));
-  const total = grandTotal(melts);
+  const stackSum = lines.reduce((sum, line) => {
+    const melt = rowMelt(priceFor(quotes, line.symbol), line.grams, line.qty);
+    return sum + (melt ?? 0);
+  }, 0);
+  const totalCopy = totalBoardCopy(lines.length, formatTotalAmount(lines.length === 0 ? null : stackSum));
+  const wordFace = faceFor(TOTAL_WORD_ID, totalCopy.top);
+  const amountFace = faceFor(TOTAL_BOARD_ID, totalCopy.bottom);
 
   return (
-    <section ref={boardRef} className="split-stack" aria-label="My Stack">
+    <section ref={boardRef} className={`split-stack${loweringId ? " is-arriving" : ""}`} aria-label="My Stack">
       <div className="split-stack-head">
+        <span className="mock-hole is-bottom is-left" aria-hidden="true" />
+        <span className="mock-hole is-bottom is-right" aria-hidden="true" />
+        {lines.length === 0 ? (
+          <>
+            <span className="mock-link is-left" aria-hidden="true" />
+            <span className="mock-link is-right" aria-hidden="true" />
+          </>
+        ) : null}
+        <span className="rivet" data-corner="tl" />
+        <span className="rivet" data-corner="tr" />
+        <span className="rivet" data-corner="bl" />
+        <span className="rivet" data-corner="br" />
         <p className="split-stack-title">My Stack</p>
         <button
           type="button"
-          className="stack-download"
+          className={`stack-download${downloadLines.length > 0 ? " is-live" : ""}`}
           aria-label="Download My Stack"
+          aria-expanded={exportOpen}
           disabled={downloadLines.length === 0}
-          onClick={downloadStack}
+          onClick={() => setExportOpen((open) => !open)}
         >
           <svg viewBox="2.85 2.85 26.3 26.3" aria-hidden="true" focusable="false">
             <defs>
@@ -405,83 +694,110 @@ export function StackTable({
             </g>
           </svg>
         </button>
+        {exportOpen ? (
+          <div className="stack-export" role="dialog" aria-label="Download My Stack">
+            {stackExportChoices().map((choice) => (
+              <button key={choice.id} type="button" onClick={() => downloadStack(choice.id)}>
+                <strong>{choice.label}</strong>
+                <span>{choice.detail}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
-      {shown.length === 0 ? <p className="split-empty">The board is clear.</p> : null}
       <ul className="split-rows">
         {shown.map((line, index) => {
           const blank = line == null;
+          const dropping = line != null && (payingId === line.id || loweringId === line.id);
           const melt = blank ? null : rowMelt(priceFor(quotes, line.symbol), line.grams, line.qty);
-          const mark = blank ? "" : line.mark;
-          const weightLabel = blank ? "" : line.weightLabel;
-          const qtyLabel = blank ? "" : String(line.qty);
-          const descriptionText = blank ? "" : line.description;
-          const weightStart = FLAP_METAL + 1;
-          const qtyStart = weightStart + FLAP_WEIGHT;
-          const meltStart = qtyStart + FLAP_QTY;
-          const description = blank || shift ? (
-            <SplitFlap text={descriptionText} width={FLAP_DESCRIPTION} />
-          ) : editing === line.id ? (
-            <input
-              className="stack-name"
-              aria-label={`Description for ${line.description}`}
-              defaultValue={line.description}
-              autoFocus
-              onBlur={(event) => {
-                const next = renameLine(lines, line.id, event.target.value);
-                phaseRef.current = { ...phaseRef.current, lines: next };
-                setLines(next);
-                setEditing(null);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") event.currentTarget.blur();
-                if (event.key === "Escape") setEditing(null);
-              }}
-            />
+          const money = blank || !line ? null : cardMoneyRow(line.qty, melt);
+          const meltFace = blank || !line || !money ? null : faceFor(line.id, money.text);
+          const boardInstant = line
+            ? dropping
+              ? true
+              : snapFresh.current.has(line.id)
+                ? true
+                : introFlip.current.has(line.id)
+                  ? false
+                  : (meltFace?.instant ?? false)
+            : false;
+          void introVersion;
+          const layout = line && !dropping ? detailLayout(line.weightLabel, line.description) : null;
+          const detailText = layout?.row ?? "";
+          const bottomText = dropping ? "" : (meltFace?.text ?? "");
+          const holdFixed = (event: { preventDefault: () => void; stopPropagation: () => void }) => {
+            event.preventDefault();
+            event.stopPropagation();
+          };
+          const lockFlap = (text: string, span: FlapSpan | null, part: "weight" | "purity" | "gap") =>
+            span ? (
+              <span
+                className="stack-lock"
+                data-fixed={part}
+                style={{ gridColumn: `${span.start} / span ${span.length}` }}
+                onPointerDown={holdFixed}
+                onMouseDown={holdFixed}
+              >
+                <SplitFlap text={text} width={span.length} instant={boardInstant} />
+              </span>
+            ) : null;
+          const description = layout == null ? (
+            <SplitFlap text={detailText} width={FLAP_DESCRIPTION} instant={boardInstant || dropping} />
           ) : (
-            <button
-              type="button"
-              className="stack-edit"
-              aria-label={`Edit description, ${line.description}`}
-              onClick={() => setEditing(line.id)}
-            >
-              <SplitFlap text={line.description} width={FLAP_DESCRIPTION} />
-            </button>
+            <>
+              {lockFlap(layout.weight, layout.weightSpan, "weight")}
+              {lockFlap(" ", layout.leadGap, "gap")}
+              {layout.descriptionSpan && line ? (
+                <DescriptionFlaps
+                  label={line.description}
+                  text={editing === line.id ? editDraft : layout.description}
+                  cap={layout.descriptionCap}
+                  active={editing === line.id}
+                  cursor={editCursor}
+                  instant={boardInstant}
+                  style={{ gridColumn: `${layout.descriptionSpan.start} / span ${layout.descriptionSpan.length}` }}
+                  onActivate={(index) => activateDescription(line.id, layout.description, layout.descriptionCap, index)}
+                  onMove={(index) => moveDescription(line.id, index)}
+                  onType={(raw) => typeDescription(line.id, raw)}
+                  onBackspace={() => backspaceDescription(line.id)}
+                  onPaste={(raw) => pasteDescription(line.id, raw)}
+                  onCommit={() => commitDescriptionDraft(line.id)}
+                  onCancel={() => cancelDescriptionDraft(line.id)}
+                />
+              ) : null}
+              {lockFlap(" ", layout.tailGap, "gap")}
+              {lockFlap(layout.purity, layout.puritySpan, "purity")}
+            </>
           );
-          const sliding = cover != null && line != null && line.id === cover.id && cover.phase === "slide" && !cover.tail;
-          const following = cover != null && cover.phase === "slide" && !cover.tail && index > cover.index;
-          const coverRole = sliding ? (coverLive ? "over" : "arm") : following ? "front" : "row";
-          const shell = cover != null && line != null && line.id === cover.id && cover.phase === "slide" && cover.tail
-            ? {
-                height: coverLive ? 0 : cover.rowHeight,
-                marginTop: coverLive ? -collapseInset(true, cover.index) : 0,
-              }
-            : null;
+          const rising = cover != null && cover.phase === "slide" && index >= cover.index;
+          const above = cover != null && cover.phase === "slide" && index === cover.index - 1;
+          const coverRole = above ? "front" : "row";
           const remove = blank ? null : (
             <button
               type="button"
               className="stack-remove"
               aria-label={`Remove ${line.description}`}
               disabled={shift !== null || cover !== null}
-              onClick={() => {
-                const next = removeLine(lines, line.id);
-                phaseRef.current = { ...phaseRef.current, lines: next };
-                setLines(next);
-              }}
+              onClick={() => requestDelete(line.id)}
             >
               ×
             </button>
           );
           return (
             <SwipeCard
-              key={index}
+              key={line == null ? `blank-${index}` : line.id}
               id={line ? line.id : `blank-${index}`}
               label={line?.description ?? "entry"}
               open={line != null && openId === line.id}
               locked={deleteRowLocked(shift !== null, blank, cover?.id ?? null, line?.id ?? null)}
               leaving={line != null && cover?.id === line.id}
+              winch={cover?.phase === "slide" && index === cover.index - 1}
+              paying={false}
+              lowering={false}
+              hanging={true}
+              rising={rising}
+              reelCard={rising && line != null && line.id === cover?.id}
               cover={coverRole}
-              coverShift={sliding ? cover.distance : 0}
-              shell={shell}
               onOpen={() => {
                 if (line) setOpenId(line.id);
               }}
@@ -496,63 +812,120 @@ export function StackTable({
                 if (line) requestDelete(line.id);
               }}
             >
-            <div className="stack-card" data-rows={2} style={{ ["--flap-cols" as string]: FLAP_BOARD_COLUMNS }}>
+            <div
+              className={`stack-card${payingId === line?.id ? " is-paying" : ""}`}
+              data-rows={2}
+              ref={(node) => {
+                if (!line) return;
+                if (node) cardNodes.current.set(line.id, node);
+                else cardNodes.current.delete(line.id);
+              }}
+              style={{ ["--flap-cols" as string]: FLAP_BOARD_COLUMNS }}
+            >
               {blank ? null : (
                 <span className="sr-only">
                   {line.mark}, {line.weightLabel}, quantity {line.qty}, {line.description}, melt {flapMoney(melt)}
                 </span>
               )}
-              <span className="stack-kicker" style={{ gridColumn: "1 / -1", gridRow: 1 }}>
-                Description
+              <span
+                className="stack-metal"
+                data-fixed="metal"
+                data-tone={blank || !line || dropping ? "silver" : metalTone(line.mark)}
+                style={{ gridColumn: "1 / span 2", gridRow: 1 }}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+              >
+                <span className="stack-face-top" aria-hidden="true" />
+                <span className="stack-face-bottom" aria-hidden="true" />
+                <span className="stack-face-label">{blank || dropping ? "" : line.mark.toUpperCase()}</span>
+                <span className="flap-stack" aria-hidden="true" />
               </span>
-              <span className="stack-span" style={{ gridColumn: "1 / -1", gridRow: 2 }}>
+              <span className="stack-span" style={{ gridColumn: "3 / -1", gridRow: 1 }}>
                 {description}
               </span>
-              <span className="stack-kicker stack-kicker-next" style={{ gridColumn: `1 / span ${FLAP_METAL}`, gridRow: 3 }}>
-                Metal
+              <span className="stack-qty" style={{ gridColumn: "1 / span 2", gridRow: 2 }}>
+                <span className="stack-face-top" aria-hidden="true" />
+                <span className="stack-face-bottom" aria-hidden="true" />
+                <span className="stack-face-label">{blank || dropping ? "" : "QTY"}</span>
+                <span className="flap-stack" aria-hidden="true" />
               </span>
-              <span className="stack-kicker stack-kicker-next" style={{ gridColumn: `${weightStart} / span ${FLAP_WEIGHT}`, gridRow: 3 }}>
-                Weight
+              <span className="stack-span" style={{ gridColumn: "3 / -1", gridRow: 2 }}>
+                <SplitFlap
+                  text={bottomText}
+                  width={FLAP_DESCRIPTION}
+                  instant={boardInstant}
+                  onSettled={
+                    line
+                      ? () => {
+                          introFlip.current.delete(line.id);
+                          settleBoard(line.id);
+                          if (paidRef.current === line.id) releaseQueue(line.id);
+                        }
+                      : undefined
+                  }
+                />
               </span>
-              <span className="stack-kicker stack-kicker-next" style={{ gridColumn: `${qtyStart} / span ${FLAP_QTY}`, gridRow: 3 }}>
-                Qty
-              </span>
-              <span className="stack-kicker stack-kicker-next" style={{ gridColumn: `${meltStart} / span ${FLAP_MELT}`, gridRow: 3 }}>
-                Melt
-              </span>
-              <span className="stack-span" style={{ gridColumn: `1 / span ${FLAP_METAL}`, gridRow: 4 }}>
-                <SplitFlap text={mark} width={FLAP_METAL} />
-              </span>
-              <span className="stack-span" style={{ gridColumn: `${weightStart} / span ${FLAP_WEIGHT}`, gridRow: 4 }}>
-                <SplitFlap text={weightLabel} width={FLAP_WEIGHT} />
-              </span>
-              <span className="stack-span" style={{ gridColumn: `${qtyStart} / span ${FLAP_QTY}`, gridRow: 4 }}>
-                <SplitFlap text={qtyLabel} width={FLAP_QTY} />
-              </span>
-              <span className="stack-span" style={{ gridColumn: `${meltStart} / span ${FLAP_MELT}`, gridRow: 4 }}>
-                <SplitFlap text={blank ? "" : flapMoney(melt)} width={FLAP_MELT} />
-              </span>
+              {money && money.rounded ? (
+                <RoundedLight
+                  exact={money.exact}
+                  open={precise === line?.id}
+                  onToggle={() => setPrecise((current) => (current === line?.id ? null : line?.id ?? null))}
+                />
+              ) : null}
               {remove}
             </div>
             </SwipeCard>
           );
         })}
       </ul>
-      {lines.length > 0 ? (
-        <div
-          className={`split-total${cover?.phase === "slide" && !cover.tail ? " is-cover-front" : ""}${cover?.phase === "slide" && cover.tail ? " is-rise" : ""}${cover?.phase === "slide" && cover.solo ? " is-collapsing" : ""}`}
-          style={
-            cover?.phase === "slide" && cover.solo
-              ? { height: coverLive ? 0 : cover.totalHeight, marginTop: coverLive ? 0 : undefined }
-              : undefined
-          }
-        >
-          <span className="split-total-label">Total</span>
-          <span className="split-total-flaps" style={{ ["--total-flaps" as string]: FLAP_TOTAL_COLUMNS }}>
-            <SplitFlap text={fitFlapMoney(flapMoney(total), FLAP_TOTAL_COLUMNS)} width={FLAP_TOTAL_COLUMNS} />
-          </span>
-        </div>
-      ) : null}
+      <div
+        ref={totalNode}
+        className={`split-total${cover?.phase === "slide" ? " is-rising" : ""}${cover?.phase === "slide" && !cover.tail ? " is-cover-front" : ""}${cover?.phase === "slide" && cover.tail ? " is-rise" : ""}`}
+      >
+        {lines.length > 0 ? (
+          <>
+            <span className="mock-link is-left" aria-hidden="true" />
+            <span className="mock-link is-right" aria-hidden="true" />
+          </>
+        ) : null}
+        <span className="mock-plate" aria-hidden="true" />
+        <span className="mock-slot" aria-hidden="true" />
+        <span className="mock-glow" aria-hidden="true" />
+        <span className="mock-hole is-top is-left" aria-hidden="true" />
+        <span className="mock-hole is-top is-right" aria-hidden="true" />
+        <span className="sr-only">
+          {lines.length === 0 ? "Let's get stacking!" : `Total ${formatTotalAmount(stackSum)}`}
+        </span>
+        <span className={`split-total-word${lines.length === 0 ? "" : " is-start"}`}>
+          <SplitFlap
+            text={wordFace.text}
+            width={FLAP_TOTAL_WORD_COLUMNS}
+            instant={wordFace.instant}
+            onSettled={() => settleBoard(TOTAL_WORD_ID)}
+          />
+        </span>
+        <span className="split-total-amount" style={{ ["--total-flaps" as string]: FLAP_TOTAL_COLUMNS }}>
+          <SplitFlap
+            text={amountFace.text}
+            width={FLAP_TOTAL_COLUMNS}
+            instant={amountFace.instant}
+            onSettled={() => settleBoard(TOTAL_BOARD_ID)}
+          />
+        </span>
+        {totalCopy.rounded ? (
+          <RoundedLight
+            exact={totalCopy.exact}
+            open={precise === TOTAL_BOARD_ID}
+            onToggle={() => setPrecise((current) => (current === TOTAL_BOARD_ID ? null : TOTAL_BOARD_ID))}
+          />
+        ) : null}
+      </div>
     </section>
   );
 }

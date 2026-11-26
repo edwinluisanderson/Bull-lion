@@ -10,6 +10,7 @@ import {
   WHEEL_STEP_DEG,
   clampMeltDollars,
   layoutWheels,
+  meltPlateRounded,
   meltWheelLabel,
   odometerCell,
   odometerNeighbours,
@@ -39,12 +40,14 @@ test("a right-locked row pads blanks on the left and keeps the ones wheel last",
   assert.equal(layoutWheels("$189").at(-1), "9");
 });
 
-test("dollars clamp at $9,999,999 and a bad value is a blank row", () => {
+test("dollars past $9,999,999 abbreviate instead of filling the wheels with nines", () => {
   assert.equal(clampMeltDollars(9_999_999), MELT_WHEEL_MAX);
   assert.equal(clampMeltDollars(9_999_999.4), MELT_WHEEL_MAX);
   assert.equal(clampMeltDollars(12_345_678), MELT_WHEEL_MAX);
   assert.equal(clampMeltDollars(-40), 0);
-  assert.equal(meltWheelLabel(12_345_678), "$9,999,999");
+  assert.equal(meltPlateRounded(12_345_678), true);
+  assert.equal(meltPlateRounded(18698), false);
+  assert.equal(meltWheelLabel(12_345_678), "$12.3M");
   assert.equal(meltWheelLabel(18698), "$18,698");
   assert.deepEqual(layoutWheels(meltWheelLabel(Number.NaN)), Array(WHEEL_COUNT).fill(""));
   assert.equal(layoutWheels(meltWheelLabel(MELT_WHEEL_MAX)).join(""), "$9,999,999");

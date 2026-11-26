@@ -1,5 +1,21 @@
-/** How far a card slides to uncover the delete lever. */
-export const SWIPE_REVEAL_PX = 88;
+/**
+ * Fallback swipe stop before the Card base well has been measured.
+ * At the 320px reference the well is 46.25px, so this matches round 19.
+ * The live stop is the well's rendered height (`wellSide`), not this constant.
+ */
+export const SWIPE_REVEAL_PX = 46.25;
+
+/**
+ * Delete button side: the Card base well, which is the Card minus the
+ * Card base ring on the top and the bottom. The swipe stops on that edge.
+ */
+export function wellSide(cardHeight: number, ring = 6, fallback = SWIPE_REVEAL_PX): number {
+  if (!Number.isFinite(cardHeight) || cardHeight <= 0) return fallback;
+  const band = Number.isFinite(ring) && ring > 0 ? ring : 0;
+  const side = cardHeight - band * 2;
+  if (!Number.isFinite(side) || side <= 0) return fallback;
+  return side;
+}
 /** Movement below this stays undecided so a vertical scroll can win. */
 export const SWIPE_AXIS_SLOP = 8;
 /** Ignore a lever click that is really the pointerup ending a drag. */

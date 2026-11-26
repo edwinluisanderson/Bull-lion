@@ -17,16 +17,15 @@ import {
   CLUNK_START_HZ,
   CLUNK_STOP_S,
   CLUNK_SWEEP_S,
-  FLAP_BOARD_THRESHOLD,
+  FLAP_VIEW_THRESHOLD,
   clunkAttackPeak,
   clunkEchoGain,
   clunkTailEnd,
   flapSoundAllowed,
   playFlapSound,
   resetFlapSoundForTests,
-  setFlapBoardInView,
   shouldPlayFlapTick,
-  watchFlapBoard,
+  trackFlippingFlap,
 } from "@/lib/flap-sound";
 
 const sound = readFileSync(new URL("./flap-sound.ts", import.meta.url), "utf8");
@@ -56,25 +55,30 @@ test("an offscreen or hidden board stays silent and keeps the throttle", () => {
   assert.equal(later.play, true);
 });
 
-test("playFlapSound follows the board and the page, and other clicks do not", () => {
+test("playFlapSound follows flipping flaps and the page, and other clicks do not", () => {
   resetFlapSoundForTests();
   const previousWindow = globalThis.window;
   const previousDocument = globalThis.document;
   const previousObserver = globalThis.IntersectionObserver;
-  let seen: Element | null = null;
-  const sink: { notify: (entries: { isIntersecting: boolean }[]) => void } = {
+  const seen: Element[] = [];
+  let stopped = 0;
+  const sink: { notify: (entries: { target: Element; isIntersecting: boolean }[]) => void } = {
     notify: () => {},
   };
 
   class FakeObserver {
-    constructor(callback: (entries: { isIntersecting: boolean }[]) => void) {
+    constructor(callback: (entries: { target: Element; isIntersecting: boolean }[]) => void) {
       sink.notify = callback;
     }
     observe(target: Element) {
-      seen = target;
+      seen.push(target);
+    }
+    unobserve(target: Element) {
+      const index = seen.indexOf(target);
+      if (index >= 0) seen.splice(index, 1);
     }
     disconnect() {
-      seen = null;
+      seen.splice(0, seen.length);
     }
     takeRecords() {
       return [];
@@ -93,7 +97,15 @@ test("playFlapSound follows the board and the page, and other clicks do not", ()
       return { getChannelData: () => new Float32Array(length) };
     }
     createBufferSource() {
-      return { buffer: null as AudioBuffer | null, connect() {}, start() {} };
+      return {
+        buffer: null as AudioBuffer | null,
+        onended: null as (() => void) | null,
+        connect() {},
+        start() {},
+        stop() {
+          stopped += 1;
+        },
+      };
     }
     createBiquadFilter() {
       return { type: "bandpass", frequency: { value: 0 }, Q: { value: 0 }, connect() {} };
@@ -114,30 +126,44 @@ test("playFlapSound follows the board and the page, and other clicks do not", ()
   });
 
   try {
-    const board = {
-      ownerDocument: { defaultView: view },
-      getBoundingClientRect: () => ({ top: 20, left: 8, bottom: 240, right: 360, width: 352, height: 220 }),
-    } as unknown as Element;
-    const stop = watchFlapBoard(board);
-    assert.equal(seen, board);
-    assert.equal(FLAP_BOARD_THRESHOLD, 0);
+    const tile = (top: number) =>
+      ({
+        ownerDocument: { defaultView: view },
+        getBoundingClientRect: () => ({ top, left: 8, bottom: top + 28, right: 36, width: 28, height: 28 }),
+      }) as unknown as Element;
+    const flipping = tile(20);
+    const below = tile(900);
+    assert.equal(playFlapSound(10), false);
+
+    const stopFlipping = trackFlippingFlap(flipping);
+    const stopBelow = trackFlippingFlap(below);
+    assert.equal(seen.includes(flipping), true);
+    assert.equal(seen.includes(below), true);
+    assert.equal(FLAP_VIEW_THRESHOLD, 0);
     assert.equal(playFlapSound(10), true);
     assert.equal(playFlapSound(12), true);
     assert.equal(playFlapSound(14), false);
 
-    sink.notify([{ isIntersecting: false }]);
-    assert.equal(playFlapSound(16), false);
-    sink.notify([{ isIntersecting: true }]);
-    (globalThis.document as { visibilityState: string }).visibilityState = "hidden";
+    sink.notify([{ target: flipping, isIntersecting: false }]);
+    assert.ok(stopped >= 1);
     assert.equal(playFlapSound(80), false);
-    (globalThis.document as { visibilityState: string }).visibilityState = "visible";
-    assert.equal(playFlapSound(80), true);
-
-    setFlapBoardInView(false);
+    const spent = playFlapSound(82);
+    assert.equal(spent, false);
+    sink.notify([{ target: flipping, isIntersecting: true }]);
+    assert.equal(playFlapSound(82), true);
+    (globalThis.document as { visibilityState: string }).visibilityState = "hidden";
     assert.equal(playFlapSound(140), false);
-    stop();
-    assert.equal(seen, null);
+    (globalThis.document as { visibilityState: string }).visibilityState = "visible";
+    assert.equal(playFlapSound(140), true);
+
+    stopFlipping();
+    assert.equal(seen.includes(flipping), false);
     assert.equal(playFlapSound(200), false);
+    sink.notify([{ target: below, isIntersecting: true }]);
+    assert.equal(playFlapSound(260), true);
+    stopBelow();
+    assert.equal(seen.length, 0);
+    assert.equal(playFlapSound(320), false);
   } finally {
     resetFlapSoundForTests();
     Object.assign(globalThis, {
@@ -153,8 +179,10 @@ test("playFlapSound follows the board and the page, and other clicks do not", ()
   assert.match(swipe, /flapSum\(ctx\)/);
   assert.match(sound, /new IntersectionObserver/);
   assert.match(sound, /document\.visibilityState/);
-  assert.match(table, /useLayoutEffect\(\(\) => \{[^}]*watchFlapBoard\(board\)/);
+  assert.match(sound, /trackFlippingFlap/);
   assert.match(table, /ref=\{boardRef\}/);
+  assert.equal(table.includes("watchFlapBoard"), false);
+  assert.match(flap, /trackFlippingFlap\(/);
   assert.match(flap, /playFlapSound\(\)/);
 });
 

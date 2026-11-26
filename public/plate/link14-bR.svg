@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 180" width="100" height="180"><defs>
+<mask id="rod" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="180"><ellipse cx="50" cy="90" rx="28" ry="70" fill="none" stroke="#fff" stroke-width="30"/></mask>
+<mask id="vis" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="180"><ellipse cx="50" cy="20" rx="28.5" ry="18.5" fill="#fff"/><ellipse cx="50" cy="160" rx="28.5" ry="18.5" fill="#fff"/>
+<rect x="-10" y="20" width="60" height="140" fill="#fff"/><rect x="50" y="50" width="60" height="80" fill="#fff"/></mask>
+<mask id="fvis" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="180"><ellipse cx="50" cy="20" rx="28.5" ry="18.5" fill="#fff"/><ellipse cx="50" cy="160" rx="28.5" ry="18.5" fill="#fff"/><rect x="-10" y="20" width="60" height="140" fill="#fff"/></mask>
+<mask id="lips" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="180"><rect x="-10" y="38" width="60" height="12" fill="#fff"/><rect x="-10" y="130" width="60" height="12" fill="#fff"/></mask>
+<linearGradient id="bside" gradientUnits="userSpaceOnUse" x1="38" x2="62"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff"/></linearGradient>
+<mask id="bmask" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="180"><rect x="0" y="0" width="100" height="180" fill="url(#bside)"/></mask>
+<linearGradient id="side" gradientUnits="userSpaceOnUse" x1="38" x2="62"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<linearGradient id="bk" gradientUnits="userSpaceOnUse" x1="38" x2="62"><stop offset="0" stop-color="#0c0400" stop-opacity="0"/><stop offset="1" stop-color="#0c0400" stop-opacity="0.2"/></linearGradient>
+<mask id="fr" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="180"><rect x="0" y="0" width="100" height="180" fill="url(#side)"/></mask>
+<filter id="ham" filterUnits="userSpaceOnUse" x="0" y="0" width="100" height="180" color-interpolation-filters="sRGB">
+<feTurbulence type="fractalNoise" baseFrequency="0.22" numOctaves="2" seed="11" result="n"/>
+<feDiffuseLighting in="n" surfaceScale="0.6" diffuseConstant="1.1" lighting-color="#fff4e6" result="l"><feDistantLight azimuth="225" elevation="60"/></feDiffuseLighting>
+<feComposite in="SourceGraphic" in2="l" operator="arithmetic" k1="0.4" k2="0.62" k3="0" k4="0"/></filter>
+<filter id="spk" filterUnits="userSpaceOnUse" x="0" y="0" width="100" height="180"><feTurbulence type="fractalNoise" baseFrequency="0.2" numOctaves="1" seed="5"/>
+<feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 0.94  0 0 0 0 0.84  2.4 0 0 0 -0.9"/></filter>
+<filter id="soft" filterUnits="userSpaceOnUse" x="-20" y="-20" width="140" height="220"><feGaussianBlur stdDeviation="2"/></filter>
+<filter id="sm" filterUnits="userSpaceOnUse" x="-10" y="-10" width="120" height="200"><feGaussianBlur stdDeviation="0.8"/></filter>
+<linearGradient id="apex" x1="0" x2="0" y1="0" y2="180" gradientUnits="userSpaceOnUse"><stop offset="0.06" stop-color="#0c0400" stop-opacity="0.45"/><stop offset="0.17" stop-color="#0c0400" stop-opacity="0"/><stop offset="0.83" stop-color="#0c0400" stop-opacity="0"/><stop offset="0.94" stop-color="#0c0400" stop-opacity="0.45"/></linearGradient>
+<linearGradient id="pshade" x1="0" x2="0" y1="0" y2="180" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#080300" stop-opacity="0.5"/><stop offset="0.276" stop-color="#080300" stop-opacity="0.5"/><stop offset="0.279" stop-color="#080300" stop-opacity="0.62"/><stop offset="0.36" stop-color="#080300" stop-opacity="0"/><stop offset="0.66" stop-color="#080300" stop-opacity="0"/><stop offset="0.721" stop-color="#080300" stop-opacity="0.35"/><stop offset="0.724" stop-color="#080300" stop-opacity="0.5"/><stop offset="1" stop-color="#080300" stop-opacity="0.5"/></linearGradient>
+<linearGradient id="edge" x1="0" x2="0" y1="0" y2="180" gradientUnits="userSpaceOnUse"><stop offset="0.276" stop-color="#0c0400" stop-opacity="0"/><stop offset="0.279" stop-color="#0c0400" stop-opacity="0.45"/><stop offset="0.32" stop-color="#0c0400" stop-opacity="0"/><stop offset="0.68" stop-color="#0c0400" stop-opacity="0"/><stop offset="0.721" stop-color="#0c0400" stop-opacity="0.45"/><stop offset="0.724" stop-color="#0c0400" stop-opacity="0"/></linearGradient>
+</defs>
+<!-- cast shadow of the front side on the lips -->
+<g mask="url(#lips)"><g mask="url(#fr)"><ellipse cx="50" cy="90" rx="28" ry="70" fill="none" stroke="#000" stroke-width="30" opacity="0.35" filter="url(#soft)" transform="translate(1.8 1.4)"/></g></g>
+<g mask="url(#vis)"><g mask="url(#rod)">
+ <g filter="url(#ham)"><g filter="url(#sm)"><ellipse cx="50" cy="90" rx="28" ry="70" fill="none" stroke="#2a1203" stroke-width="30"/><ellipse cx="50" cy="90" rx="28" ry="70" fill="none" stroke="#52260a" stroke-width="27"/><ellipse cx="50" cy="90" rx="28" ry="70" fill="none" stroke="#7c3f14" stroke-width="23"/><ellipse cx="50" cy="90" rx="28" ry="70" fill="none" stroke="#a25c22" stroke-width="18"/><ellipse cx="50" cy="90" rx="28" ry="70" fill="none" stroke="#bf7a34" stroke-width="12"/><ellipse cx="50" cy="90" rx="28" ry="70" fill="none" stroke="#d3924a" stroke-width="7"/><ellipse cx="50" cy="90" rx="28" ry="70" fill="none" stroke="#dea25c" stroke-width="3"/></g></g>
+ <!-- warm specular along the top of the rod (light from top-left), with a little hammered variation -->
+ <ellipse cx="50" cy="90" rx="28" ry="70" fill="none" stroke="#f8cc90" stroke-width="5" opacity="0.38" transform="translate(-4 -3)"/>
+ <g mask="url(#fr)"><ellipse cx="50" cy="90" rx="28" ry="70" fill="none" stroke="#fff2dc" stroke-width="1.8" opacity="0.7" transform="translate(-4.5 -3.5)"/></g>
+ <g filter="url(#spk)" opacity="0.3"><ellipse cx="50" cy="90" rx="28" ry="70" fill="none" stroke="#fff" stroke-width="8" transform="translate(-4 -3)"/></g>
+ <!-- back of the loop: only slightly darker; darker still where it slips behind each plate edge -->
+ <rect x="0" y="0" width="100" height="180" fill="url(#bk)"/>
+ <rect x="0" y="0" width="100" height="180" fill="url(#pshade)" mask="url(#bmask)"/>
+ <!-- deep shadow at each bend, inside the hole -->
+ <rect x="0" y="0" width="100" height="180" fill="url(#apex)"/>
+</g>
+<ellipse cx="50" cy="90" rx="13.6" ry="55.6" fill="none" stroke="#1a0802" stroke-width="1.8" opacity="0.7"/>
+<ellipse cx="50" cy="90" rx="42.4" ry="84.4" fill="none" stroke="#241002" stroke-width="1.2"/>
+</g>
+</svg>

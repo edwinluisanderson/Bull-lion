@@ -1,4 +1,5 @@
 import { formatWholeDollars } from "@/lib/format";
+import { presentMoney } from "@/lib/melt-abbrev";
 
 /** Fixed odometer. The ones place is always the last wheel. */
 export const WHEEL_COUNT = 10;
@@ -47,10 +48,18 @@ export function clampMeltDollars(value: number): number {
   return Math.min(MELT_WHEEL_MAX, Math.max(0, Math.round(value)));
 }
 
-/** The string the wheels show. Non-finite values stay the em dash, which lays out as blanks. */
+/** The string the wheels show while the figure still fits. Past the clamp, the plate abbreviates. */
 export function meltWheelLabel(value: number): string {
   if (!Number.isFinite(value)) return "—";
-  return formatWholeDollars(clampMeltDollars(value));
+  const dollars = Math.max(0, Math.round(value));
+  if (dollars <= MELT_WHEEL_MAX) return formatWholeDollars(dollars);
+  return presentMoney(dollars, "$9,999,999".length).text;
+}
+
+/** True when the melt plate must leave the wheels and show the abbreviated figure. */
+export function meltPlateRounded(value: number): boolean {
+  if (!Number.isFinite(value)) return false;
+  return Math.round(value) > MELT_WHEEL_MAX;
 }
 
 /** Delay before wheel `slot` starts. Slot 0 is the left end and waits the longest. */
