@@ -314,8 +314,11 @@ button,
 
 .bullion-logo {
   display: block;
-  width: auto;
+  /* Same box the 276×300 logo used at height 150px (150 * 276 / 300 = 138). */
+  width: calc(150px * 276 / 300);
   height: 150px;
+  object-fit: contain;
+  object-position: center;
   margin-bottom: 0.2rem;
   pointer-events: none;
   user-select: none;
