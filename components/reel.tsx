@@ -42,7 +42,9 @@ import { DRUM_WINDOW, REST_DRUM } from "@/lib/drum-housing";
 import { REEL_ITEM_HEIGHT } from "@/lib/metals";
 import {
   STRETCH_HOLD_MS,
+  collapseGuestPosition,
   countRows,
+  guestRunVisible,
   guestStillVisible,
   handoffPlacement,
   nextGestureMode,
@@ -53,6 +55,7 @@ import {
   originFromWindow,
   alignDevicePixel,
   canonicalNotch,
+  REEL_WINDOW_OFFSETS,
   releaseNotch,
   releasePlacement,
   rollGuestWindow,
@@ -107,8 +110,6 @@ export type StretchConfig = {
 function countFace(value: number): StretchFace {
   return { mark: `×${value}`, detail: value === 1 ? "piece" : "pieces" };
 }
-
-const WINDOW = [-2, -1, 0, 1, 2, 3];
 
 function guestSymbol(
   items: ReelSymbol[],
@@ -323,12 +324,45 @@ export function createReelEngine(options: {
     options.onIndex(index);
   }
 
+  /**
+   * The run has rolled out of the three-row window. Drop it and fold the
+   * expanded indexes back onto the core stops. The shift is applied to every
+   * in-flight coordinate so the next frame keeps painting the same faces.
+   * A committed index that still points at the run cannot use that fold: it
+   * would alias the next core stop and swallow the update that clears the guest count.
+   */
+  function retireExpandedGuest() {
+    const current = guest;
+    if (!current?.run?.length || current.insertAfter == null) return;
+    const expanded = reelCount();
+    const runLength = current.run.length;
+    const first = current.insertAfter + 1;
+    const last = first + runLength - 1;
+    const core = options.getCount();
+    const mapped = collapseGuestPosition(position, current, expanded);
+    const shift = mapped - position;
+    position = mapped;
+    if (drag) drag.originPos += shift;
+    animFrom += shift;
+    animTo += shift;
+    if (camNotch !== null) camNotch += shift;
+    if (glideTarget !== null) glideTarget += shift;
+    const at = mod(committed, expanded);
+    if (at >= first && at <= last) committed = -1;
+    else committed = mod(collapseGuestPosition(at, current, expanded), core);
+    guest = null;
+    options.onGuest(null);
+    options.setKinetics(position, velocity);
+  }
+
   function setPos(next: number) {
     const previous = position;
     position = next;
     options.setKinetics(next, velocity);
     const stops = options.getStretch()?.stops;
-    if (phase === "snap" && guest?.run?.length && guest.insertAfter != null) {
+    const runGuest = guest?.run?.length && guest.insertAfter != null ? guest : null;
+    const runLeft = runGuest !== null && !guestRunVisible(position, reelCount(), runGuest);
+    if (!runLeft && phase === "snap" && guest?.run?.length && guest.insertAfter != null) {
       const first = guest.insertAfter + 1;
       const centered = Math.round(next);
       if (centered >= first && centered < first + guest.run.length) {
@@ -357,6 +391,7 @@ export function createReelEngine(options: {
     for (const stop of stopsCrossed(previous, next)) {
       if (!enabledIndex(stop)) playReelClick(audioSpin, true);
     }
+    if (runLeft) retireExpandedGuest();
     const count = reelCount();
     const index = commitIndex(position, count, enabledExpanded);
     const landingNotch =
@@ -1407,7 +1442,7 @@ export function Reel({
               </div>
               );
             })
-          : WINDOW.map((offset) => {
+          : REEL_WINDOW_OFFSETS.map((offset) => {
           const index = mod(base + offset, count);
           const symbol = viewItems[index];
           if (!symbol) return null;

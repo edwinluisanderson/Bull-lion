@@ -157,6 +157,23 @@ export function faceTop(offset: number, itemHeight = REEL_ITEM_HEIGHT): number {
   return itemHeight * 1.5 + pose.shift * itemHeight - itemHeight / 2;
 }
 
+/**
+ * Offsets from the floor stop that the reel cylinder paints.
+ * The three-row viewport clips anything that does not intersect it.
+ */
+export const REEL_WINDOW_OFFSETS = [-2, -1, 0, 1, 2, 3] as const;
+
+/** True when a cylinder face at `offset` from the scroll position still meets the viewport. */
+export function faceIntersectsWindow(offset: number, itemHeight = REEL_ITEM_HEIGHT): boolean {
+  const top = faceTop(offset, itemHeight);
+  return top + itemHeight > 0 && top < itemHeight * 3;
+}
+
+function modCount(value: number, count: number): number {
+  if (!(count > 0) || !Number.isFinite(value)) return 0;
+  return ((value % count) + count) % count;
+}
+
 /** Pixels the center face sits off the payline. An exact notch is 0. */
 export function centerFaceOffset(position: number, itemHeight = REEL_ITEM_HEIGHT): number {
   if (!Number.isFinite(position) || !(itemHeight > 0)) return 0;
@@ -588,15 +605,93 @@ export function visibleTriple(position: number, rows: readonly CountRow[]): numb
   return [-1, 0, 1].map((delta) => rows[(best + delta + rows.length) % rows.length]?.value ?? rows[best].value);
 }
 
+/**
+ * True when any face of a bubble-pop run still intersects the three-row window.
+ * `position` is an index on the expanded reel (core stops, with the run inserted).
+ * A run is contiguous, so this walks the same slots the cylinder paints.
+ */
+export function guestRunVisible(
+  position: number,
+  expandedCount: number,
+  guest: GuestCount | null,
+): boolean {
+  if (!guest?.run?.length || guest.insertAfter == null || !(expandedCount > 0) || !Number.isFinite(position)) {
+    return false;
+  }
+  const first = guest.insertAfter + 1;
+  const base = Math.floor(position);
+  const fraction = position - base;
+  for (let i = 0; i < guest.run.length; i += 1) {
+    const index = first + i;
+    if (index < 0 || index >= expandedCount) continue;
+    for (const slot of REEL_WINDOW_OFFSETS) {
+      if (modCount(base + slot, expandedCount) !== index) continue;
+      if (faceIntersectsWindow(slot - fraction)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Expanded-reel position back to a core-stop position, once the run is off screen.
+ * An index past the run shifts back by the run length. An index before it stays.
+ * Whole revolutions fold in, which is the same face with the guests removed.
+ */
+export function collapseGuestPosition(
+  position: number,
+  guest: GuestCount,
+  expandedCount: number,
+): number {
+  const runLength = guest.run?.length ?? 0;
+  if (!(runLength > 0) || guest.insertAfter == null || !(expandedCount > runLength) || !Number.isFinite(position)) {
+    return position;
+  }
+  const last = guest.insertAfter + runLength;
+  const at = modCount(position, expandedCount);
+  return at > last ? at - runLength : at;
+}
+
+/**
+ * Values painted in the viewport, top to bottom, including faces that only clip the edge.
+ * A run guest is already indexed in expanded space. A single guest is projected.
+ */
+export function visibleCylinderFaces(
+  stops: readonly number[],
+  position: number,
+  guest: GuestCount | null = null,
+): number[] {
+  const items = stops.slice();
+  let shown = position;
+  if (guest?.run?.length && guest.insertAfter != null) {
+    items.splice(guest.insertAfter + 1, 0, ...guest.run);
+  } else if (guest) {
+    items.splice(Math.floor(guest.slot) + 1, 0, guest.value);
+    shown = projectGuest(position, guest);
+  }
+  const count = items.length;
+  if (!(count > 0) || !Number.isFinite(shown)) return [];
+  const base = Math.floor(shown);
+  const fraction = shown - base;
+  const faces: number[] = [];
+  for (const slot of REEL_WINDOW_OFFSETS) {
+    if (!faceIntersectsWindow(slot - fraction)) continue;
+    const value = items[modCount(base + slot, count)];
+    if (value !== undefined) faces.push(value);
+  }
+  return faces;
+}
+
 export function guestStillVisible(
   position: number,
-  _stops: readonly number[],
+  stops: readonly number[],
   guest: GuestCount | null,
 ): boolean {
   if (!guest) return false;
+  if (guest.run?.length && guest.insertAfter != null) {
+    return guestRunVisible(position, stops.length + guest.run.length, guest);
+  }
   const offset = Math.floor(guest.slot) + 1 - projectGuest(position, guest);
-  const top = faceTop(offset);
-  return top + REEL_ITEM_HEIGHT > 0 && top < REEL_ITEM_HEIGHT * 3;
+  return faceIntersectsWindow(offset);
 }
 
 /**

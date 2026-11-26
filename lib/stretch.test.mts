@@ -8,8 +8,10 @@ import {
   alignDevicePixel,
   canonicalNotch,
   centerFaceOffset,
+  collapseGuestPosition,
   countRows,
   faceTop,
+  guestRunVisible,
   guestStillVisible,
   handoffPlacement,
   handoffShift,
@@ -33,6 +35,7 @@ import {
   stretchRowClip,
   stretchSequence,
   valueAfterRelease,
+  visibleCylinderFaces,
   visibleTriple,
 } from "@/lib/stretch";
 
@@ -833,6 +836,68 @@ test("a wrap index folds onto the main face and an exact notch has no offset", (
   assert.equal(alignDevicePixel(86.77, 1), 87);
   assert.equal(alignDevicePixel(86.34, 2), 86.5);
   assert.equal(alignDevicePixel(faceTop(0) + 0.34, 2), faceTop(0) + 0.5);
+});
+
+test("a guest run stays visible while any of its faces still meet the window", () => {
+  const insertAfter = COUNTS.indexOf(10);
+  const guest = { value: 18, slot: insertAfter + 0.5, run: [18, 19], insertAfter };
+  const expanded = COUNTS.length + guest.run.length;
+  const centered = insertAfter + 1;
+  assert.equal(guestRunVisible(centered, expanded, guest), true);
+  assert.equal(guestStillVisible(centered, COUNTS, guest), true);
+  assert.ok(visibleCylinderFaces(COUNTS, centered, guest).includes(18));
+  assert.equal(guestRunVisible(centered + 0.5, expanded, guest), true);
+  let hidden: number | null = null;
+  for (let step = 0; step <= 6; step += 0.01) {
+    if (!guestRunVisible(centered + step, expanded, guest)) {
+      hidden = centered + step;
+      break;
+    }
+  }
+  assert.ok(hidden !== null && hidden > centered + 1);
+  assert.equal(guestRunVisible(hidden - 0.01, expanded, guest), true);
+  assert.ok(visibleCylinderFaces(COUNTS, hidden - 0.01, guest).includes(19));
+  assert.equal(
+    visibleCylinderFaces(COUNTS, hidden, guest).some((value) => guest.run.includes(value)),
+    false,
+  );
+});
+
+test("dropping a guest run maps both directions onto the same faces", () => {
+  const placements: { insertAfter: number; run: number[] }[] = [
+    { insertAfter: 0, run: [3] },
+    { insertAfter: COUNTS.indexOf(10), run: [18, 19] },
+    { insertAfter: COUNTS.indexOf(20), run: [21, 22, 23, 24] },
+    { insertAfter: COUNTS.indexOf(50), run: [49] },
+    { insertAfter: COUNTS.indexOf(100), run: [75, 80, 90] },
+  ];
+  for (const placement of placements) {
+    const guest = {
+      value: placement.run[0],
+      slot: placement.insertAfter + 0.5,
+      run: placement.run,
+      insertAfter: placement.insertAfter,
+    };
+    const expanded = COUNTS.length + placement.run.length;
+    const label = `after ${COUNTS[placement.insertAfter]} +${placement.run.length}`;
+    let checked = 0;
+    for (let position = -2; position <= expanded + 2; position += 0.05) {
+      const visible = guestRunVisible(position, expanded, guest);
+      const painted = visibleCylinderFaces(COUNTS, position, guest);
+      const showsRun = painted.some((value) => placement.run.includes(value));
+      assert.equal(visible, showsRun, `${label} at ${position}`);
+      if (visible) continue;
+      const collapsed = collapseGuestPosition(position, guest, expanded);
+      const bare = visibleCylinderFaces(COUNTS, collapsed, null);
+      assert.deepEqual(bare, painted, `${label} jumped at ${position} -> ${collapsed}`);
+      assert.ok(
+        bare.every((value) => COUNTS.includes(value)),
+        `${label} kept a guest at ${position}`,
+      );
+      checked += 1;
+    }
+    assert.ok(checked > 10, `${label} was never off screen`);
+  }
 });
 
 test("the ends of the count list have no invented numbers", () => {
