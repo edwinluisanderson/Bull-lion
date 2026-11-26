@@ -160,7 +160,7 @@ test("the plates hang from the twist-in links and the background rail is gone", 
 });
 
 test("the name plate is at least a card tall and arriving rings stay under it", () => {
-  assert.match(css, /\.split-stack-head \{[^}]*min-height:\s*calc\(100cqw \* 58\.25 \/ 292\.8 \+ 8px\)/);
+  assert.match(css, /\.split-stack-head \{[^}]*min-height:\s*var\(--nameplate-h\)/);
   assert.match(css, /\.split-stack-head \{[^}]*border-radius:\s*14px/);
   assert.match(css, /\.split-stack-head \{[^}]*background:\s*var\(--brass-plate\)/);
   assert.match(css, /\.split-stack-head \{[^}]*z-index:\s*5/);

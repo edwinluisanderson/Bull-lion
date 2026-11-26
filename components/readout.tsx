@@ -54,7 +54,7 @@ export function Readout({
         <span className="rivet" data-corner="bl" />
         <span className="rivet" data-corner="br" />
         <div className="melt-heading">
-          <p className="plate-title">{metal.name}</p>
+          <p className="plate-title" data-metal={metal.name}>{metal.name}</p>
         </div>
         {plateRounded ? (
           <p className="melt-overflow">
@@ -65,9 +65,9 @@ export function Readout({
           <WheelReadout value={meltWheelLabel(total)} />
         )}
         <p className="melt-price-tag">
-          <span className="melt-price-screw" data-side="left" aria-hidden="true" />
-          Melt Price
-          <span className="melt-price-screw" data-side="right" aria-hidden="true" />
+          <span className="gauge-nameplate-shade">Melt Price</span>
+          <span className="gauge-nameplate-light">Melt Price</span>
+          <span className="gauge-nameplate-cut">Melt Price</span>
         </p>
         <p className="tagline">{formatStackPhrase(weight, pieces)}</p>
         <p className="lamp" data-state={wire} data-testid="price-source">

@@ -179,6 +179,10 @@ button,
 
 .workshop {
   --side: 0.85rem;
+  /* Both nameplates. At a 16px root this is the old column formula
+     (content width × 58.25 / 292.8 + 8px). The 16px-root side inset is
+     fixed, so a larger root font no longer shrinks or grows the plate. */
+  --nameplate-h: calc((min(100vw, 390px) - 2 * 0.85 * 16px) * 58.25 / 292.8 + 8px);
   --plate-face-inset: 12px;
   --cabinet-radius: 28px;
   --cabinet-ring:
@@ -1167,7 +1171,7 @@ html[data-ball="cobalt"] .pull-ball {
 
 .melt-plate {
   display: grid;
-  grid-template-rows: auto auto minmax(2.8rem, auto);
+  grid-template-rows: auto auto auto auto;
   align-items: center;
   justify-items: center;
   width: 100%;
@@ -1345,7 +1349,7 @@ html[data-ball="cobalt"] .pull-ball {
   align-items: center;
   justify-content: center;
   /* At least a card tall, plus the 8px joint, so the title is not squeezed and a rising card hides behind it. */
-  min-height: calc(100cqw * 58.25 / 292.8 + 8px);
+  min-height: var(--nameplate-h);
   margin-bottom: 8px;
   padding: 8px 56px;
   border-radius: 14px;
@@ -2040,7 +2044,7 @@ html[data-ball="cobalt"] .pull-ball {
 /* Reverse of the arrival: the deleted plate and everything below it rise as one unit. No fade. */
 .stack-swipe.is-rising,
 .split-total.is-rising {
-  --pay-drop: calc(100cqw * 58.25 / 292.8 + 8px);
+  --pay-drop: var(--nameplate-h);
   animation: stack-raise 250ms ease-out both;
 }
 
@@ -2554,7 +2558,7 @@ html[data-ball="cobalt"] .pull-ball {
 
 .split-rows,
 .split-total {
-  --pay-drop: calc(100cqw * 58.25 / 292.8 + 8px);
+  --pay-drop: var(--nameplate-h);
 }
 
 /* Rings travel with the rows, under the name plate. The plate's own links do not animate over it. */
@@ -2889,8 +2893,12 @@ html[data-ball="cobalt"] .pull-ball {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
   width: 100%;
-  min-height: calc(3.6rem + 0.55rem - 0.45rem);
+  /* The plate's 8px top pad sits above this box, so an 8px bottom pad
+     keeps the title centered in the full nameplate. */
+  min-height: calc(var(--nameplate-h) - 8px);
+  padding-bottom: 8px;
 }
 
 .melt-kicker {
@@ -2898,43 +2906,8 @@ html[data-ball="cobalt"] .pull-ball {
 }
 
 .melt-price-tag {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  width: 116.61px;
-  height: 20px;
-  margin: 0;
-  padding: 5px 16px 4px;
-  border-radius: 4px;
-  background: url(/brushed-brass-tile.png) center / 100% 100% no-repeat;
-  box-shadow: 0 0 0 1px rgba(42, 26, 8, 0.55);
-  color: #3a2710;
-  font-family: var(--font-display), Palatino, serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  line-height: 1;
-  text-align: center;
-  text-transform: uppercase;
-  text-shadow: 0 1px 0 rgba(255, 236, 190, 0.7), 0 -0.5px 0 rgba(40, 24, 8, 0.28);
-  white-space: nowrap;
+  margin: 12px 0;
 }
-
-.melt-price-screw {
-  position: absolute;
-  top: 50%;
-  width: 6px;
-  height: 6px;
-  margin-top: -3px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #fff3c4, #c6a15a 42%, #5c4316 78%);
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.65), inset 0 -1px 1px rgba(0, 0, 0, 0.45);
-}
-
-.melt-price-screw[data-side="left"] { left: 3px; }
-.melt-price-screw[data-side="right"] { right: 3px; }
 
 .melt-overflow {
   position: relative;
@@ -2964,9 +2937,13 @@ html[data-ball="cobalt"] .pull-ball {
   justify-content: center;
   box-sizing: border-box;
   width: 100%;
-  min-height: 3.6rem;
+  min-height: 0;
   margin: 0;
-  padding-bottom: 0.4rem;
+  padding-bottom: 20px;
+}
+
+.nameplate.melt-plate {
+  padding-top: 8px;
 }
 
 .nameplate {
@@ -3013,10 +2990,33 @@ html[data-ball="cobalt"] .pull-ball {
   text-align: center;
 }
 
+/* Rye 400 at 30px. Each track aims at about 147px of ink (60% of the
+   320px plate) and stays inside -0.02em…0.12em. Short names sit on the
+   open cap; Palladium sits on the tight cap. The padding matches the
+   trailing letter-spacing so that gap does not pull the ink off center. */
 .melt-plate .plate-title {
+  --title-track: 0.03em;
+  margin: 0;
   font-size: 30px;
+  letter-spacing: var(--title-track);
+  padding-left: max(0em, var(--title-track));
+  padding-right: max(0em, calc(-1 * var(--title-track)));
   overflow: visible;
   text-overflow: clip;
+}
+
+.melt-plate .plate-title[data-metal="Gold"],
+.melt-plate .plate-title[data-metal="Silver"],
+.melt-plate .plate-title[data-metal="Copper"] {
+  --title-track: 0.12em;
+}
+
+.melt-plate .plate-title[data-metal="Platinum"] {
+  --title-track: 0.02em;
+}
+
+.melt-plate .plate-title[data-metal="Palladium"] {
+  --title-track: -0.02em;
 }
 
 .melt-plate .tagline {
@@ -3277,30 +3277,39 @@ html[data-ball="cobalt"] .pull-ball {
 /* Round gauge + engraved name plate (ported from PR #41 6ebbdd7), scratch */
 .gauge-unit { display: flex; flex-direction: column; align-items: center; }
 .gauge-unit .gauge-unit-face { display: block; width: 100%; height: auto; overflow: visible; }
-.gauge-unit .gauge-nameplate {
+/* Reel plates are the model. 13px type in a 20px plate. Side padding is 5px
+   so the three plates keep a few pixels between them on a 320px phone at a
+   20px root. The extra 0.1em on the left cancels the trailing letter-spacing.
+   The text shift centers the cap ink, not the em box. */
+.gauge-unit .gauge-nameplate,
+.melt-price-tag {
   position: relative; z-index: 1;
   display: inline-grid; box-sizing: border-box; width: max-content;
-  height: 17px; margin-top: -5px;
+  height: 20px;
   align-items: center; justify-content: center;
-  padding: 0 15px 0 calc(15px + 0.16em);
-  border-radius: 3px;
+  padding: 0 5px 0 calc(5px + 0.1em);
+  border-radius: 3.5px;
   background: linear-gradient(180deg, #f8e7b8 0%, #d7b56a 28%, #a3783c 62%, #5c3d18 100%);
   box-shadow: inset 0 1px 0 #fff6d8, inset 0 -1px 0 #3a2410, 0 0 0 0.75px #2a1a08, 0 1.5px 2px rgba(0, 0, 0, 0.5);
   color: #140c06;
   font-family: var(--font-display), Palatino, serif;
-  font-size: 11px; font-weight: 700; letter-spacing: 0.16em; line-height: 1;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.1em; line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
-.gauge-unit .gauge-nameplate::before, .gauge-unit .gauge-nameplate::after {
-  content: ""; position: absolute; top: 50%; width: 4px; height: 4px; margin-top: -2px; border-radius: 50%;
+.gauge-unit .gauge-nameplate { margin-top: -10px; }
+.gauge-unit .gauge-nameplate::before, .gauge-unit .gauge-nameplate::after,
+.melt-price-tag::before, .melt-price-tag::after {
+  content: ""; position: absolute; top: 50%; width: 3px; height: 3px; margin-top: -1.5px; border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #fff4cc 0%, #c99d4c 45%, #5e3f15 100%);
   box-shadow: 0 0 0 0.5px #3a2610;
 }
-.gauge-unit .gauge-nameplate::before { left: 5px; }
-.gauge-unit .gauge-nameplate::after { right: 5px; }
-.gauge-unit .gauge-nameplate > span { grid-area: 1 / 1; }
-.gauge-unit .gauge-nameplate-shade { color: rgba(0, 0, 0, 0.28); transform: translateY(-0.5px); }
-.gauge-unit .gauge-nameplate-light { display: none; }
-.gauge-unit .gauge-nameplate-cut { color: #0a0705; text-shadow: none; }
+.gauge-unit .gauge-nameplate::before, .melt-price-tag::before { left: 1px; }
+.gauge-unit .gauge-nameplate::after, .melt-price-tag::after { right: 1px; }
+.gauge-unit .gauge-nameplate > span, .melt-price-tag > span { grid-area: 1 / 1; }
+.gauge-unit .gauge-nameplate-shade, .melt-price-tag .gauge-nameplate-shade { color: rgba(0, 0, 0, 0.28); transform: translateY(0.1px); }
+.gauge-unit .gauge-nameplate-light, .melt-price-tag .gauge-nameplate-light { display: none; }
+.gauge-unit .gauge-nameplate-cut, .melt-price-tag .gauge-nameplate-cut { color: #0a0705; text-shadow: none; transform: translateY(0.6px); }
 /* Edwin: ~20px clear gap between melt plate and dial bezels */
 .gauge-row:has(.gauge--round-b) { padding-top: calc(20px - var(--gauge-b) * 5.5 / 96); }
 /* Brass surround casting around the three round gauges (mockup, scratch) */
@@ -3341,14 +3350,18 @@ html[data-compact="2"] { --pull-lower: 30px; }
 
 /* 3: ~75px gauges in a slim Nouveau strip. */
 html[data-compact="3"] .gauge-row:has(.gauge--round-b) { --gauge-b: 75px; --gauge-top-gap: 9px; --gauge-bottom-gap: 0px; }
-html[data-compact="3"] .gauge-unit .gauge-nameplate::before { left: 4px; }
-html[data-compact="3"] .gauge-unit .gauge-nameplate::after { right: 4px; }
+html[data-compact="3"] .gauge-unit .gauge-nameplate::before,
+html[data-compact="3"] .melt-price-tag::before { left: 1px; }
+html[data-compact="3"] .gauge-unit .gauge-nameplate::after,
+html[data-compact="3"] .melt-price-tag::after { right: 1px; }
 html[data-compact="3"] .between-plates { position: relative; z-index: 6; --wrap-top: 3px; --wrap-bottom: -2px; }
 html[data-compact="3"] .playfield { margin-top: -10px; }
 html[data-compact="3"] { --pull-lower: 44px; }
 
 /* Variant 3 readability (mockup): larger, tighter plate lettering. */
-html[data-compact="3"] .gauge-row .gauge-unit .gauge-nameplate { height: 16px; margin-top: -6px; font-size: 11.5px; letter-spacing: 0.1em; padding: 0 11px 0 calc(11px + 0.1em); }
+html[data-compact="3"] .gauge-row .gauge-unit .gauge-nameplate,
+html[data-compact="3"] .melt-price-tag { height: 20px; font-size: 13px; letter-spacing: 0.1em; padding: 0 5px 0 calc(5px + 0.1em); }
+html[data-compact="3"] .gauge-row .gauge-unit .gauge-nameplate { margin-top: -10px; }
 /* ?plate=a|b|c (mockup): 3px of room under the plates so the backplate never crops; same overall height. */
 html[data-compact="3"][data-plate] .gauge-row:has(.gauge--round-b) { --gauge-bottom-gap: 3px; }
 html[data-compact="3"][data-plate] .playfield { margin-top: -13px; }
