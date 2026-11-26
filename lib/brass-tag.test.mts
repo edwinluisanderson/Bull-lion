@@ -12,7 +12,7 @@ test("the melt tag and the reel tags share one upsized brass plate", () => {
   assert.match(shared, /\.gauge-unit \.gauge-nameplate,\s*\.melt-price-tag \{[^}]*font-weight:\s*700/);
   assert.match(shared, /\.gauge-unit \.gauge-nameplate,\s*\.melt-price-tag \{[^}]*letter-spacing:\s*0\.1em/);
   assert.match(shared, /\.gauge-unit \.gauge-nameplate,\s*\.melt-price-tag \{[^}]*border-radius:\s*3\.5px/);
-  assert.match(shared, /\.gauge-unit \.gauge-nameplate,\s*\.melt-price-tag \{[^}]*padding:\s*0 7px 0 calc\(7px \+ 0\.1em\)/);
+  assert.match(shared, /\.gauge-unit \.gauge-nameplate,\s*\.melt-price-tag \{[^}]*padding:\s*0 5px 0 calc\(5px \+ 0\.1em\)/);
   assert.match(shared, /\.gauge-unit \.gauge-nameplate,\s*\.melt-price-tag \{[^}]*font-family:\s*var\(--font-display\)/);
   assert.match(css, /\.melt-price-tag \{[^}]*margin:\s*12px 0/);
   assert.match(css, /html\[data-compact="3"\] \.gauge-row \.gauge-unit \.gauge-nameplate,\s*html\[data-compact="3"\] \.melt-price-tag \{[^}]*height:\s*18px/);

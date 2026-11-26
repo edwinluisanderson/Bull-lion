@@ -3278,15 +3278,16 @@ html[data-ball="cobalt"] .pull-ball {
 .gauge-unit { display: flex; flex-direction: column; align-items: center; }
 .gauge-unit .gauge-unit-face { display: block; width: 100%; height: auto; overflow: visible; }
 /* Reel plates are the model. 13px is 13% over their 11.5px type, and the
-   18px plate is the matching box. Side padding stays at 7px so the three
-   plates still separate on a 320px phone at a 20px root. */
+   18px plate is the matching box. Side padding is 5px so the three plates
+   keep a few pixels between them on a 320px phone at a 20px root. The extra
+   0.1em on the left cancels the trailing letter-spacing. */
 .gauge-unit .gauge-nameplate,
 .melt-price-tag {
   position: relative; z-index: 1;
   display: inline-grid; box-sizing: border-box; width: max-content;
   height: 18px;
   align-items: center; justify-content: center;
-  padding: 0 7px 0 calc(7px + 0.1em);
+  padding: 0 5px 0 calc(5px + 0.1em);
   border-radius: 3.5px;
   background: linear-gradient(180deg, #f8e7b8 0%, #d7b56a 28%, #a3783c 62%, #5c3d18 100%);
   box-shadow: inset 0 1px 0 #fff6d8, inset 0 -1px 0 #3a2410, 0 0 0 0.75px #2a1a08, 0 1.5px 2px rgba(0, 0, 0, 0.5);
@@ -3299,12 +3300,12 @@ html[data-ball="cobalt"] .pull-ball {
 .gauge-unit .gauge-nameplate { margin-top: -8px; }
 .gauge-unit .gauge-nameplate::before, .gauge-unit .gauge-nameplate::after,
 .melt-price-tag::before, .melt-price-tag::after {
-  content: ""; position: absolute; top: 50%; width: 4px; height: 4px; margin-top: -2px; border-radius: 50%;
+  content: ""; position: absolute; top: 50%; width: 3px; height: 3px; margin-top: -1.5px; border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #fff4cc 0%, #c99d4c 45%, #5e3f15 100%);
   box-shadow: 0 0 0 0.5px #3a2610;
 }
-.gauge-unit .gauge-nameplate::before, .melt-price-tag::before { left: 3px; }
-.gauge-unit .gauge-nameplate::after, .melt-price-tag::after { right: 3px; }
+.gauge-unit .gauge-nameplate::before, .melt-price-tag::before { left: 1px; }
+.gauge-unit .gauge-nameplate::after, .melt-price-tag::after { right: 1px; }
 .gauge-unit .gauge-nameplate > span, .melt-price-tag > span { grid-area: 1 / 1; }
 .gauge-unit .gauge-nameplate-shade, .melt-price-tag .gauge-nameplate-shade { color: rgba(0, 0, 0, 0.28); transform: translateY(-0.5px); }
 .gauge-unit .gauge-nameplate-light, .melt-price-tag .gauge-nameplate-light { display: none; }
@@ -3350,16 +3351,16 @@ html[data-compact="2"] { --pull-lower: 30px; }
 /* 3: ~75px gauges in a slim Nouveau strip. */
 html[data-compact="3"] .gauge-row:has(.gauge--round-b) { --gauge-b: 75px; --gauge-top-gap: 9px; --gauge-bottom-gap: 0px; }
 html[data-compact="3"] .gauge-unit .gauge-nameplate::before,
-html[data-compact="3"] .melt-price-tag::before { left: 3px; }
+html[data-compact="3"] .melt-price-tag::before { left: 1px; }
 html[data-compact="3"] .gauge-unit .gauge-nameplate::after,
-html[data-compact="3"] .melt-price-tag::after { right: 3px; }
+html[data-compact="3"] .melt-price-tag::after { right: 1px; }
 html[data-compact="3"] .between-plates { position: relative; z-index: 6; --wrap-top: 3px; --wrap-bottom: -2px; }
 html[data-compact="3"] .playfield { margin-top: -10px; }
 html[data-compact="3"] { --pull-lower: 44px; }
 
 /* Variant 3 readability (mockup): larger, tighter plate lettering. */
 html[data-compact="3"] .gauge-row .gauge-unit .gauge-nameplate,
-html[data-compact="3"] .melt-price-tag { height: 18px; font-size: 13px; letter-spacing: 0.1em; padding: 0 7px 0 calc(7px + 0.1em); }
+html[data-compact="3"] .melt-price-tag { height: 18px; font-size: 13px; letter-spacing: 0.1em; padding: 0 5px 0 calc(5px + 0.1em); }
 html[data-compact="3"] .gauge-row .gauge-unit .gauge-nameplate { margin-top: -8px; }
 /* ?plate=a|b|c (mockup): 3px of room under the plates so the backplate never crops; same overall height. */
 html[data-compact="3"][data-plate] .gauge-row:has(.gauge--round-b) { --gauge-bottom-gap: 3px; }
