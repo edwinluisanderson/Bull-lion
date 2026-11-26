@@ -97,7 +97,7 @@ export function SwipeCard({
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [reveal, setReveal] = useState(SWIPE_REVEAL_PX);
-  const [glowPoint, setGlowPoint] = useState<{ x: number; y: number } | null>(null);
+  const [glowPoint, setGlowPoint] = useState<{ x: number; y: number; r: number } | null>(null);
   const breathStart = useRef<number | null>(null);
   const breathAligned = useRef(false);
   const phase = useRef<LockDrag>(freshLockDrag(0));
@@ -332,9 +332,22 @@ export function SwipeCard({
       const rect = button.getBoundingClientRect();
       const x = rect.left + rect.width / 2;
       const y = rect.top + rect.height / 2;
+      const bulb = button.querySelector(".stack-swipe-push");
+      let radius = 0;
+      if (bulb instanceof HTMLElement) {
+        const box = bulb.getBoundingClientRect();
+        const ring = getComputedStyle(bulb).boxShadow.match(/0px 0px 0px ([0-9.]+)px/);
+        const spread = ring ? Number(ring[1]) : 0;
+        radius = box.width / 2 + spread;
+      }
       setGlowPoint((current) => {
-        if (current && Math.abs(current.x - x) < 0.5 && Math.abs(current.y - y) < 0.5) return current;
-        return { x, y };
+        if (
+          current &&
+          Math.abs(current.x - x) < 0.5 &&
+          Math.abs(current.y - y) < 0.5 &&
+          Math.abs(current.r - radius) < 0.5
+        ) return current;
+        return { x, y, r: radius };
       });
     };
     place();
@@ -473,6 +486,7 @@ export function SwipeCard({
               style={{
                 ["--glow-x" as string]: `${glowPoint.x}px`,
                 ["--glow-y" as string]: `${glowPoint.y}px`,
+                ["--glow-r" as string]: `${glowPoint.r}px`,
               }}
               aria-hidden="true"
             />,

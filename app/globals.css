@@ -1898,7 +1898,9 @@ html[data-ball="cobalt"] .pull-ball {
     rgba(140, 8, 0, 0.14) 58%,
     rgba(120, 0, 0, 0.12) 100%
   );
-  /* Screen glow, filament, and bulb core share this clock with the ahooga. */
+  --glow-r: 0px;
+  mask-image: radial-gradient(circle at var(--glow-x) var(--glow-y), transparent var(--glow-r), #000 calc(var(--glow-r) + 1.5px));
+  -webkit-mask-image: radial-gradient(circle at var(--glow-x) var(--glow-y), transparent var(--glow-r), #000 calc(var(--glow-r) + 1.5px));
   animation-name: delete-alarm-breath;
   animation-duration: var(--breath-ms, 2.25s);
   animation-timing-function: ease-in-out;

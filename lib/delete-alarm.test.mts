@@ -43,7 +43,8 @@ test("a locked card spins amber lamps, glows, and a tap shoots the card off", ()
   assert.match(card, /delete-screen-glow/);
   assert.match(card, /delete-filament/);
   assert.match(card, /createPortal/);
-  assert.match(card, /--glow-x/);
+  assert.match(card, /--glow-r/);
+  assert.match(css, /\.delete-screen-glow \{[^}]*mask-image:[^;]*var\(--glow-r/);
   assert.match(card, /breathDelayMs/);
   assert.match(card, /--breath-delay/);
   assert.match(card, /anim.startTime = startedAt/);
