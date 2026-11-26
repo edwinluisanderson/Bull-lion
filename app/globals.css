@@ -1771,25 +1771,26 @@ html[data-ball="cobalt"] .pull-ball {
   touch-action: pan-y;
   background: none;
   box-shadow: none;
-  /* The recess starts at the inside of the 6px ring and 8px from the sides. */
+  /* The Card base well starts inside the Card base ring and 8px from the sides. */
   --open-y: var(--pw);
   --open-x: 8px;
-  /* Original 76px delete control, scaled to the 46.25px opening. */
-  --del-k: calc(46.25 / 76);
-  --del: 46.25px;
+  /* k = S/76. --reveal is the measured well side; 46.25px is the 320px reference. */
+  --del-k: calc(var(--reveal, 46.25px) / 76px);
 }
 
 .stack-swipe-delete {
   position: absolute;
   z-index: 0;
   isolation: isolate;
+  box-sizing: border-box;
+  /* Stretch through the Card base well. The square's width follows that height, so the Delete button never enters the Card base ring. */
   top: var(--open-y);
+  bottom: var(--open-y);
   left: var(--open-x);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--reveal, 46.25px);
-  height: var(--del);
+  width: auto;
+  height: auto;
+  aspect-ratio: 1;
+  margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
@@ -1801,12 +1802,11 @@ html[data-ball="cobalt"] .pull-ball {
 }
 
 .stack-swipe-plate {
-  position: relative;
+  position: absolute;
+  inset: 0;
   display: grid;
   place-items: center;
-  flex: none;
-  width: var(--del);
-  height: var(--del);
+  box-sizing: border-box;
   border-radius: 3px 0 0 3px;
   background: repeating-linear-gradient(-45deg, #f0c400 0 calc(7px * var(--del-k)), #111 calc(7px * var(--del-k)) calc(14px * var(--del-k)));
   box-shadow:

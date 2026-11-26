@@ -9,6 +9,7 @@ import {
   lockSwipeAxis,
   leverTapDeletes,
   settleSwipe,
+  wellSide,
 } from "@/lib/swipe-delete";
 
 const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
@@ -23,6 +24,13 @@ test("a sideways drag locks to the track and a vertical move keeps scrolling", (
   assert.equal(clampSwipe(40), 40);
   assert.equal(clampSwipe(200), SWIPE_REVEAL_PX);
   assert.equal(SWIPE_REVEAL_PX, 46.25);
+  assert.equal(wellSide(58.25, 6), 46.25);
+  assert.equal(wellSide(72.172, 6), 60.172);
+  assert.equal(wellSide(0, 6), SWIPE_REVEAL_PX);
+  assert.equal(wellSide(Number.NaN, 6), SWIPE_REVEAL_PX);
+  assert.equal(clampSwipe(200, 60.172), 60.172);
+  assert.equal(settleSwipe(30, 60.172), "shut");
+  assert.equal(settleSwipe(31, 60.172), "open");
 });
 
 test("a fast fling only opens the card, and a later lever tap is what deletes", () => {
@@ -57,12 +65,17 @@ test("the card slides on a vertical-scroll track and the clicks share the flap l
   assert.match(card, /playSwipeTone\("clunk"\)/);
   assert.match(css, /\.stack-swipe-plate \{[^}]*repeating-linear-gradient\(-45deg/);
   assert.match(css, /\.stack-swipe-plate \{[^}]*border-radius:\s*3px 0 0 3px/);
-  assert.match(css, /\.stack-swipe-plate \{[^}]*width:\s*var\(--del\)/);
-  assert.match(css, /\.stack-swipe-plate \{[^}]*height:\s*var\(--del\)/);
-  assert.match(css, /\.stack-swipe \{[^}]*--del-k:\s*calc\(46\.25 \/ 76\)/);
-  assert.match(css, /\.stack-swipe-delete \{[^}]*width:\s*var\(--reveal, 46\.25px\)/);
+  assert.match(css, /\.stack-swipe-plate \{[^}]*position:\s*absolute/);
+  assert.match(css, /\.stack-swipe-plate \{[^}]*inset:\s*0/);
+  assert.match(css, /\.stack-swipe \{[^}]*--del-k:\s*calc\(var\(--reveal, 46\.25px\) \/ 76px\)/);
+  assert.match(css, /\.stack-swipe-delete \{[^}]*aspect-ratio:\s*1/);
+  assert.match(css, /\.stack-swipe-delete \{[^}]*bottom:\s*var\(--open-y\)/);
   assert.match(css, /\.stack-swipe-delete \{[^}]*left:\s*var\(--open-x\)/);
   assert.match(css, /\.stack-swipe-delete \{[^}]*top:\s*var\(--open-y\)/);
+  assert.match(card, /ResizeObserver/);
+  assert.match(card, /wellSide/);
+  assert.match(card, /clampSwipe\(state\.origin \+ dx, revealRef\.current\)/);
+  assert.match(card, /\["--reveal" as string\]: `\$\{reveal\}px`/);
   assert.match(css, /\.stack-swipe \{[^}]*--open-y:\s*var\(--pw\)/);
   assert.match(css, /\.stack-swipe \{[^}]*--open-x:\s*8px/);
   assert.match(css, /\.stack-swipe-push \{[^}]*border-radius:\s*50%/);
@@ -77,4 +90,19 @@ test("the card slides on a vertical-scroll track and the clicks share the flap l
   assert.match(card, /onOpen/);
   assert.match(sound, /function playSwipeTone/);
   assert.match(sound, /flapSum\(ctx\)/);
+});
+
+test("the delete button side is the card base well, and the swipe stop uses that side", () => {
+  assert.equal(wellSide(58.25, 6), 46.25);
+  assert.equal(wellSide(72.172, 6), 60.172);
+  assert.equal(wellSide(90, 6), 78);
+  assert.equal(wellSide(10, 6), SWIPE_REVEAL_PX);
+  assert.equal(clampSwipe(90, wellSide(72.172, 6)), 60.172);
+  assert.equal(settleSwipe(wellSide(72.172, 6) / 2, wellSide(72.172, 6)), "open");
+  assert.match(css, /\.stack-swipe-delete \{[^}]*top:\s*var\(--open-y\)/);
+  assert.match(css, /\.stack-swipe-delete \{[^}]*bottom:\s*var\(--open-y\)/);
+  assert.match(css, /\.stack-swipe-delete \{[^}]*aspect-ratio:\s*1/);
+  assert.match(card, /new ResizeObserver/);
+  assert.match(card, /readWell/);
+  assert.match(card, /settleSwipe\(state\.offset, revealRef\.current\)/);
 });

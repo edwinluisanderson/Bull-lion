@@ -23,6 +23,7 @@ import {
   leverTapDeletes,
   lockSwipeAxis,
   settleSwipe,
+  wellSide,
   type SwipeAxis,
 } from "@/lib/swipe-delete";
 
@@ -83,8 +84,11 @@ export function SwipeCard({
 }) {
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [reveal, setReveal] = useState(SWIPE_REVEAL_PX);
   const phase = useRef<LockDrag>(freshLockDrag(0));
+  const cardRef = useRef<HTMLLIElement>(null);
   const faceRef = useRef<HTMLDivElement>(null);
+  const revealRef = useRef(SWIPE_REVEAL_PX);
   const prevId = useRef(id);
   const prevLeaving = useRef(leaving);
   const drag = useRef({
@@ -99,7 +103,37 @@ export function SwipeCard({
     offset: 0,
     endedAt: Number.NEGATIVE_INFINITY,
   });
-  const shown = dragging || leaving ? offset : open ? SWIPE_REVEAL_PX : 0;
+  const shown = dragging || leaving ? offset : open ? reveal : 0;
+
+  /** Card base well height: the Card minus the Card base ring. That side is the swipe stop. */
+  function readWell(): number {
+    const card = cardRef.current;
+    if (!card) return revealRef.current;
+    const raw = getComputedStyle(card).getPropertyValue("--open-y");
+    let ring = parseFloat(raw);
+    if (!Number.isFinite(ring)) {
+      const board = card.querySelector(".stack-card");
+      ring = board instanceof HTMLElement ? parseFloat(getComputedStyle(board).borderTopWidth) : 6;
+    }
+    const side = wellSide(card.getBoundingClientRect().height, ring, revealRef.current);
+    revealRef.current = side;
+    return side;
+  }
+
+  useLayoutEffect(() => {
+    const card = cardRef.current;
+    if (!card || typeof ResizeObserver === "undefined") return;
+    const publish = () => {
+      const side = readWell();
+      setReveal((current) => (Math.abs(current - side) < 0.05 ? current : side));
+    };
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(card);
+    const board = card.querySelector(".stack-card");
+    if (board instanceof HTMLElement) observer.observe(board);
+    return () => observer.disconnect();
+  }, []);
 
   const alarmLive = cardAlarmLive(open, dragging, leaving);
 
@@ -168,13 +202,15 @@ export function SwipeCard({
     if (fromEditor(event.target)) return;
     unlockAppAudio();
     if (locked || event.button !== 0) return;
-    phase.current = freshLockDrag(open ? SWIPE_REVEAL_PX : 0);
+    const side = readWell();
+    setReveal((current) => (Math.abs(current - side) < 0.05 ? current : side));
+    phase.current = freshLockDrag(open ? side : 0);
     drag.current = {
       pointer: event.pointerId,
       axis: "undecided",
       startX: event.clientX,
       startY: event.clientY,
-      origin: open ? SWIPE_REVEAL_PX : 0,
+      origin: open ? side : 0,
       lastX: event.clientX,
       lastT: event.timeStamp,
       velocity: 0,
@@ -203,8 +239,8 @@ export function SwipeCard({
     state.velocity = (event.clientX - state.lastX) / dt;
     state.lastX = event.clientX;
     state.lastT = event.timeStamp;
-    const next = clampSwipe(state.origin + dx);
-    const moved = lockDragMoved(phase.current, next);
+    const next = clampSwipe(state.origin + dx, revealRef.current);
+    const moved = lockDragMoved(phase.current, next, revealRef.current);
     phase.current = moved.drag;
     if (moved.cue) playLockCue(moved.cue);
     state.offset = next;
@@ -223,8 +259,8 @@ export function SwipeCard({
       if (open && axis === "undecided") onClose();
       return;
     }
-    const end = settleSwipe(state.offset);
-    const settled = lockDragSettled(phase.current, end);
+    const end = settleSwipe(state.offset, revealRef.current);
+    const settled = lockDragSettled(phase.current, end, revealRef.current);
     phase.current = settled.drag;
     if (settled.cue) playLockCue(settled.cue);
     if (end === "open") onOpen();
@@ -251,13 +287,14 @@ export function SwipeCard({
 
   return (
     <li
+      ref={cardRef}
       className={`stack-swipe${shown > 0 || leaving ? " is-raised" : ""}${leaving ? " is-departing" : ""}${paying ? " is-paying" : ""}${lowering ? " is-lowering" : ""}${cover === "arm" || cover === "over" || shell ? " is-remnant" : ""}${cover === "arm" || cover === "over" ? " is-cover-ready" : ""}${cover === "over" ? " is-covering" : ""}${cover === "front" ? " is-cover-front" : ""}${shell ? " is-collapsing is-reeled" : ""}${rising ? " is-rising" : ""}${reelCard ? " is-reel-card" : ""}`}
       data-swipe-id={id}
       data-open={open ? "true" : "false"}
       data-alarm={alarm}
       data-winch={winch ? "card" : undefined}
       style={{
-        ["--reveal" as string]: `${SWIPE_REVEAL_PX}px`,
+        ["--reveal" as string]: `${reveal}px`,
         ["--swipe" as string]: `${shown}px`,
         ["--cover" as string]: cover === "arm" || cover === "over" ? `${coverShift}px` : undefined,
         ["--reel" as string]: shell ? `${shell.lift && shell.lift > 0 ? shell.lift + shell.height : shell.height}px` : undefined,
