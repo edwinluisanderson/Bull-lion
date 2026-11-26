@@ -94,19 +94,19 @@ test("a price change flips only the cards whose melt changed, then the amount", 
   const before = [card("gold", "$10"), card("silver", "$5"), ...total("$15.00")];
   const after = [card("gold", "$12"), card("silver", "$5"), ...total("$17.00")];
   assert.deepEqual(boardsThatFlip(before, after), ["gold", TOTAL_BOARD_ID]);
-  assert.equal(TOTAL_WORD, "TOTAL");
+  assert.equal(TOTAL_WORD, "MY HOARD");
 
   const step = priceCascade(
     seedCascade([
       { id: "gold", live: "$10", visible: true },
       { id: "silver", live: "$5", visible: true },
-      { id: TOTAL_WORD_ID, live: "TOTAL", visible: true },
+      { id: TOTAL_WORD_ID, live: "MY HOARD", visible: true },
       { id: TOTAL_BOARD_ID, live: "$15.00", visible: true },
     ]),
     [
       { id: "gold", live: "$12", visible: true },
       { id: "silver", live: "$5", visible: true },
-      { id: TOTAL_WORD_ID, live: "TOTAL", visible: true },
+      { id: TOTAL_WORD_ID, live: "MY HOARD", visible: true },
       { id: TOTAL_BOARD_ID, live: "$17.00", visible: true },
     ],
     0,
@@ -124,7 +124,7 @@ test("a price change flips only the cards whose melt changed, then the amount", 
     visible: true,
   }))), [
     { id: "silver", live: "$5", visible: true },
-    { id: TOTAL_WORD_ID, live: "TOTAL", visible: true },
+    { id: TOTAL_WORD_ID, live: "MY HOARD", visible: true },
     { id: TOTAL_BOARD_ID, live: "$5.00", visible: true },
   ]);
   assert.equal(removed.slots.find((slot) => slot.id === "silver")?.committed, "$5");

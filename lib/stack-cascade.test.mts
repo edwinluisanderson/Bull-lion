@@ -193,11 +193,11 @@ test("reduced motion snaps the whole stack and does not schedule a cascade", () 
   assert.equal(step.effects.filter((effect) => effect.type === "commit").every((effect) => effect.animate === false), true);
 });
 
-test("the TOTAL word stays still while the amount follows the last card", () => {
+test("the MY HOARD word stays still while the amount follows the last card", () => {
   const previous = seedCascade(
     boards({
       a: "$1",
-      [TOTAL_WORD_ID]: "TOTAL",
+      [TOTAL_WORD_ID]: "MY HOARD",
       [TOTAL_BOARD_ID]: "       $1.00",
     }),
   );
@@ -205,21 +205,21 @@ test("the TOTAL word stays still while the amount follows the last card", () => 
     previous,
     boards({
       a: "$2",
-      [TOTAL_WORD_ID]: "TOTAL",
+      [TOTAL_WORD_ID]: "MY HOARD",
       [TOTAL_BOARD_ID]: "       $2.00",
     }),
     0,
     false,
   );
   assert.equal(slot(step.slots, TOTAL_WORD_ID).status, "idle");
-  assert.equal(slot(step.slots, TOTAL_WORD_ID).committed, "TOTAL");
+  assert.equal(slot(step.slots, TOTAL_WORD_ID).committed, "MY HOARD");
   assert.equal(commits(step.effects, TOTAL_WORD_ID).length, 0);
   assert.equal(slot(step.slots, "a").status, "flipping");
   assert.equal(slot(step.slots, TOTAL_BOARD_ID).status, "pending");
   assert.equal(slot(step.slots, TOTAL_BOARD_ID).startAt, null);
   const landed = settleCascade(step.slots, "a", 4_000, false, boards({
     a: "$2",
-    [TOTAL_WORD_ID]: "TOTAL",
+    [TOTAL_WORD_ID]: "MY HOARD",
     [TOTAL_BOARD_ID]: "       $2.00",
   }));
   assert.equal(slot(landed.slots, TOTAL_WORD_ID).status, "idle");

@@ -900,7 +900,7 @@ export function StackTable({
         <span className="mock-hole is-top is-left" aria-hidden="true" />
         <span className="mock-hole is-top is-right" aria-hidden="true" />
         <span className="sr-only">
-          {lines.length === 0 ? "Let's get stacking!" : `Total ${formatTotalAmount(stackSum)}`}
+          {lines.length === 0 ? "Let's get stacking!" : `My hoard ${formatTotalAmount(stackSum)}`}
         </span>
         <span className={`split-total-word${lines.length === 0 ? "" : " is-start"}`}>
           <SplitFlap

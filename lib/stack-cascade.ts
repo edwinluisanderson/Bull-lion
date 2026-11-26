@@ -13,7 +13,7 @@ export const CASCADE_STAGGER_MS = 150;
 
 /** The amount row. Line ids never use this value. */
 export const TOTAL_BOARD_ID = "stack-total";
-/** The word row above the amount. It stays on TOTAL while the amount flips. */
+/** The word row above the amount. It stays on MY HOARD while the amount flips. */
 export const TOTAL_WORD_ID = "stack-total-word";
 
 export type CascadeStatus = "idle" | "pending" | "flipping";
