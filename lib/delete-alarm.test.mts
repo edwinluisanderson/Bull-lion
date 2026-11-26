@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
-import { DELETE_AHOOGA_EVERY_MS, deleteAlarmAllowed, deleteAlarmDue } from "@/lib/delete-alarm";
+import { DELETE_AHOOGA_EVERY_MS, DELETE_BREATH_MS, breathDelayMs, breathPeakOffsetMs, deleteAlarmAllowed, deleteAlarmDue } from "@/lib/delete-alarm";
 
 const alarm = readFileSync(new URL("./delete-alarm.ts", import.meta.url), "utf8");
 const card = readFileSync(new URL("../components/swipe-card.tsx", import.meta.url), "utf8");
@@ -12,6 +12,14 @@ const credits = readFileSync(new URL("../public/sounds/flap-credits.txt", import
 
 test("the ahooga waits a few seconds and stays quiet when the page or the sound is off", () => {
   assert.equal(DELETE_AHOOGA_EVERY_MS, 4500);
+  assert.equal(DELETE_BREATH_MS * 2, DELETE_AHOOGA_EVERY_MS);
+  assert.equal(breathDelayMs(10_000, 10_000), -DELETE_BREATH_MS / 2);
+  const start = 10_000;
+  for (let blast = 0; blast < 7; blast += 1) {
+    const at = start + blast * DELETE_AHOOGA_EVERY_MS;
+    assert.equal(breathPeakOffsetMs(start, at), 0, `blast ${blast}`);
+  }
+  assert.equal(breathPeakOffsetMs(start, start + DELETE_BREATH_MS), 0);
   assert.equal(deleteAlarmDue(Number.NaN, 1000), true);
   assert.equal(deleteAlarmDue(0, 4499), false);
   assert.equal(deleteAlarmDue(0, 4500), true);
@@ -32,8 +40,14 @@ test("a locked card spins amber lamps, glows, and a tap shoots the card off", ()
   assert.match(card, /data-alarm=\{alarm\}/);
   assert.match(card, /saved for settings tray/);
   assert.equal(card.includes('className="delete-beam"'), false);
-  assert.match(card, /delete-alarm-glow/);
-  assert.equal(card.includes("createPortal"), false);
+  assert.match(card, /delete-screen-glow/);
+  assert.match(card, /delete-filament/);
+  assert.match(card, /createPortal/);
+  assert.match(card, /--glow-x/);
+  assert.match(card, /breathDelayMs/);
+  assert.match(card, /--breath-delay/);
+  assert.match(card, /anim.startTime = startedAt/);
+  assert.equal(card.includes("delete-alarm-glow"), false);
   assert.match(card, /playDeleteAhooga/);
   assert.match(card, /stopDeleteAhooga/);
   assert.equal(card.includes("DELETE_LINGER_MS"), false);
@@ -61,9 +75,18 @@ test("a locked card spins amber lamps, glows, and a tap shoots the card off", ()
   assert.match(css, /\.stack-swipe-push \{[^}]*transition:[^}]*background/);
   assert.match(css, /\.stack-swipe-delete \{[^}]*z-index:\s*0/);
   assert.match(css, /\.stack-swipe-face \{[^}]*z-index:\s*2/);
-  assert.match(css, /\.delete-alarm-glow \{[^}]*pointer-events:\s*none/);
-  assert.match(css, /\.delete-alarm-glow \{[^}]*position:\s*absolute/);
-  assert.match(css, /\.delete-alarm-glow \{[^}]*z-index:\s*3/);
+  assert.match(css, /\.delete-screen-glow \{[^}]*pointer-events:\s*none/);
+  assert.match(css, /\.delete-screen-glow \{[^}]*position:\s*fixed/);
+  assert.match(css, /\.delete-screen-glow \{[^}]*var\(--glow-x\) var\(--glow-y\)/);
+  assert.match(css, /\.delete-screen-glow \{[^}]*rgba\(255, 48, 40/);
+  assert.match(css, /\.delete-screen-glow \{[^}]*var\(--breath-ms, 2\.25s\)/);
+  assert.match(css, /\.delete-screen-glow \{[^}]*var\(--breath-delay, -1\.125s\)/);
+  assert.match(css, /@keyframes delete-alarm-breath \{[^]*opacity:\s*0\.35/);
+  assert.match(css, /\.delete-filament \{[^}]*calc\(24px \* var\(--del-k\)\)/);
+  assert.match(css, /\.delete-filament \{[^}]*calc\(11px \* var\(--del-k\)\)/);
+  assert.match(css, /\.stack-swipe\[data-alarm="open"\] \.delete-filament \{[^}]*#fff4c8/);
+  assert.match(css, /\.stack-swipe\[data-alarm="open"\] \.delete-bulb-core,/);
+  assert.equal(css.includes(".delete-alarm-glow"), false);
   assert.match(css, /\.stack-swipe\.is-departing \.stack-swipe-face \{[^}]*translateX\(120vw\)/);
   assert.equal(css.includes("delete-linger"), false);
   const reduced = css

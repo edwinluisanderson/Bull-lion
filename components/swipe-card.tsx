@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
-import { DELETE_AHOOGA_EVERY_MS, playDeleteAhooga, stopDeleteAhooga } from "@/lib/delete-alarm";
+import { DELETE_AHOOGA_EVERY_MS, DELETE_BREATH_MS, breathDelayMs, playDeleteAhooga, stopDeleteAhooga } from "@/lib/delete-alarm";
 import { reusedSlotMustSnap } from "@/lib/delete-cover";
 import { playSwipeTone } from "@/lib/flap-sound";
 import {
@@ -26,6 +27,17 @@ import {
   wellSide,
   type SwipeAxis,
 } from "@/lib/swipe-delete";
+
+/** Unlit wire inside the Delete button. It scales with the bulb. */
+function DeleteFilament() {
+  return (
+    <span className="delete-filament" aria-hidden="true">
+      <svg viewBox="0 0 32 14">
+        <path d="M1 7 L5 1.5 L9 12.5 L13 1.5 L17 12.5 L21 1.5 L25 12.5 L31 7" />
+      </svg>
+    </span>
+  );
+}
 
 /** Keys and presses that belong to the description editor, not the card. */
 function fromEditor(target: EventTarget | null): boolean {
@@ -85,6 +97,9 @@ export function SwipeCard({
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [reveal, setReveal] = useState(SWIPE_REVEAL_PX);
+  const [glowPoint, setGlowPoint] = useState<{ x: number; y: number } | null>(null);
+  const breathStart = useRef<number | null>(null);
+  const breathAligned = useRef(false);
   const phase = useRef<LockDrag>(freshLockDrag(0));
   const cardRef = useRef<HTMLLIElement>(null);
   const faceRef = useRef<HTMLDivElement>(null);
@@ -161,22 +176,42 @@ export function SwipeCard({
     face.style.transform = "";
   }, [id, leaving]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!alarmLive) return;
+    const root = document.documentElement;
+    const startedAt = performance.now();
+    breathStart.current = startedAt;
+    breathAligned.current = false;
+    root.style.setProperty("--breath-ms", `${DELETE_BREATH_MS}ms`);
+    root.style.setProperty("--breath-delay", `${breathDelayMs(startedAt, performance.now())}ms`);
+    root.dataset.breathStart = String(startedAt);
     let alive = true;
+    let timer = 0;
     const blast = () => {
       if (alive) void playDeleteAhooga();
     };
+    const arm = (index: number) => {
+      const due = startedAt + index * DELETE_AHOOGA_EVERY_MS;
+      timer = window.setTimeout(() => {
+        blast();
+        if (alive) arm(index + 1);
+      }, Math.max(0, due - performance.now()));
+    };
     blast();
-    const timer = window.setInterval(blast, DELETE_AHOOGA_EVERY_MS);
+    arm(1);
     const onHide = () => {
       if (document.visibilityState !== "visible") stopDeleteAhooga();
     };
     document.addEventListener("visibilitychange", onHide);
     return () => {
       alive = false;
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onHide);
+      root.style.removeProperty("--breath-ms");
+      root.style.removeProperty("--breath-delay");
+      delete root.dataset.breathStart;
+      breathStart.current = null;
+      breathAligned.current = false;
       stopDeleteAhooga();
     };
   }, [alarmLive]);
@@ -285,6 +320,75 @@ export function SwipeCard({
 
   const alarm = leaving ? "off" : dragging && offset > 0 ? "drag" : open && !dragging ? "open" : "off";
 
+  useLayoutEffect(() => {
+    if (alarm !== "open") {
+      setGlowPoint((current) => (current == null ? current : null));
+      return;
+    }
+    const card = cardRef.current;
+    const button = card?.querySelector(".stack-swipe-delete");
+    if (!(button instanceof HTMLElement) || !card) return;
+    const place = () => {
+      const rect = button.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      setGlowPoint((current) => {
+        if (current && Math.abs(current.x - x) < 0.5 && Math.abs(current.y - y) < 0.5) return current;
+        return { x, y };
+      });
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(button);
+    observer.observe(card);
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    const viewport = window.visualViewport;
+    viewport?.addEventListener("scroll", place);
+    viewport?.addEventListener("resize", place);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+      viewport?.removeEventListener("scroll", place);
+      viewport?.removeEventListener("resize", place);
+    };
+  }, [alarm]);
+
+  useLayoutEffect(() => {
+    if (alarm !== "open" || breathAligned.current) return;
+    const startedAt = breathStart.current;
+    if (startedAt == null) return;
+    let frame = 0;
+    const align = () => {
+      if (breathAligned.current) return;
+      const glow = document.querySelector(".delete-screen-glow");
+      const nodes = [
+        glow,
+        cardRef.current?.querySelector(".delete-filament"),
+        cardRef.current?.querySelector(".delete-bulb-core"),
+      ];
+      const glowAnim = glow instanceof Element ? glow.getAnimations()[0] : undefined;
+      if (!glowAnim) {
+        frame = requestAnimationFrame(align);
+        return;
+      }
+      for (const node of nodes) {
+        if (!(node instanceof Element)) continue;
+        for (const anim of node.getAnimations()) {
+          try {
+            anim.startTime = startedAt;
+          } catch {
+            /* A finished animation can refuse a new start. */
+          }
+        }
+      }
+      breathAligned.current = true;
+    };
+    align();
+    return () => cancelAnimationFrame(frame);
+  }, [alarm, glowPoint]);
+
   return (
     <li
       ref={cardRef}
@@ -329,10 +433,12 @@ export function SwipeCard({
         onClick={onLeverClick}
       >
         <span className="stack-swipe-plate" aria-hidden="true">
-          {alarm === "open" ? <span className="delete-alarm-glow" aria-hidden="true" /> : null}
           {/* saved for settings tray: lighthouse beams (.delete-beam) stay in CSS and are not mounted. */}
           <span className="delete-amber" aria-hidden="true" />
-          <span className="stack-swipe-push" />
+          <span className="stack-swipe-push">
+            <span className="delete-bulb-core" aria-hidden="true" />
+            <DeleteFilament />
+          </span>
         </span>
       </button>
       <div className={`stack-swipe-window${paying || lowering ? " is-masked" : ""}`}>
@@ -360,6 +466,19 @@ export function SwipeCard({
           {children}
         </div>
       </div>
+      {alarm === "open" && glowPoint
+        ? createPortal(
+            <div
+              className="delete-screen-glow"
+              style={{
+                ["--glow-x" as string]: `${glowPoint.x}px`,
+                ["--glow-y" as string]: `${glowPoint.y}px`,
+              }}
+              aria-hidden="true"
+            />,
+            document.body,
+          )
+        : null}
     </li>
   );
 }
