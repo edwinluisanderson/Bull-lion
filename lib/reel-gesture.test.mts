@@ -17,6 +17,7 @@ import {
   centerFaceOffset,
   guestWindow,
   STRETCH_HOLD_MS,
+  visibleCylinderFaces,
   type GuestCount,
 } from "@/lib/stretch";
 
@@ -490,4 +491,195 @@ test("a one-step stretch from 50 to 49 keeps 25 and then sits still", () => {
   assert.equal(read().position, parked);
   assert.deepEqual(visibleFaces(read().position, read().guest), [25, 49, 50]);
   engine.destroy();
+});
+
+function trackingHarness(start = COUNTS.indexOf(20), reduced = false) {
+  let position = start;
+  let velocity = 0;
+  let moving = false;
+  let guest: GuestCount | null = null;
+  let frame: StretchFrame | null = null;
+  let lastExpanded = start;
+  let pending: { from: number; guest: GuestCount } | null = null;
+  let removals = 0;
+  const engine = createReelEngine({
+    initialIndex: start,
+    setKinetics(next, speed) {
+      if (pending) {
+        const expected = visibleCylinderFaces(COUNTS, pending.from, pending.guest);
+        const actual = visibleCylinderFaces(COUNTS, next, null);
+        assert.deepEqual(
+          actual,
+          expected,
+          `removal changed the window at expanded ${pending.from} -> ${next}`,
+        );
+        pending = null;
+        removals += 1;
+      } else if (guest?.run?.length) {
+        lastExpanded = next;
+      }
+      position = next;
+      velocity = speed;
+    },
+    getCount: () => COUNTS.length,
+    onIndex() {},
+    onMotion(next) {
+      const previous = [moving];
+      moving = next;
+      settleReels(previous, [moving]);
+    },
+    isReduced: () => reduced,
+    isEnabled: () => true,
+    getStretch: () => ({ stops: COUNTS, isValueEnabled: () => true }),
+    onPieces() {},
+    onStretchFrame(next) {
+      frame = next;
+    },
+    onGuest(next) {
+      if (guest?.run?.length && !next) pending = { from: lastExpanded, guest };
+      guest = next;
+    },
+    alternatePullStops: () => false,
+    speedCap: REEL_SPEED_CAP,
+  });
+  return {
+    engine,
+    read: () => ({ position, velocity, guest, frame, removals, pending }),
+  };
+}
+
+/** Finger y grows downward, which scrolls the reel toward lower indexes. */
+function scrollUntilGone(
+  engine: ReturnType<typeof createReelEngine>,
+  read: ReturnType<typeof trackingHarness>["read"],
+  direction: 1 | -1,
+) {
+  const y0 = 480;
+  let time = 60_000;
+  let y = y0;
+  const before = read().removals;
+  engine.pointerDown(y0, time, 24, 258);
+  let parked: number | null = null;
+  for (let step = 0; step < 160 && parked === null; step += 1) {
+    y += direction * 8;
+    time += 100;
+    engine.pointerMove(y, time);
+    if (read().removals > before) parked = read().position;
+  }
+  assert.ok(parked !== null, "added stops never left the window");
+  y += direction * 8;
+  time += 100;
+  engine.pointerMove(y, time);
+  const delta = read().position - parked;
+  assert.ok(
+    Math.abs(delta + (direction * 8) / REEL_ITEM_HEIGHT) < 1e-6,
+    `scroll jumped after removal (${delta})`,
+  );
+  assert.equal(read().guest, null);
+  engine.pointerUp();
+  settle(read);
+  assert.equal(read().pending, null);
+  assert.equal(read().guest, null);
+  const faces = visibleCylinderFaces(COUNTS, read().position, null);
+  assert.ok(faces.every((value) => COUNTS.includes(value)));
+  assert.ok(faces.length >= 3);
+}
+
+function stepUntilGone(
+  engine: ReturnType<typeof createReelEngine>,
+  read: ReturnType<typeof trackingHarness>["read"],
+  direction: 1 | -1,
+) {
+  const before = read().removals;
+  for (let step = 0; step < 16 && read().removals === before; step += 1) {
+    engine.step(direction);
+    settle(read);
+  }
+  assert.ok(read().removals > before, `arrow ${direction} left the added stops on the reel`);
+  assert.equal(read().guest, null);
+  assert.equal(read().pending, null);
+  const faces = visibleCylinderFaces(COUNTS, read().position, null);
+  assert.ok(faces.every((value) => COUNTS.includes(value)));
+}
+
+test("added stops leave once they roll out of the window, without a face change", () => {
+  installFrame();
+  mock.timers.enable({ apis: ["setTimeout"] });
+  for (const reduced of [false, true]) {
+    for (const direction of [1, -1] as const) {
+      const { engine, read } = trackingHarness(COUNTS.indexOf(20), reduced);
+      stretchCycle(engine, 3_000);
+      const run = read().guest?.run;
+      assert.ok(run && run.length >= 2, `reduced ${reduced} did not keep a multi-stop run`);
+      const held = read().removals;
+      const y0 = 320;
+      engine.pointerDown(y0, 4_000, 24, 258);
+      engine.pointerMove(y0 + 12, 4_100);
+      engine.pointerUp();
+      settle(read);
+      assert.equal(read().removals, held, "a short drag dropped the run early");
+      assert.ok(read().guest?.run?.length);
+      scrollUntilGone(engine, read, direction);
+      engine.destroy();
+    }
+  }
+});
+
+test("a one-stop run leaves in either direction and a second stretch can leave again", () => {
+  installFrame();
+  mock.timers.enable({ apis: ["setTimeout"] });
+  const { engine, read } = trackingHarness(COUNTS.indexOf(50));
+  const y = 400;
+  let time = 8_000;
+  engine.pointerDown(y, time, 120, 258);
+  mock.timers.tick(STRETCH_HOLD_MS);
+  engine.pointerMove(y + REEL_ITEM_HEIGHT * 1.5, time + STRETCH_HOLD_MS + 300);
+  engine.pointerUp();
+  settle(read);
+  assert.deepEqual(read().guest?.run, [49]);
+  scrollUntilGone(engine, read, 1);
+  engine.jump(COUNTS.indexOf(50));
+  settle(read);
+  time = 20_000;
+  engine.pointerDown(y, time, 120, 258);
+  mock.timers.tick(STRETCH_HOLD_MS);
+  engine.pointerMove(y + REEL_ITEM_HEIGHT * 1.5, time + STRETCH_HOLD_MS + 300);
+  engine.pointerUp();
+  settle(read);
+  assert.deepEqual(read().guest?.run, [49]);
+  scrollUntilGone(engine, read, -1);
+  assert.ok(read().removals >= 2);
+  engine.destroy();
+});
+
+test("a handoff run of every in-between leaves by drag and by arrow", () => {
+  installFrame();
+  mock.timers.enable({ apis: ["setTimeout"] });
+  for (const direction of [1, -1] as const) {
+    const dragged = trackingHarness(COUNTS.indexOf(20));
+    const y = 400;
+    const time = 9_000;
+    dragged.engine.pointerDown(y, time, 120, 258);
+    mock.timers.tick(STRETCH_HOLD_MS);
+    dragged.engine.pointerMove(y + REEL_ITEM_HEIGHT * 9 + 12, time + STRETCH_HOLD_MS + 80);
+    dragged.engine.pointerUp();
+    settle(dragged.read);
+    assert.equal(dragged.read().removals, 0);
+    assert.ok(
+      (dragged.read().guest?.run?.length ?? 0) >= 4,
+      `handoff did not keep the whole gap: ${JSON.stringify(dragged.read().guest)} pos ${dragged.read().position}`,
+    );
+    scrollUntilGone(dragged.engine, dragged.read, direction);
+    dragged.engine.destroy();
+
+    const stepped = trackingHarness(COUNTS.indexOf(20));
+    stepped.engine.pointerDown(y, time + 5_000, 120, 258);
+    mock.timers.tick(STRETCH_HOLD_MS);
+    stepped.engine.pointerMove(y + REEL_ITEM_HEIGHT * 9 + 12, time + 5_000 + STRETCH_HOLD_MS + 80);
+    stepped.engine.pointerUp();
+    settle(stepped.read);
+    assert.ok((stepped.read().guest?.run?.length ?? 0) >= 4);
+    stepUntilGone(stepped.engine, stepped.read, direction);
+    stepped.engine.destroy();
+  }
 });
