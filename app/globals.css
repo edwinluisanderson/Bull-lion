@@ -3277,15 +3277,15 @@ html[data-ball="cobalt"] .pull-ball {
 /* Round gauge + engraved name plate (ported from PR #41 6ebbdd7), scratch */
 .gauge-unit { display: flex; flex-direction: column; align-items: center; }
 .gauge-unit .gauge-unit-face { display: block; width: 100%; height: auto; overflow: visible; }
-/* Reel plates are the model. 13px is 13% over their 11.5px type, and the
-   18px plate is the matching box. Side padding is 5px so the three plates
-   keep a few pixels between them on a 320px phone at a 20px root. The extra
-   0.1em on the left cancels the trailing letter-spacing. */
+/* Reel plates are the model. 13px type in a 20px plate. Side padding is 5px
+   so the three plates keep a few pixels between them on a 320px phone at a
+   20px root. The extra 0.1em on the left cancels the trailing letter-spacing.
+   The text shift centers the cap ink, not the em box. */
 .gauge-unit .gauge-nameplate,
 .melt-price-tag {
   position: relative; z-index: 1;
   display: inline-grid; box-sizing: border-box; width: max-content;
-  height: 18px;
+  height: 20px;
   align-items: center; justify-content: center;
   padding: 0 5px 0 calc(5px + 0.1em);
   border-radius: 3.5px;
@@ -3297,7 +3297,7 @@ html[data-ball="cobalt"] .pull-ball {
   text-transform: uppercase;
   white-space: nowrap;
 }
-.gauge-unit .gauge-nameplate { margin-top: -8px; }
+.gauge-unit .gauge-nameplate { margin-top: -10px; }
 .gauge-unit .gauge-nameplate::before, .gauge-unit .gauge-nameplate::after,
 .melt-price-tag::before, .melt-price-tag::after {
   content: ""; position: absolute; top: 50%; width: 3px; height: 3px; margin-top: -1.5px; border-radius: 50%;
@@ -3307,9 +3307,9 @@ html[data-ball="cobalt"] .pull-ball {
 .gauge-unit .gauge-nameplate::before, .melt-price-tag::before { left: 1px; }
 .gauge-unit .gauge-nameplate::after, .melt-price-tag::after { right: 1px; }
 .gauge-unit .gauge-nameplate > span, .melt-price-tag > span { grid-area: 1 / 1; }
-.gauge-unit .gauge-nameplate-shade, .melt-price-tag .gauge-nameplate-shade { color: rgba(0, 0, 0, 0.28); transform: translateY(-0.5px); }
+.gauge-unit .gauge-nameplate-shade, .melt-price-tag .gauge-nameplate-shade { color: rgba(0, 0, 0, 0.28); transform: translateY(0.1px); }
 .gauge-unit .gauge-nameplate-light, .melt-price-tag .gauge-nameplate-light { display: none; }
-.gauge-unit .gauge-nameplate-cut, .melt-price-tag .gauge-nameplate-cut { color: #0a0705; text-shadow: none; }
+.gauge-unit .gauge-nameplate-cut, .melt-price-tag .gauge-nameplate-cut { color: #0a0705; text-shadow: none; transform: translateY(0.6px); }
 /* Edwin: ~20px clear gap between melt plate and dial bezels */
 .gauge-row:has(.gauge--round-b) { padding-top: calc(20px - var(--gauge-b) * 5.5 / 96); }
 /* Brass surround casting around the three round gauges (mockup, scratch) */
@@ -3360,8 +3360,8 @@ html[data-compact="3"] { --pull-lower: 44px; }
 
 /* Variant 3 readability (mockup): larger, tighter plate lettering. */
 html[data-compact="3"] .gauge-row .gauge-unit .gauge-nameplate,
-html[data-compact="3"] .melt-price-tag { height: 18px; font-size: 13px; letter-spacing: 0.1em; padding: 0 5px 0 calc(5px + 0.1em); }
-html[data-compact="3"] .gauge-row .gauge-unit .gauge-nameplate { margin-top: -8px; }
+html[data-compact="3"] .melt-price-tag { height: 20px; font-size: 13px; letter-spacing: 0.1em; padding: 0 5px 0 calc(5px + 0.1em); }
+html[data-compact="3"] .gauge-row .gauge-unit .gauge-nameplate { margin-top: -10px; }
 /* ?plate=a|b|c (mockup): 3px of room under the plates so the backplate never crops; same overall height. */
 html[data-compact="3"][data-plate] .gauge-row:has(.gauge--round-b) { --gauge-bottom-gap: 3px; }
 html[data-compact="3"][data-plate] .playfield { margin-top: -13px; }
