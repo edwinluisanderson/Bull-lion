@@ -179,6 +179,10 @@ button,
 
 .workshop {
   --side: 0.85rem;
+  /* Both nameplates. At a 16px root this is the old column formula
+     (content width × 58.25 / 292.8 + 8px). The 16px-root side inset is
+     fixed, so a larger root font no longer shrinks or grows the plate. */
+  --nameplate-h: calc((min(100vw, 390px) - 2 * 0.85 * 16px) * 58.25 / 292.8 + 8px);
   --plate-face-inset: 12px;
   --cabinet-radius: 28px;
   --cabinet-ring:
@@ -1167,7 +1171,7 @@ html[data-ball="cobalt"] .pull-ball {
 
 .melt-plate {
   display: grid;
-  grid-template-rows: auto auto minmax(2.8rem, auto);
+  grid-template-rows: auto auto auto auto;
   align-items: center;
   justify-items: center;
   width: 100%;
@@ -1345,7 +1349,7 @@ html[data-ball="cobalt"] .pull-ball {
   align-items: center;
   justify-content: center;
   /* At least a card tall, plus the 8px joint, so the title is not squeezed and a rising card hides behind it. */
-  min-height: calc(100cqw * 58.25 / 292.8 + 8px);
+  min-height: var(--nameplate-h);
   margin-bottom: 8px;
   padding: 8px 56px;
   border-radius: 14px;
@@ -2040,7 +2044,7 @@ html[data-ball="cobalt"] .pull-ball {
 /* Reverse of the arrival: the deleted plate and everything below it rise as one unit. No fade. */
 .stack-swipe.is-rising,
 .split-total.is-rising {
-  --pay-drop: calc(100cqw * 58.25 / 292.8 + 8px);
+  --pay-drop: var(--nameplate-h);
   animation: stack-raise 250ms ease-out both;
 }
 
@@ -2554,7 +2558,7 @@ html[data-ball="cobalt"] .pull-ball {
 
 .split-rows,
 .split-total {
-  --pay-drop: calc(100cqw * 58.25 / 292.8 + 8px);
+  --pay-drop: var(--nameplate-h);
 }
 
 /* Rings travel with the rows, under the name plate. The plate's own links do not animate over it. */
@@ -2889,8 +2893,12 @@ html[data-ball="cobalt"] .pull-ball {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
   width: 100%;
-  min-height: calc(3.6rem + 0.55rem - 0.45rem);
+  /* The plate's 8px top pad sits above this box, so an 8px bottom pad
+     keeps the title centered in the full nameplate. */
+  min-height: calc(var(--nameplate-h) - 8px);
+  padding-bottom: 8px;
 }
 
 .melt-kicker {
@@ -2905,7 +2913,7 @@ html[data-ball="cobalt"] .pull-ball {
   box-sizing: border-box;
   width: 116.61px;
   height: 20px;
-  margin: 0;
+  margin: 12px 0;
   padding: 5px 16px 4px;
   border-radius: 4px;
   background: url(/brushed-brass-tile.png) center / 100% 100% no-repeat;
@@ -2964,9 +2972,13 @@ html[data-ball="cobalt"] .pull-ball {
   justify-content: center;
   box-sizing: border-box;
   width: 100%;
-  min-height: 3.6rem;
+  min-height: 0;
   margin: 0;
-  padding-bottom: 0.4rem;
+  padding-bottom: 20px;
+}
+
+.nameplate.melt-plate {
+  padding-top: 8px;
 }
 
 .nameplate {
@@ -3014,6 +3026,7 @@ html[data-ball="cobalt"] .pull-ball {
 }
 
 .melt-plate .plate-title {
+  margin: 0;
   font-size: 30px;
   overflow: visible;
   text-overflow: clip;
