@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { FLAP_TOTAL_COLUMNS, FLAP_TOTAL_WORD_COLUMNS, fitFlapMoney, padFlap } from "@/lib/split-flap";
+import { FLAP_TOTAL_COLUMNS, FLAP_TOTAL_WORD_COLUMNS, fitFlapMoney, flapText, padFlap } from "@/lib/split-flap";
 import { TOTAL_BOARD_ID, TOTAL_WORD_ID, seedCascade, syncCascadeLines } from "@/lib/stack-cascade";
 import {
   STACK_EMPTY_MESSAGE,
@@ -24,7 +24,24 @@ test("the empty message fills both total rows", () => {
   assert.equal(empty.bottom.startsWith(" "), true);
 });
 
-test("the amount row is whole dollars, left TOTAL and right amount", () => {
+test("the word row reads MY HOARD in the existing uppercase flaps", () => {
+  const used = [...TOTAL_WORD].length;
+  assert.equal(TOTAL_WORD, "MY HOARD");
+  assert.equal(flapText(TOTAL_WORD), TOTAL_WORD);
+  assert.equal(used, 8);
+  assert.equal(FLAP_TOTAL_WORD_COLUMNS, 18);
+  assert.equal(used < FLAP_TOTAL_WORD_COLUMNS, true);
+
+  const filled = totalBoardCopy(1, formatTotalAmount(30));
+  assert.equal(filled.top, padFlap("MY HOARD", FLAP_TOTAL_WORD_COLUMNS));
+  assert.equal(filled.top.length, FLAP_TOTAL_WORD_COLUMNS);
+  assert.equal(filled.top.includes("\n"), false);
+  assert.equal(filled.top.slice(0, used), "MY HOARD");
+  assert.equal(filled.top.slice(used), " ".repeat(FLAP_TOTAL_WORD_COLUMNS - used));
+  assert.equal([...filled.top].filter((char) => char !== " ").length, 7);
+});
+
+test("the amount row is whole dollars, left MY HOARD and right amount", () => {
   assert.equal(FLAP_TOTAL_COLUMNS, 13);
   assert.equal(formatTotalAmount(9999999.99), "$10,000,000");
   assert.equal(formatTotalAmount(3551), "$3,551");
@@ -46,7 +63,7 @@ test("the amount row is whole dollars, left TOTAL and right amount", () => {
   assert.equal(filled.rounded, false);
 });
 
-test("the total flips between the invitation and TOTAL plus the amount", () => {
+test("the total flips between the invitation and MY HOARD plus the amount", () => {
   const emptyCopy = totalBoardCopy(0, formatTotalAmount(0));
   const filledCopy = totalBoardCopy(1, formatTotalAmount(80));
   const again = totalBoardCopy(4, formatTotalAmount(80));

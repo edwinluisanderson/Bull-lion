@@ -8,7 +8,7 @@ import {
   rightFlap,
 } from "@/lib/split-flap";
 
-export const TOTAL_WORD = "TOTAL";
+export const TOTAL_WORD = "MY HOARD";
 export const STACK_EMPTY_MESSAGE = "Let's get stacking!";
 
 export type TotalCopy = {
@@ -35,7 +35,7 @@ export function formatTotalAmount(value: number | null): string {
 }
 
 /**
- * Two full rows. With cards, TOTAL sits on the left and the amount on the right.
+ * Two full rows. With cards, MY HOARD sits on the left and the amount on the right.
  * An empty stack centers the invitation, one line on each row.
  */
 export function totalBoardCopy(lineCount: number, amount: string): TotalCopy {
